@@ -1,0 +1,45 @@
+version: '3.8'
+
+services:
+  evolution-api:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      - NODE_ENV=development
+      - PORT=8080
+    env_file:
+      - .env
+    volumes:
+      - ./src:/app/src
+      - ./cloud:/app/cloud
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  evolution-worker:
+    build: .
+    command: ["node", "cloud/run/worker.js"]
+    environment:
+      - NODE_ENV=development
+      - PORT=8081
+    env_file:
+      - .env
+    volumes:
+      - ./src:/app/src
+      - ./cloud:/app/cloud
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8081/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+networks:
+  default:
+    name: evolution-network

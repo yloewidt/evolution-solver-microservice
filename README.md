@@ -2,6 +2,8 @@
 
 A standalone microservice for running evolutionary algorithms to generate innovative business solutions using OpenAI's o3 model.
 
+**Repository**: https://github.com/yloewidt/evolution-solver-microservice
+
 ## Features
 
 - Evolutionary algorithm implementation using OpenAI o3

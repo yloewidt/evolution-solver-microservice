@@ -299,8 +299,8 @@ Return JSON array with original fields plus business_case object.`;
       if (typeof bc.npv_success !== 'number' || isNaN(bc.npv_success)) {
         validationErrors.push(`Idea ${idea.idea_id || index}: npv_success must be a number`);
       }
-      if (typeof bc.capex_est !== 'number' || isNaN(bc.capex_est) || bc.capex_est <= 0) {
-        validationErrors.push(`Idea ${idea.idea_id || index}: capex_est must be a positive number`);
+      if (typeof bc.capex_est !== 'number' || isNaN(bc.capex_est)) {
+        validationErrors.push(`Idea ${idea.idea_id || index}: capex_est must be a number`);
       }
       if (typeof bc.likelihood !== 'number' || isNaN(bc.likelihood) || bc.likelihood <= 0 || bc.likelihood > 1) {
         validationErrors.push(`Idea ${idea.idea_id || index}: likelihood must be between 0 and 1`);
@@ -395,13 +395,18 @@ Return JSON array with original fields plus business_case object.`;
       
 For each idea, validate and reformat the business_case object to have (ALL monetary values in millions USD):
 - npv_success: number in millions (e.g., 125.5 = $125.5M)
-- capex_est: number in millions (e.g., 0.075 = $75K)
+- capex_est: number in millions with MINIMUM 0.05 ($50K validation cost)
 - timeline_months: number
 - likelihood: number between 0 and 1
 - risk_factors: array of strings
 - yearly_cashflows: array of 5 numbers in millions
 
-Fix any formatting issues. Convert any values in thousands to millions (divide by 1000).
+CRITICAL RULES:
+1. If capex_est is less than 0.05, set it to 0.05 (minimum $50K to validate any idea)
+2. If capex_est is negative or zero, set it to 0.05
+3. If capex_est is not a valid number, set it to 0.05
+4. Always ensure capex_est >= 0.05
+
 Examples: $50K = 0.05, $100K = 0.1, $1M = 1.0, $50M = 50.0
 
 Return ONLY the JSON array with corrected data.
@@ -512,21 +517,25 @@ ${JSON.stringify(enrichedIdeas, null, 2)}`;
         );
       }
 
-      rankedIdeas.forEach(solution => {
+      // Save ALL ideas (both ranked and filtered) to generation history
+      const allIdeasThisGen = [...rankedIdeas, ...filteredIdeas];
+      allIdeasThisGen.forEach(solution => {
         allGenerationSolutions.push({
           ...solution,
           generation: gen,
           last_generation: gen,
-          total_generations: config.generations
+          total_generations: config.generations,
+          passed_filter: !solution.filtered
         });
       });
 
       const generationData = {
         generation: gen,
         topScore: rankedIdeas[0]?.score || 0,
-        avgScore: rankedIdeas.reduce((sum, idea) => sum + idea.score, 0) / rankedIdeas.length,
-        solutionCount: rankedIdeas.length,
-        solutions: rankedIdeas
+        avgScore: rankedIdeas.length > 0 ? rankedIdeas.reduce((sum, idea) => sum + idea.score, 0) / rankedIdeas.length : 0,
+        solutionCount: allIdeasThisGen.length,
+        filteredCount: filteredIdeas.length,
+        solutions: allIdeasThisGen  // Include all ideas, not just ranked ones
       };
 
       generationHistory.push(generationData);

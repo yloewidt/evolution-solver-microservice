@@ -66,6 +66,7 @@ Mutate by combining/rewriting for novelty. Focus on IP licensing, equity swaps, 
       try {
         logger.info(`Variator attempt ${attempt}/${maxRetries}`);
         
+        const startTime = Date.now();
         const response = await this.client.responses.create({
           model: this.config.model,
           input: [
@@ -85,6 +86,22 @@ Mutate by combining/rewriting for novelty. Focus on IP licensing, equity swaps, 
         });
 
         logger.info('Variator response received');
+        
+        // Track API call telemetry
+        if (this.progressTracker?.resultStore && this.progressTracker?.jobId && response) {
+          const telemetry = {
+            timestamp: new Date().toISOString(),
+            phase: 'variator',
+            generation: this.currentGeneration || 1,
+            model: this.config.model,
+            attempt: attempt,
+            latencyMs: Date.now() - startTime,
+            tokens: response.usage || { prompt_tokens: 0, completion_tokens: 0 },
+            success: true
+          };
+          await this.progressTracker.resultStore.addApiCallTelemetry(this.progressTracker.jobId, telemetry);
+        }
+        
         const newIdeas = await this.parseResponse(response, prompt);
         
         logger.info('ParseResponse returned:', {
@@ -162,6 +179,7 @@ Return as JSON array with original fields plus business_case object.`;
       try {
         logger.info(`Enricher attempt ${attempt}/3`);
         
+        const startTime = Date.now();
         const response = await this.client.responses.create({
           model: this.config.model,
           input: [
@@ -179,6 +197,21 @@ Return as JSON array with original fields plus business_case object.`;
           stream: false, // Avoid long SSE streams in Cloud Run
           store: true
         });
+
+        // Track API call telemetry
+        if (this.progressTracker?.resultStore && this.progressTracker?.jobId && response) {
+          const telemetry = {
+            timestamp: new Date().toISOString(),
+            phase: 'enricher',
+            generation: this.currentGeneration || 1,
+            model: this.config.model,
+            attempt: attempt,
+            latencyMs: Date.now() - startTime,
+            tokens: response.usage || { prompt_tokens: 0, completion_tokens: 0 },
+            success: true
+          };
+          await this.progressTracker.resultStore.addApiCallTelemetry(this.progressTracker.jobId, telemetry);
+        }
 
         return await this.parseResponse(response, enrichPrompt);
       } catch (error) {
@@ -254,6 +287,7 @@ Ensure non-obvious evolutions that build on strengths while addressing weaknesse
       try {
         logger.info(`Refiner attempt ${attempt}/3`);
         
+        const startTime = Date.now();
         const response = await this.client.responses.create({
           model: this.config.model,
           input: [
@@ -271,6 +305,21 @@ Ensure non-obvious evolutions that build on strengths while addressing weaknesse
           stream: false, // Avoid long SSE streams in Cloud Run
           store: true
         });
+
+        // Track API call telemetry
+        if (this.progressTracker?.resultStore && this.progressTracker?.jobId && response) {
+          const telemetry = {
+            timestamp: new Date().toISOString(),
+            phase: 'refiner',
+            generation: this.currentGeneration || 1,
+            model: this.config.model,
+            attempt: attempt,
+            latencyMs: Date.now() - startTime,
+            tokens: response.usage || { prompt_tokens: 0, completion_tokens: 0 },
+            success: true
+          };
+          await this.progressTracker.resultStore.addApiCallTelemetry(this.progressTracker.jobId, telemetry);
+        }
 
         const refined = await this.parseResponse(response, refinePrompt);
         return refined.slice(0, this.config.populationSize);
@@ -317,6 +366,9 @@ Ensure non-obvious evolutions that build on strengths while addressing weaknesse
       customConfig
     });
     
+    // Store progressTracker for use in methods
+    this.progressTracker = progressTracker;
+    
     let currentGen = initialSolutions;
     let evolutionFeedback = '';
     let generationHistory = [];
@@ -324,6 +376,9 @@ Ensure non-obvious evolutions that build on strengths while addressing weaknesse
 
     for (let gen = 1; gen <= config.generations; gen++) {
       logger.info(`Generation ${gen}/${config.generations}`);
+      
+      // Store current generation for telemetry
+      this.currentGeneration = gen;
 
       if (progressTracker?.resultStore && progressTracker?.jobId) {
         await progressTracker.resultStore.updateGenerationProgress(

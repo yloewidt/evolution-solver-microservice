@@ -302,6 +302,24 @@ class EvolutionResultStore {
       throw error;
     }
   }
+
+  async addApiCallTelemetry(jobId, telemetry) {
+    try {
+      const docRef = this.getCollection().doc(jobId);
+      
+      // Add telemetry to array
+      await docRef.update({
+        apiCalls: Firestore.FieldValue.arrayUnion(telemetry),
+        updatedAt: Firestore.FieldValue.serverTimestamp()
+      });
+      
+      logger.info(`Added API call telemetry for job ${jobId}, phase: ${telemetry.phase}`);
+      return true;
+    } catch (error) {
+      logger.error('Error adding API call telemetry:', error);
+      throw error;
+    }
+  }
 }
 
 export default EvolutionResultStore;

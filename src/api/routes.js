@@ -1,12 +1,14 @@
 import express from 'express';
 import { v4 as uuidv4 } from 'uuid';
 import EvolutionService from '../services/evolutionService.js';
+import AnalyticsService from '../services/analyticsService.js';
 import CloudTaskHandler from '../../cloud/tasks/taskHandler.js';
 import logger from '../utils/logger.js';
 
 const router = express.Router();
 
 export default function createRoutes(evolutionService, taskHandler) {
+  const analyticsService = new AnalyticsService(evolutionService.resultStore);
   // Submit new evolution job
   router.post('/jobs', async (req, res) => {
     try {
@@ -181,6 +183,24 @@ export default function createRoutes(evolutionService, taskHandler) {
       });
     } catch (error) {
       logger.error('Get stats error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Get detailed job analytics
+  router.get('/jobs/:jobId/analytics', async (req, res) => {
+    try {
+      const { jobId } = req.params;
+      
+      const analytics = await analyticsService.getJobAnalytics(jobId);
+      
+      if (!analytics) {
+        return res.status(404).json({ error: 'Job not found' });
+      }
+      
+      res.json(analytics);
+    } catch (error) {
+      logger.error('Get job analytics error:', error);
       res.status(500).json({ error: error.message });
     }
   });

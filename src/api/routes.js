@@ -65,7 +65,9 @@ export default function createRoutes(evolutionService, taskHandler) {
         evolutionConfig.fallbackModel = evolutionParams.fallbackModel;
       }
       
+      const jobId = uuidv4();
       const jobData = {
+        jobId,
         problemContext: enrichedContext,
         initialSolutions: [],
         evolutionConfig,
@@ -73,10 +75,9 @@ export default function createRoutes(evolutionService, taskHandler) {
         sessionId: req.sessionId || uuidv4()
       };
       
-      const result = await taskHandler.createEvolutionTask(jobData);
-      
+      // Create document FIRST
       await evolutionService.resultStore.saveResult({
-        jobId: result.jobId,
+        jobId: jobId,
         userId: jobData.userId,
         sessionId: jobData.sessionId,
         problemContext: enrichedContext,
@@ -84,8 +85,11 @@ export default function createRoutes(evolutionService, taskHandler) {
         status: 'pending'
       });
       
+      // THEN create the task
+      const result = await taskHandler.createEvolutionTask(jobData);
+      
       res.json({
-        jobId: result.jobId,
+        jobId: jobId,
         taskName: result.taskName,
         status: 'queued',
         message: 'Evolution job queued for processing'

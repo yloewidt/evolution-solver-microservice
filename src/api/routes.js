@@ -38,18 +38,23 @@ export default function createRoutes(evolutionService, taskHandler) {
         generations: evolutionParams?.generations || 10,
         populationSize: evolutionParams?.populationSize || 5,
         maxCapex: evolutionParams?.maxCapex || 50000,
-        targetROI: evolutionParams?.targetROI || 10
+        topSelectCount: evolutionParams?.topSelectCount || 3,
+        offspringRatio: evolutionParams?.offspringRatio || 0.7,
+        diversificationUnit: evolutionParams?.diversificationUnit || 50
       };
       
       // Only add optional parameters if they are defined
-      if (evolutionParams?.mutationRate !== undefined) {
-        evolutionConfig.mutationRate = evolutionParams.mutationRate;
+      if (evolutionParams?.dealTypes !== undefined) {
+        evolutionConfig.dealTypes = evolutionParams.dealTypes;
       }
-      if (evolutionParams?.crossoverRate !== undefined) {
-        evolutionConfig.crossoverRate = evolutionParams.crossoverRate;
+      if (evolutionParams?.minProfits !== undefined) {
+        evolutionConfig.minProfits = evolutionParams.minProfits;
       }
-      if (evolutionParams?.selectionMethod !== undefined) {
-        evolutionConfig.selectionMethod = evolutionParams.selectionMethod;
+      if (evolutionParams?.model !== undefined) {
+        evolutionConfig.model = evolutionParams.model;
+      }
+      if (evolutionParams?.fallbackModel !== undefined) {
+        evolutionConfig.fallbackModel = evolutionParams.fallbackModel;
       }
       
       const jobData = {

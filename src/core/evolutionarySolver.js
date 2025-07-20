@@ -32,35 +32,50 @@ class EvolutionarySolver {
     this.config = {
       generations: process.env.EVOLUTION_GENERATIONS ? parseInt(process.env.EVOLUTION_GENERATIONS) : 10,
       populationSize: 5,
-      topSelectCount: 2,
-      variationsPerTop: 3,
+      topSelectCount: 3,
       maxCapex: 50000,
-      targetTimeline: { min: 3, max: 6 },
-      minDealValuePercent: 70,
+      minProfits: 10,
+      diversificationUnit: 50,
       model: 'o3',
-      fallbackModel: 'gpt-4o'
+      fallbackModel: 'gpt-4o',
+      offspringRatio: 0.7,
+      dealTypes: 'creative partnerships and business models'
     };
   }
 
-  async variator(currentSolutions = [], targetCount = 5, problemContext = '', feedback = '', maxRetries = 3) {
+  async variator(currentSolutions = [], targetCount = 5, problemContext = '', maxRetries = 3) {
     const numNeeded = targetCount - currentSolutions.length;
     if (numNeeded <= 0) return currentSolutions;
 
-    const basePrompt = `Given bottleneck: ${problemContext}
-Existing ideas: ${JSON.stringify(currentSolutions, null, 2)}
+    // Get configuration
+    const dealTypes = this.config.dealTypes || 'creative partnerships and business models';
+    const maxCapex = this.config.maxCapex || 50000;
+    const offspringRatio = this.config.offspringRatio || 0.7;
+    
+    // Calculate offspring vs wildcard split
+    const offspringCount = currentSolutions.length > 0 ? Math.floor(numNeeded * offspringRatio) : 0;
+    const wildcardCount = numNeeded - offspringCount;
 
-Generate ${numNeeded} new non-straightforward variations as JSON array.
-Each idea must have:
-- "idea_id": unique string
-- "description": creative deal-making focus (asymmetric partnerships for low CapEx <$50K, low risk)
-- "core_mechanism": brief explanation of how it works
-- Timely implementation (3-6 months)
-- High potential (>10x ROI)
+    const prompt = `Problem to solve: ${problemContext}
 
-Mutate by combining/rewriting for novelty. Focus on IP licensing, equity swaps, revenue shares, strategic partnerships.`;
+${currentSolutions.length > 0 ? `Top ${currentSolutions.length} performing solutions from previous generation:
+${JSON.stringify(currentSolutions, null, 2)}
 
-    const evolutionHint = feedback ? `\n\nEVOLVE THIS PROMPT based on feedback: ${feedback}` : '';
-    const prompt = basePrompt + evolutionHint;
+Generate ${numNeeded} new solutions as JSON array:
+- ${offspringCount} OFFSPRING: Combine and evolve the top performers' best features. Mix their approaches, enhance strengths, fix weaknesses. Create true hybrids that build on what works.
+- ${wildcardCount} WILDCARDS: Completely fresh approaches unrelated to previous solutions. Explore new angles, industries, or mechanisms.
+` : `Generate ${numNeeded} new creative business solutions as JSON array.`}
+
+Each solution must have:
+- "idea_id": unique identifier (e.g., "he3_fusion_swap_v2")
+- "description": Business model in plain terms. Focus on ${dealTypes} with upfront costs under $${maxCapex/1000}K
+- "core_mechanism": How value is created and captured
+
+Requirements:
+- Business models must be realistic and implementable
+- Explain complex ideas simply (avoid jargon)
+- Focus on partnerships that reduce capital requirements
+- Consider timing advantages (why now?)`;
 
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
@@ -157,23 +172,27 @@ Mutate by combining/rewriting for novelty. Focus on IP licensing, equity swaps, 
       allIds: ideas.map(i => i?.idea_id || 'NO_ID')
     });
     
-    const enrichPrompt = `For each idea below, build a detailed business case with these exact fields:
-- "roi_proj": 5-year net profit in millions (float)
-- "capex_est": Capital expenditure in thousands (must be <50K via deals)
-- "risk_factors": Array of key risks
-- "deal_value_percent": Percentage of value from deals/partnerships (>70%)
-- "timeline_months": Implementation timeline (3-6 months)
-- "likelihood": Success probability (0-1, considering technical/market/regulatory/execution)
+    const enrichPrompt = `Analyze each business idea and calculate key metrics:
 
-Use chain-of-thought:
-Step 1: Market analysis
-Step 2: Deal structures (emphasize low-cost partnerships)
-Step 3: Financial projections
+Required fields in business_case object:
+- "npv_success": 5-year NPV if successful, in millions (discounted at 10% annually)
+- "capex_est": Initial capital required in thousands
+- "timeline_months": Time to first revenue
+- "likelihood": Success probability (0-1)
+- "risk_factors": Array of key risks (technical, market, regulatory, execution)
+- "yearly_cashflows": Array of 5 yearly cash flows in millions
 
-Ideas to enrich:
+Analysis steps:
+1. Market size and growth potential
+2. Revenue projections by year
+3. Cost structure and capital requirements
+4. Risk assessment across all dimensions
+5. NPV calculation using 10% discount rate
+
+Ideas to analyze:
 ${JSON.stringify(ideas, null, 2)}
 
-Return as JSON array with original fields plus business_case object.`;
+Return JSON array with original fields plus business_case object.`;
 
     for (let attempt = 1; attempt <= 3; attempt++) {
       try {
@@ -244,120 +263,180 @@ Return as JSON array with original fields plus business_case object.`;
   }
 
   async ranker(enrichedIdeas) {
-    const scores = enrichedIdeas.map(idea => {
+    // Get config parameters
+    const C0 = this.config.diversificationUnit || 50; // Default $50K
+    const maxCapex = this.config.maxCapex || Infinity;
+    const minProfits = this.config.minProfits || 0;
+    
+    // Validate all ideas have required fields
+    const validationErrors = [];
+    enrichedIdeas.forEach((idea, index) => {
+      if (!idea.business_case) {
+        validationErrors.push(`Idea ${idea.idea_id || index}: Missing business_case object`);
+        return;
+      }
+      
       const bc = idea.business_case;
-      const score = bc.likelihood * bc.roi_proj * Math.exp(-bc.capex_est / this.config.maxCapex);
-      return { ...idea, score, rank: 0 };
+      
+      // Check required fields exist
+      if (bc.npv_success === undefined) {
+        validationErrors.push(`Idea ${idea.idea_id || index}: Missing npv_success`);
+      }
+      if (bc.capex_est === undefined) {
+        validationErrors.push(`Idea ${idea.idea_id || index}: Missing capex_est`);
+      }
+      if (bc.likelihood === undefined) {
+        validationErrors.push(`Idea ${idea.idea_id || index}: Missing likelihood`);
+      }
+      
+      // Validate data types and ranges
+      if (typeof bc.npv_success !== 'number' || isNaN(bc.npv_success)) {
+        validationErrors.push(`Idea ${idea.idea_id || index}: npv_success must be a number`);
+      }
+      if (typeof bc.capex_est !== 'number' || isNaN(bc.capex_est) || bc.capex_est <= 0) {
+        validationErrors.push(`Idea ${idea.idea_id || index}: capex_est must be a positive number`);
+      }
+      if (typeof bc.likelihood !== 'number' || isNaN(bc.likelihood) || bc.likelihood <= 0 || bc.likelihood > 1) {
+        validationErrors.push(`Idea ${idea.idea_id || index}: likelihood must be between 0 and 1`);
+      }
+    });
+    
+    if (validationErrors.length > 0) {
+      logger.error('Ranker validation errors:', validationErrors);
+      throw new Error(`Data validation failed in ranker:\n${validationErrors.join('\n')}`);
+    }
+    
+    // Score and filter ideas
+    const scoredIdeas = enrichedIdeas.map(idea => {
+      const bc = idea.business_case;
+      const p = bc.likelihood;
+      const npv = bc.npv_success;
+      const capex = bc.capex_est;
+      
+      // Apply user-defined filters
+      let filtered = false;
+      let filterReason = null;
+      
+      if (capex > maxCapex) {
+        filtered = true;
+        filterReason = `CAPEX ($${capex}K) exceeds maximum ($${maxCapex}K)`;
+      } else if (npv < minProfits) {
+        filtered = true;
+        filterReason = `NPV ($${npv}M) below minimum ($${minProfits}M)`;
+      }
+      
+      // Calculate risk-adjusted score
+      let score = -Infinity;
+      let expectedValue = null;
+      
+      if (!filtered) {
+        // Expected value: p * NPV_success - (1-p) * CAPEX
+        // Convert capex to millions for consistent units
+        expectedValue = p * npv - (1 - p) * (capex / 1000);
+        
+        // Diversification penalty: sqrt(CAPEX/C0)
+        const diversificationPenalty = Math.sqrt(capex / C0);
+        
+        // Risk-Adjusted NPV
+        score = expectedValue / diversificationPenalty;
+      }
+      
+      return { 
+        ...idea, 
+        score, 
+        filtered,
+        filterReason,
+        metrics: {
+          npv: npv,
+          capex: capex,
+          likelihood: p,
+          expectedValue: expectedValue
+        }
+      };
     });
 
-    scores.sort((a, b) => {
-      if (b.score !== a.score) return b.score - a.score;
-      return b.business_case.deal_value_percent - a.business_case.deal_value_percent;
-    });
-
-    scores.forEach((idea, index) => {
+    // Separate filtered and valid ideas
+    const validIdeas = scoredIdeas.filter(idea => !idea.filtered);
+    const filteredIdeas = scoredIdeas.filter(idea => idea.filtered);
+    
+    // Sort valid ideas by score
+    validIdeas.sort((a, b) => b.score - a.score);
+    
+    // Assign ranks only to valid ideas
+    validIdeas.forEach((idea, index) => {
       idea.rank = index + 1;
     });
+    
+    // Log filtering results
+    if (filteredIdeas.length > 0) {
+      logger.info(`Filtered ${filteredIdeas.length} ideas:`, 
+        filteredIdeas.map(i => ({ id: i.idea_id, reason: i.filterReason }))
+      );
+    }
 
-    const avgScore = scores.reduce((sum, idea) => sum + idea.score, 0) / scores.length;
-    const feedback = avgScore < 0.5 ? 
-      'Boost low-risk filters, emphasize equity swaps and revenue shares over direct investment' : '';
-
-    return { rankedIdeas: scores, feedback };
+    return { 
+      rankedIdeas: validIdeas,
+      filteredIdeas: filteredIdeas
+    };
   }
 
-  async refiner(topIdeas, genNum, priorFeedback = '') {
-    const refinePrompt = `Refine these top 2 ideas by generating 3 variations each:
-${JSON.stringify(topIdeas, null, 2)}
 
-Generation ${genNum}/${this.config.generations}
+  async formatEnrichedData(enrichedIdeas) {
+    try {
+      logger.info('Formatting enriched data for consistency');
+      
+      const formatPrompt = `Ensure the following business ideas have correctly formatted metrics.
+      
+For each idea, validate and reformat the business_case object to have:
+- npv_success: number (in millions)
+- capex_est: number (in thousands)
+- timeline_months: number
+- likelihood: number between 0 and 1
+- risk_factors: array of strings
+- yearly_cashflows: array of 5 numbers (in millions)
 
-Create variations that:
-- Enhance deals for higher potential
-- Lower CapEx/risk through creative partnerships
-- Add timeliness improvements
-- Explore IP licensing, equity swaps, cross-industry partnerships
+Fix any formatting issues (e.g., strings that should be numbers, missing decimals, etc.)
+Return ONLY the JSON array with corrected data.
 
-${priorFeedback ? `Incorporate feedback: ${priorFeedback}` : ''}
+Data to format:
+${JSON.stringify(enrichedIdeas, null, 2)}`;
 
-Output exactly 5 best ideas (sub-rank by novelty and potential) as JSON array.
-Ensure non-obvious evolutions that build on strengths while addressing weaknesses.`;
-
-    for (let attempt = 1; attempt <= 3; attempt++) {
-      try {
-        logger.info(`Refiner attempt ${attempt}/3`);
-        
-        const startTime = Date.now();
-        const response = await this.client.responses.create({
-          model: this.config.model,
-          input: [
-            {
-              role: "developer",
-              content: [{ type: "input_text", text: "You are an innovation expert specializing in iterative improvement and creative mutation of business ideas." }]
-            },
-            {
-              role: "user",
-              content: [{ type: "input_text", text: refinePrompt }]
-            }
-          ],
-          text: { format: { type: "text" } },
-          reasoning: { effort: "medium" },
-          stream: false, // Avoid long SSE streams in Cloud Run
-          store: true
-        });
-
-        // Track API call telemetry
-        if (this.progressTracker?.resultStore && this.progressTracker?.jobId && response) {
-          const telemetry = {
-            timestamp: new Date().toISOString(),
-            phase: 'refiner',
-            generation: this.currentGeneration || 1,
-            model: this.config.model,
-            attempt: attempt,
-            latencyMs: Date.now() - startTime,
-            tokens: response.usage || { prompt_tokens: 0, completion_tokens: 0 },
-            success: true
-          };
-          await this.progressTracker.resultStore.addApiCallTelemetry(this.progressTracker.jobId, telemetry);
-        }
-
-        const refined = await this.parseResponse(response, refinePrompt);
-        return refined.slice(0, this.config.populationSize);
-      } catch (error) {
-        logger.error(`Refiner attempt ${attempt} failed:`, error.message);
-        
-        if (attempt === 3) {
-          logger.error('All refiner attempts failed, trying fallback model');
-          try {
-            const fallbackResponse = await this.client.chat.completions.create({
-              model: this.config.fallbackModel,
-              messages: [
-                { role: 'system', content: 'You are an innovation expert specializing in iterative improvement and creative mutation of business ideas.' },
-                { role: 'user', content: refinePrompt }
-              ],
-              temperature: 0.7,
-              max_tokens: 3000
-            });
-            
-            const fallbackContent = fallbackResponse.choices[0].message.content;
-            const refined = await this.parseResponse({ output: [{ type: 'text', content: fallbackContent }] }, refinePrompt);
-            return refined.slice(0, this.config.populationSize);
-          } catch (fallbackError) {
-            logger.error('Fallback model also failed:', fallbackError);
-            throw error;
+      const response = await this.client.chat.completions.create({
+        model: this.config.fallbackModel,
+        messages: [
+          {
+            role: 'system',
+            content: 'You are a data formatting assistant. Return only valid JSON with properly typed numeric fields.'
+          },
+          {
+            role: 'user',
+            content: formatPrompt
           }
-        }
-        
-        await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
-      }
+        ],
+        temperature: 0,
+        max_tokens: 4000
+      });
+
+      const formattedContent = response.choices[0].message.content.trim();
+      const formattedData = JSON.parse(formattedContent);
+      
+      logger.info('Successfully formatted enriched data');
+      return formattedData;
+      
+    } catch (error) {
+      logger.error('Data formatting failed:', error);
+      // Return original data if formatting fails
+      return enrichedIdeas;
     }
   }
 
   async evolve(problemContext, initialSolutions = [], customConfig = {}, progressTracker = null) {
-    const config = {
+    // Store custom config in this instance for use by other methods
+    this.config = {
       ...this.config,
       ...customConfig
     };
+    const config = this.config;
     
     logger.info('Starting evolution with:', {
       problemContext: problemContext.substring(0, 100) + '...',
@@ -370,7 +449,6 @@ Ensure non-obvious evolutions that build on strengths while addressing weaknesse
     this.progressTracker = progressTracker;
     
     let currentGen = initialSolutions;
-    let evolutionFeedback = '';
     let generationHistory = [];
     let allGenerationSolutions = [];
 
@@ -387,7 +465,7 @@ Ensure non-obvious evolutions that build on strengths while addressing weaknesse
       }
 
       if (currentGen.length < config.populationSize) {
-        currentGen = await this.variator(currentGen, config.populationSize, problemContext, evolutionFeedback);
+        currentGen = await this.variator(currentGen, config.populationSize, problemContext);
       }
 
       if (progressTracker?.resultStore && progressTracker?.jobId) {
@@ -398,14 +476,23 @@ Ensure non-obvious evolutions that build on strengths while addressing weaknesse
 
       const enriched = await this.enricher(currentGen);
       
+      // Format enriched data to ensure consistency
+      const formatted = await this.formatEnrichedData(enriched);
+      
       if (progressTracker?.resultStore && progressTracker?.jobId) {
         await progressTracker.resultStore.updateGenerationProgress(
           progressTracker.jobId, gen, config.generations, 'ranker'
         );
       }
 
-      const { rankedIdeas, feedback } = await this.ranker(enriched);
-      evolutionFeedback = feedback;
+      const { rankedIdeas, filteredIdeas } = await this.ranker(formatted);
+      
+      // Log filtered ideas for visibility
+      if (filteredIdeas && filteredIdeas.length > 0) {
+        logger.info(`Generation ${gen}: Filtered ${filteredIdeas.length} ideas`, 
+          filteredIdeas.map(i => ({ id: i.idea_id, reason: i.filterReason }))
+        );
+      }
 
       rankedIdeas.forEach(solution => {
         allGenerationSolutions.push({
@@ -442,14 +529,9 @@ Ensure non-obvious evolutions that build on strengths while addressing weaknesse
         };
       }
 
-      if (progressTracker?.resultStore && progressTracker?.jobId) {
-        await progressTracker.resultStore.updateGenerationProgress(
-          progressTracker.jobId, gen, config.generations, 'refiner'
-        );
-      }
-
-      const topTwo = rankedIdeas.slice(0, config.topSelectCount);
-      currentGen = await this.refiner(topTwo, gen, evolutionFeedback);
+      // Select top performers for next generation
+      const topPerformers = rankedIdeas.slice(0, config.topSelectCount);
+      currentGen = topPerformers;
     }
   }
 

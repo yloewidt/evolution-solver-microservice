@@ -35,8 +35,7 @@ class AnalyticsService {
           breakdown: {
             variator: 0,
             enricher: 0,
-            ranker: 0,
-            refiner: 0
+            ranker: 0
           }
         },
         tokenUsage: {
@@ -50,8 +49,7 @@ class AnalyticsService {
           byPhase: {
             variator: { input: 0, output: 0, reasoning: 0, cached: 0 },
             enricher: { input: 0, output: 0, reasoning: 0, cached: 0 },
-            ranker: { input: 0, output: 0, reasoning: 0, cached: 0 },
-            refiner: { input: 0, output: 0, reasoning: 0, cached: 0 }
+            ranker: { input: 0, output: 0, reasoning: 0, cached: 0 }
           }
         },
         retries: {
@@ -208,11 +206,9 @@ class AnalyticsService {
     
     analytics.o3Calls.breakdown.variator = generations;
     analytics.o3Calls.breakdown.enricher = generations;
-    analytics.o3Calls.breakdown.refiner = Math.max(0, generations - 1);
     analytics.o3Calls.actual = 
       analytics.o3Calls.breakdown.variator + 
-      analytics.o3Calls.breakdown.enricher + 
-      analytics.o3Calls.breakdown.refiner;
+      analytics.o3Calls.breakdown.enricher;
   }
 
   calculateGenerationTiming(createdAt, analytics) {

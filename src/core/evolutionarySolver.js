@@ -33,9 +33,9 @@ class EvolutionarySolver {
       generations: process.env.EVOLUTION_GENERATIONS ? parseInt(process.env.EVOLUTION_GENERATIONS) : 10,
       populationSize: 5,
       topSelectCount: 3,
-      maxCapex: 50000,
-      minProfits: 10,
-      diversificationUnit: 50,
+      maxCapex: 0.05,  // $50K in millions
+      minProfits: 10,   // $10M in millions
+      diversificationUnit: 0.05,  // $50K in millions
       model: 'o3',
       fallbackModel: 'gpt-4o',
       offspringRatio: 0.7,
@@ -49,7 +49,7 @@ class EvolutionarySolver {
 
     // Get configuration
     const dealTypes = this.config.dealTypes || 'creative partnerships and business models';
-    const maxCapex = this.config.maxCapex || 50000;
+    const maxCapex = this.config.maxCapex || 0.05;  // Default $50K in millions
     const offspringRatio = this.config.offspringRatio || 0.7;
     
     // Calculate offspring vs wildcard split
@@ -68,7 +68,7 @@ Generate ${numNeeded} new solutions as JSON array:
 
 Each solution must have:
 - "idea_id": unique identifier (e.g., "he3_fusion_swap_v2")
-- "description": Business model in plain terms. Focus on ${dealTypes} with upfront costs under $${maxCapex/1000}K
+- "description": Business model in plain terms. Focus on ${dealTypes} with upfront costs under $${maxCapex}M
 - "core_mechanism": How value is created and captured
 
 Requirements:
@@ -174,18 +174,24 @@ Requirements:
     
     const enrichPrompt = `Analyze each business idea and calculate key metrics:
 
-Required fields in business_case object:
-- "npv_success": 5-year NPV if successful, in millions (discounted at 10% annually)
-- "capex_est": Initial capital required in thousands
+Required fields in business_case object (ALL monetary values in millions USD):
+- "npv_success": 5-year NPV if successful in $M (discounted at 10% annually)
+- "capex_est": Initial capital required in $M (e.g., 0.075 = $75K)
 - "timeline_months": Time to first revenue
 - "likelihood": Success probability (0-1)
 - "risk_factors": Array of key risks (technical, market, regulatory, execution)
-- "yearly_cashflows": Array of 5 yearly cash flows in millions
+- "yearly_cashflows": Array of 5 yearly cash flows in $M
+
+IMPORTANT: All monetary values must be in millions. Examples:
+- $50K = 0.05
+- $100K = 0.1
+- $1M = 1.0
+- $50M = 50.0
 
 Analysis steps:
 1. Market size and growth potential
-2. Revenue projections by year
-3. Cost structure and capital requirements
+2. Revenue projections by year (in $M)
+3. Cost structure and capital requirements (in $M)
 4. Risk assessment across all dimensions
 5. NPV calculation using 10% discount rate
 
@@ -263,8 +269,8 @@ Return JSON array with original fields plus business_case object.`;
   }
 
   async ranker(enrichedIdeas) {
-    // Get config parameters
-    const C0 = this.config.diversificationUnit || 50; // Default $50K
+    // Get config parameters (all in millions USD)
+    const C0 = this.config.diversificationUnit || 0.05; // Default $50K in millions
     const maxCapex = this.config.maxCapex || Infinity;
     const minProfits = this.config.minProfits || 0;
     
@@ -319,7 +325,7 @@ Return JSON array with original fields plus business_case object.`;
       
       if (capex > maxCapex) {
         filtered = true;
-        filterReason = `CAPEX ($${capex}K) exceeds maximum ($${maxCapex}K)`;
+        filterReason = `CAPEX ($${capex}M) exceeds maximum ($${maxCapex}M)`;
       } else if (npv < minProfits) {
         filtered = true;
         filterReason = `NPV ($${npv}M) below minimum ($${minProfits}M)`;
@@ -331,8 +337,8 @@ Return JSON array with original fields plus business_case object.`;
       
       if (!filtered) {
         // Expected value: p * NPV_success - (1-p) * CAPEX
-        // Convert capex to millions for consistent units
-        expectedValue = p * npv - (1 - p) * (capex / 1000);
+        // All values now in millions USD
+        expectedValue = p * npv - (1 - p) * capex;
         
         // Diversification penalty: sqrt(CAPEX/C0)
         const diversificationPenalty = Math.sqrt(capex / C0);
@@ -387,15 +393,17 @@ Return JSON array with original fields plus business_case object.`;
       
       const formatPrompt = `Ensure the following business ideas have correctly formatted metrics.
       
-For each idea, validate and reformat the business_case object to have:
-- npv_success: number (in millions)
-- capex_est: number (in thousands)
+For each idea, validate and reformat the business_case object to have (ALL monetary values in millions USD):
+- npv_success: number in millions (e.g., 125.5 = $125.5M)
+- capex_est: number in millions (e.g., 0.075 = $75K)
 - timeline_months: number
 - likelihood: number between 0 and 1
 - risk_factors: array of strings
-- yearly_cashflows: array of 5 numbers (in millions)
+- yearly_cashflows: array of 5 numbers in millions
 
-Fix any formatting issues (e.g., strings that should be numbers, missing decimals, etc.)
+Fix any formatting issues. Convert any values in thousands to millions (divide by 1000).
+Examples: $50K = 0.05, $100K = 0.1, $1M = 1.0, $50M = 50.0
+
 Return ONLY the JSON array with corrected data.
 
 Data to format:

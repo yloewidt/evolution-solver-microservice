@@ -34,13 +34,21 @@ export default function createRoutes(evolutionService, taskHandler) {
         return res.status(400).json({ error: validationError.message });
       }
       
+      // Validate monetary parameters if provided
+      if (evolutionParams?.maxCapex !== undefined && evolutionParams.maxCapex > 10) {
+        logger.warn(`maxCapex value ${evolutionParams.maxCapex} seems high. Expected units are millions USD (e.g., 0.1 = $100K)`);
+      }
+      if (evolutionParams?.diversificationUnit !== undefined && evolutionParams.diversificationUnit > 10) {
+        logger.warn(`diversificationUnit value ${evolutionParams.diversificationUnit} seems high. Expected units are millions USD (e.g., 0.05 = $50K)`);
+      }
+      
       const evolutionConfig = {
         generations: evolutionParams?.generations || 10,
         populationSize: evolutionParams?.populationSize || 5,
-        maxCapex: evolutionParams?.maxCapex || 50000,
+        maxCapex: evolutionParams?.maxCapex || 0.05,  // Default $50K in millions
         topSelectCount: evolutionParams?.topSelectCount || 3,
         offspringRatio: evolutionParams?.offspringRatio || 0.7,
-        diversificationUnit: evolutionParams?.diversificationUnit || 50
+        diversificationUnit: evolutionParams?.diversificationUnit || 0.05  // Default $50K in millions
       };
       
       // Only add optional parameters if they are defined

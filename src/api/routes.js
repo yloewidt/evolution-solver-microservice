@@ -75,6 +75,18 @@ export default function createRoutes(evolutionService, taskHandler) {
         sessionId: req.sessionId || uuidv4()
       };
       
+      // Check if job already exists (prevent duplicates)
+      const existingJob = await evolutionService.resultStore.getJobStatus(jobId);
+      if (existingJob) {
+        logger.info(`Job ${jobId} already exists with status: ${existingJob.status}`);
+        return res.json({
+          jobId: jobId,
+          status: existingJob.status,
+          message: 'Job already exists',
+          existingJob: true
+        });
+      }
+      
       // Create document FIRST
       await evolutionService.resultStore.saveResult({
         jobId: jobId,

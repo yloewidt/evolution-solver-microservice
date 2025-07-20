@@ -60,14 +60,62 @@ app.get('/health', (req, res) => {
 app.post('/process-evolution', async (req, res) => {
   const jobData = req.body;
   
+  // Extract Cloud Tasks headers
+  const retryCount = req.headers['x-cloudtasks-taskretrycount'] || '0';
+  const executionCount = req.headers['x-cloudtasks-taskexecutioncount'] || '0';
+  const taskName = req.headers['x-cloudtasks-taskname'] || 'unknown';
+  
   logger.info(`Processing evolution job ${jobData.jobId}`, {
     environment: ENVIRONMENT,
     userId: jobData.userId,
     sessionId: jobData.sessionId,
-    evolutionConfig: jobData.evolutionConfig
+    evolutionConfig: jobData.evolutionConfig,
+    retryCount: retryCount,
+    executionCount: executionCount,
+    taskName: taskName
   });
   
+  // Warn if this is a retry
+  if (parseInt(retryCount) > 0) {
+    logger.warn(`Job ${jobData.jobId} is being retried (attempt ${parseInt(retryCount) + 1})`);
+  }
+  
   try {
+    // Validate required fields
+    if (!jobData.jobId) {
+      logger.error('Missing required field: jobId');
+      return res.status(400).json({ 
+        status: 'failed', 
+        error: 'Missing required field: jobId',
+        retriable: false
+      });
+    }
+    
+    if (!jobData.problemContext) {
+      logger.error('Missing required field: problemContext');
+      return res.status(400).json({ 
+        status: 'failed', 
+        jobId: jobData.jobId,
+        error: 'Missing required field: problemContext',
+        retriable: false
+      });
+    }
+    
+    // Check if job already completed (idempotency)
+    const existingJob = await resultStore.getJobStatus(jobData.jobId);
+    if (existingJob && existingJob.status === 'completed') {
+      logger.info(`Job ${jobData.jobId} already completed, returning existing result`);
+      const result = await resultStore.getResult(jobData.jobId);
+      return res.json({ 
+        status: 'completed', 
+        jobId: jobData.jobId,
+        resultId: jobData.jobId,
+        solutionCount: result.topSolutions?.length || 0,
+        message: 'Job already completed'
+      });
+    }
+    
+    // Process the job
     const result = await evolutionService.processEvolutionJob(jobData);
     
     res.json({ 
@@ -80,10 +128,36 @@ app.post('/process-evolution', async (req, res) => {
   } catch (error) {
     logger.error(`Evolution job ${jobData.jobId} failed:`, error);
     
-    res.status(500).json({ 
+    // Determine if error is retriable
+    let statusCode = 500; // Default to retriable
+    let retriable = true;
+    
+    // Non-retriable errors (return 4xx)
+    if (error.message?.includes('validation') || 
+        error.message?.includes('invalid') ||
+        error.message?.includes('required') ||
+        error.message?.includes('too short') ||
+        error.message?.includes('too long')) {
+      statusCode = 400;
+      retriable = false;
+    } else if (error.message?.includes('not found')) {
+      statusCode = 404;
+      retriable = false;
+    } else if (error.message?.includes('unauthorized') || 
+               error.message?.includes('forbidden')) {
+      statusCode = 403;
+      retriable = false;
+    } else if (error.code === 'INVALID_ARGUMENT' ||
+               error.code === 'FAILED_PRECONDITION') {
+      statusCode = 400;
+      retriable = false;
+    }
+    
+    res.status(statusCode).json({ 
       status: 'failed', 
       jobId: jobData.jobId,
-      error: error.message 
+      error: error.message,
+      retriable: retriable
     });
   }
 });

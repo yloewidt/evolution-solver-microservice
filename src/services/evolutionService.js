@@ -19,10 +19,19 @@ class EvolutionService {
       
       await this.resultStore.updateJobStatus(jobId, 'processing');
 
-      const result = await this.solver.evolve(problemContext, initialSolutions, evolutionConfig, {
+      // Set a timeout slightly less than Cloud Run's timeout (15 minutes)
+      const timeoutMs = 14 * 60 * 1000; // 14 minutes
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Evolution job timed out after 14 minutes')), timeoutMs);
+      });
+      
+      const resultPromise = this.solver.evolve(problemContext, initialSolutions, evolutionConfig, {
         jobId,
         resultStore: this.resultStore
       });
+      
+      // Race between evolution and timeout
+      const result = await Promise.race([resultPromise, timeoutPromise]);
       
       const resultData = {
         jobId,

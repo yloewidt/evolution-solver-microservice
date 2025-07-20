@@ -37,9 +37,12 @@ class CloudTaskHandler {
           },
           body: Buffer.from(JSON.stringify({
             ...jobData,
-            jobId
+            jobId,
+            taskCreatedAt: new Date().toISOString()
           })).toString('base64'),
         },
+        // Set dispatch deadline for the task (timeout per attempt)
+        dispatchDeadline: '900s', // 15 minutes timeout per attempt
       };
 
       if (process.env.SERVICE_ACCOUNT_EMAIL) {

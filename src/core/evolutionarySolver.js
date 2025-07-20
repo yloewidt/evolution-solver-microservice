@@ -1,10 +1,30 @@
 import OpenAI from 'openai';
+import https from 'https';
+import http from 'http';
 import logger from '../utils/logger.js';
 
 class EvolutionarySolver {
   constructor() {
+    // Create custom HTTP agent that forces HTTP/1.1
+    // This is needed because Cloud Run's gVisor sandbox has issues with HTTP/2
+    const httpAgent = new http.Agent({
+      keepAlive: true,
+      keepAliveMsecs: 30000,
+    });
+    
+    const httpsAgent = new https.Agent({
+      keepAlive: true,
+      keepAliveMsecs: 30000,
+      // Disable HTTP/2 by not including 'h2' in ALPN protocols
+      ALPNProtocols: ['http/1.1'],
+    });
+    
     this.client = new OpenAI({
       apiKey: process.env.OPENAI_API_KEY,
+      httpAgent: httpAgent,
+      httpsAgent: httpsAgent,
+      timeout: 30000, // 30 second timeout to match Cloud Run's idle cutoff
+      maxRetries: 2,
     });
     
     this.config = {
@@ -58,6 +78,7 @@ Mutate by combining/rewriting for novelty. Focus on IP licensing, equity swaps, 
           ],
           text: { format: { type: "text" } },
           reasoning: { effort: "medium" },
+          stream: false, // Avoid long SSE streams in Cloud Run
           store: true
         });
 
@@ -153,6 +174,7 @@ Return as JSON array with original fields plus business_case object.`;
           ],
           text: { format: { type: "text" } },
           reasoning: { effort: "high" },
+          stream: false, // Avoid long SSE streams in Cloud Run
           store: true
         });
 
@@ -244,6 +266,7 @@ Ensure non-obvious evolutions that build on strengths while addressing weaknesse
           ],
           text: { format: { type: "text" } },
           reasoning: { effort: "medium" },
+          stream: false, // Avoid long SSE streams in Cloud Run
           store: true
         });
 

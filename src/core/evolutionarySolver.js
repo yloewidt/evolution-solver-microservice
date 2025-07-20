@@ -20,7 +20,7 @@ class EvolutionarySolver {
     };
   }
 
-  async variator(currentSolutions = [], targetCount = 5, problemContext = '', feedback = '') {
+  async variator(currentSolutions = [], targetCount = 5, problemContext = '', feedback = '', maxRetries = 3) {
     const numNeeded = targetCount - currentSolutions.length;
     if (numNeeded <= 0) return currentSolutions;
 
@@ -40,41 +40,73 @@ Mutate by combining/rewriting for novelty. Focus on IP licensing, equity swaps, 
     const evolutionHint = feedback ? `\n\nEVOLVE THIS PROMPT based on feedback: ${feedback}` : '';
     const prompt = basePrompt + evolutionHint;
 
-    try {
-      const response = await this.client.responses.create({
-        model: this.config.model,
-        input: [
-          {
-            role: "developer",
-            content: [{ type: "input_text", text: "You are an expert in creative business deal-making and solution generation. Generate innovative, low-risk, high-return solutions." }]
-          },
-          {
-            role: "user",
-            content: [{ type: "input_text", text: prompt }]
-          }
-        ],
-        text: { format: { type: "text" } },
-        reasoning: { effort: "medium" },
-        store: true
-      });
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        logger.info(`Variator attempt ${attempt}/${maxRetries}`);
+        
+        const response = await this.client.responses.create({
+          model: this.config.model,
+          input: [
+            {
+              role: "developer",
+              content: [{ type: "input_text", text: "You are an expert in creative business deal-making and solution generation. Generate innovative, low-risk, high-return solutions." }]
+            },
+            {
+              role: "user",
+              content: [{ type: "input_text", text: prompt }]
+            }
+          ],
+          text: { format: { type: "text" } },
+          reasoning: { effort: "medium" },
+          store: true
+        });
 
-      logger.info('Variator response:', JSON.stringify(response, null, 2));
-      const newIdeas = await this.parseResponse(response, prompt);
-      
-      logger.info('ParseResponse returned:', {
-        type: typeof newIdeas,
-        isArray: Array.isArray(newIdeas),
-        length: Array.isArray(newIdeas) ? newIdeas.length : 'N/A',
-        sample: Array.isArray(newIdeas) && newIdeas.length > 0 ? newIdeas[0] : newIdeas
-      });
-      
-      const ideasArray = Array.isArray(newIdeas) ? newIdeas : [newIdeas];
-      
-      logger.info(`Working with ${ideasArray.length} new ideas`);
-      return [...currentSolutions, ...ideasArray];
-    } catch (error) {
-      logger.error('Variator error:', error);
-      throw error;
+        logger.info('Variator response received');
+        const newIdeas = await this.parseResponse(response, prompt);
+        
+        logger.info('ParseResponse returned:', {
+          type: typeof newIdeas,
+          isArray: Array.isArray(newIdeas),
+          length: Array.isArray(newIdeas) ? newIdeas.length : 'N/A',
+          sample: Array.isArray(newIdeas) && newIdeas.length > 0 ? newIdeas[0] : newIdeas
+        });
+        
+        const ideasArray = Array.isArray(newIdeas) ? newIdeas : [newIdeas];
+        
+        logger.info(`Working with ${ideasArray.length} new ideas`);
+        return [...currentSolutions, ...ideasArray];
+      } catch (error) {
+        logger.error(`Variator attempt ${attempt} failed:`, error.message);
+        
+        if (attempt === maxRetries) {
+          logger.error('All variator attempts failed, trying fallback model');
+          // Try with fallback model
+          try {
+            const fallbackResponse = await this.client.chat.completions.create({
+              model: this.config.fallbackModel,
+              messages: [
+                { role: 'system', content: 'You are an expert in creative business deal-making and solution generation. Generate innovative, low-risk, high-return solutions.' },
+                { role: 'user', content: prompt }
+              ],
+              temperature: 0.8,
+              max_tokens: 2000
+            });
+            
+            const fallbackContent = fallbackResponse.choices[0].message.content;
+            const fallbackIdeas = await this.parseResponse({ output: [{ type: 'text', content: fallbackContent }] }, prompt);
+            const fallbackArray = Array.isArray(fallbackIdeas) ? fallbackIdeas : [fallbackIdeas];
+            
+            logger.info(`Fallback model generated ${fallbackArray.length} ideas`);
+            return [...currentSolutions, ...fallbackArray];
+          } catch (fallbackError) {
+            logger.error('Fallback model also failed:', fallbackError);
+            throw error;
+          }
+        }
+        
+        // Wait before retry
+        await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+      }
     }
   }
 
@@ -103,28 +135,54 @@ ${JSON.stringify(ideas, null, 2)}
 
 Return as JSON array with original fields plus business_case object.`;
 
-    try {
-      const response = await this.client.responses.create({
-        model: this.config.model,
-        input: [
-          {
-            role: "developer",
-            content: [{ type: "input_text", text: "You are a business strategist expert in financial modeling and deal structuring. Provide realistic, data-driven business cases." }]
-          },
-          {
-            role: "user",
-            content: [{ type: "input_text", text: enrichPrompt }]
-          }
-        ],
-        text: { format: { type: "text" } },
-        reasoning: { effort: "high" },
-        store: true
-      });
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        logger.info(`Enricher attempt ${attempt}/3`);
+        
+        const response = await this.client.responses.create({
+          model: this.config.model,
+          input: [
+            {
+              role: "developer",
+              content: [{ type: "input_text", text: "You are a business strategist expert in financial modeling and deal structuring. Provide realistic, data-driven business cases." }]
+            },
+            {
+              role: "user",
+              content: [{ type: "input_text", text: enrichPrompt }]
+            }
+          ],
+          text: { format: { type: "text" } },
+          reasoning: { effort: "high" },
+          store: true
+        });
 
-      return await this.parseResponse(response, enrichPrompt);
-    } catch (error) {
-      logger.error('Enricher error:', error);
-      throw error;
+        return await this.parseResponse(response, enrichPrompt);
+      } catch (error) {
+        logger.error(`Enricher attempt ${attempt} failed:`, error.message);
+        
+        if (attempt === 3) {
+          logger.error('All enricher attempts failed, trying fallback model');
+          try {
+            const fallbackResponse = await this.client.chat.completions.create({
+              model: this.config.fallbackModel,
+              messages: [
+                { role: 'system', content: 'You are a business strategist expert in financial modeling and deal structuring. Provide realistic, data-driven business cases.' },
+                { role: 'user', content: enrichPrompt }
+              ],
+              temperature: 0.3,
+              max_tokens: 4000
+            });
+            
+            const fallbackContent = fallbackResponse.choices[0].message.content;
+            return await this.parseResponse({ output: [{ type: 'text', content: fallbackContent }] }, enrichPrompt);
+          } catch (fallbackError) {
+            logger.error('Fallback model also failed:', fallbackError);
+            throw error;
+          }
+        }
+        
+        await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+      }
     }
   }
 
@@ -168,29 +226,56 @@ ${priorFeedback ? `Incorporate feedback: ${priorFeedback}` : ''}
 Output exactly 5 best ideas (sub-rank by novelty and potential) as JSON array.
 Ensure non-obvious evolutions that build on strengths while addressing weaknesses.`;
 
-    try {
-      const response = await this.client.responses.create({
-        model: this.config.model,
-        input: [
-          {
-            role: "developer",
-            content: [{ type: "input_text", text: "You are an innovation expert specializing in iterative improvement and creative mutation of business ideas." }]
-          },
-          {
-            role: "user",
-            content: [{ type: "input_text", text: refinePrompt }]
-          }
-        ],
-        text: { format: { type: "text" } },
-        reasoning: { effort: "medium" },
-        store: true
-      });
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        logger.info(`Refiner attempt ${attempt}/3`);
+        
+        const response = await this.client.responses.create({
+          model: this.config.model,
+          input: [
+            {
+              role: "developer",
+              content: [{ type: "input_text", text: "You are an innovation expert specializing in iterative improvement and creative mutation of business ideas." }]
+            },
+            {
+              role: "user",
+              content: [{ type: "input_text", text: refinePrompt }]
+            }
+          ],
+          text: { format: { type: "text" } },
+          reasoning: { effort: "medium" },
+          store: true
+        });
 
-      const refined = await this.parseResponse(response, refinePrompt);
-      return refined.slice(0, this.config.populationSize);
-    } catch (error) {
-      logger.error('Refiner error:', error);
-      throw error;
+        const refined = await this.parseResponse(response, refinePrompt);
+        return refined.slice(0, this.config.populationSize);
+      } catch (error) {
+        logger.error(`Refiner attempt ${attempt} failed:`, error.message);
+        
+        if (attempt === 3) {
+          logger.error('All refiner attempts failed, trying fallback model');
+          try {
+            const fallbackResponse = await this.client.chat.completions.create({
+              model: this.config.fallbackModel,
+              messages: [
+                { role: 'system', content: 'You are an innovation expert specializing in iterative improvement and creative mutation of business ideas.' },
+                { role: 'user', content: refinePrompt }
+              ],
+              temperature: 0.7,
+              max_tokens: 3000
+            });
+            
+            const fallbackContent = fallbackResponse.choices[0].message.content;
+            const refined = await this.parseResponse({ output: [{ type: 'text', content: fallbackContent }] }, refinePrompt);
+            return refined.slice(0, this.config.populationSize);
+          } catch (fallbackError) {
+            logger.error('Fallback model also failed:', fallbackError);
+            throw error;
+          }
+        }
+        
+        await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+      }
     }
   }
 
@@ -258,13 +343,24 @@ Ensure non-obvious evolutions that build on strengths while addressing weaknesse
     try {
       let content = '';
       
-      if (response.output_text) {
-        content = response.output_text;
-      } else if (response.output && Array.isArray(response.output)) {
-        const messageOutput = response.output.find(o => o.type === 'message');
-        if (messageOutput?.content?.[0]?.text) {
+      // Based on working example, check for response.output array first
+      if (response.output && Array.isArray(response.output)) {
+        logger.info('Response output types:', response.output.map(item => item.type));
+        
+        // Try different response formats
+        const textOutput = response.output.find(item => item.type === 'text');
+        const messageOutput = response.output.find(item => item.type === 'message');
+        
+        if (textOutput && textOutput.content) {
+          content = textOutput.content;
+        } else if (messageOutput && messageOutput.content && messageOutput.content[0] && messageOutput.content[0].text) {
           content = messageOutput.content[0].text;
+        } else {
+          logger.error('Available output items:', JSON.stringify(response.output, null, 2));
+          throw new Error('No text or message content found in response');
         }
+      } else if (response.output_text) {
+        content = response.output_text;
       } else if (response.content) {
         if (Array.isArray(response.content)) {
           const textContent = response.content.find(c => c.type === 'text');
@@ -279,7 +375,7 @@ Ensure non-obvious evolutions that build on strengths while addressing weaknesse
       }
       
       if (!content) {
-        logger.error('No content found in response:', response);
+        logger.error('No content found in response:', JSON.stringify(response, null, 2));
         throw new Error('No content in response');
       }
       

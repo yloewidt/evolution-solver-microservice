@@ -4,8 +4,17 @@ import { v4 as uuidv4 } from 'uuid';
 
 class CloudTaskHandler {
   constructor() {
-    this.client = new CloudTasksClient();
-    this.projectId = process.env.GCP_PROJECT_ID || 'ideasgenerator';
+    // Detect if running in Cloud Run
+    const isCloudRun = process.env.K_SERVICE !== undefined;
+    
+    // Configure Cloud Tasks client based on environment
+    const clientConfig = {};
+    if (!isCloudRun && process.env.GOOGLE_APPLICATION_CREDENTIALS) {
+      clientConfig.keyFilename = process.env.GOOGLE_APPLICATION_CREDENTIALS;
+    }
+    
+    this.client = new CloudTasksClient(clientConfig);
+    this.projectId = process.env.GCP_PROJECT_ID || 'evolutionsolver';
     this.location = process.env.GCP_LOCATION || 'us-central1';
     this.queueName = process.env.CLOUD_TASKS_QUEUE || 'evolution-jobs';
     this.workerUrl = process.env.EVOLUTION_WORKER_URL || 'https://evolution-worker-prod-xxxx.run.app';

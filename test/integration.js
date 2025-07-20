@@ -1,6 +1,6 @@
 import fetch from 'node-fetch';
 
-const API_URL = 'http://localhost:8085';
+const API_URL = 'http://localhost:8080';
 
 async function testHealthEndpoints() {
   console.log('Testing health endpoints...');

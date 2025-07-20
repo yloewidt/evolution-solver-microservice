@@ -3,11 +3,21 @@ import logger from '../../src/utils/logger.js';
 
 class EvolutionResultStore {
   constructor() {
-    this.firestore = new Firestore({
-      projectId: process.env.GCP_PROJECT_ID || 'ideasgenerator',
-      databaseId: process.env.FIRESTORE_DATABASE || '(default)'
-    });
+    // Detect if running in Cloud Run
+    const isCloudRun = process.env.K_SERVICE !== undefined;
     
+    // Configure Firestore based on environment
+    const firestoreConfig = {
+      projectId: process.env.GCP_PROJECT_ID || 'evolutionsolver',
+      databaseId: process.env.FIRESTORE_DATABASE || '(default)'
+    };
+    
+    // Only add keyFilename for local development
+    if (!isCloudRun && process.env.GOOGLE_APPLICATION_CREDENTIALS) {
+      firestoreConfig.keyFilename = process.env.GOOGLE_APPLICATION_CREDENTIALS;
+    }
+    
+    this.firestore = new Firestore(firestoreConfig);
     this.collectionName = process.env.FIRESTORE_COLLECTION || 'evolution-results';
   }
 

@@ -10,7 +10,11 @@ export default function createRoutes(evolutionService, taskHandler) {
   // Submit new evolution job
   router.post('/jobs', async (req, res) => {
     try {
-      const { problemContext, parameters, filters, selectedBottleneck } = req.body;
+      // Support both 'parameters' and 'params' for backward compatibility
+      const { problemContext, parameters, params, filters, selectedBottleneck } = req.body;
+      const evolutionParams = parameters || params || {};
+      
+      logger.info('Received evolution parameters:', evolutionParams);
       
       let enrichedContext = '';
       
@@ -32,10 +36,13 @@ export default function createRoutes(evolutionService, taskHandler) {
         problemContext: enrichedContext,
         initialSolutions: [],
         evolutionConfig: {
-          generations: parameters?.generations || 10,
-          populationSize: parameters?.populationSize || 5,
-          maxCapex: parameters?.maxCapex || 50000,
-          targetROI: parameters?.targetROI || 10
+          generations: evolutionParams?.generations || 10,
+          populationSize: evolutionParams?.populationSize || 5,
+          maxCapex: evolutionParams?.maxCapex || 50000,
+          targetROI: evolutionParams?.targetROI || 10,
+          mutationRate: evolutionParams?.mutationRate,
+          crossoverRate: evolutionParams?.crossoverRate,
+          selectionMethod: evolutionParams?.selectionMethod
         },
         userId: req.user?.id || 'anonymous',
         sessionId: req.sessionId || uuidv4()

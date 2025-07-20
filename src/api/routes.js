@@ -45,7 +45,7 @@ export default function createRoutes(evolutionService, taskHandler) {
       const evolutionConfig = {
         generations: evolutionParams?.generations || 10,
         populationSize: evolutionParams?.populationSize || 5,
-        maxCapex: evolutionParams?.maxCapex || 0.05,  // Default $50K in millions
+        maxCapex: evolutionParams?.maxCapex || 100000,  // Default $100B in millions (effectively no limit)
         topSelectCount: evolutionParams?.topSelectCount || 3,
         offspringRatio: evolutionParams?.offspringRatio || 0.7,
         diversificationUnit: evolutionParams?.diversificationUnit || 0.05  // Default $50K in millions

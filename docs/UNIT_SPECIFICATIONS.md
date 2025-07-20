@@ -8,8 +8,8 @@ All monetary values throughout the system use **millions of USD** as the standar
 
 | Parameter | Unit | Example | Description |
 |-----------|------|---------|-------------|
-| `maxCapex` | $M | 0.1 = $100K | Maximum capital expenditure allowed |
-| `minProfits` | $M | 50 = $50M | Minimum NPV required |
+| `maxCapex` | $M | 100000 = $100B | Maximum capital expenditure allowed (default: effectively unlimited) |
+| `minProfits` | $M | 0 = No minimum | Minimum NPV required (default: no filter) |
 | `diversificationUnit` | $M | 0.05 = $50K | Unit of capital for portfolio diversification |
 | `generations` | Count | 10 | Number of evolution generations |
 | `populationSize` | Count | 20 | Ideas per generation |

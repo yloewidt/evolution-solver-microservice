@@ -33,8 +33,8 @@ class EvolutionarySolver {
       generations: process.env.EVOLUTION_GENERATIONS ? parseInt(process.env.EVOLUTION_GENERATIONS) : 10,
       populationSize: 5,
       topSelectCount: 3,
-      maxCapex: 0.05,  // $50K in millions
-      minProfits: 10,   // $10M in millions
+      maxCapex: 100000,  // $100B in millions (effectively no limit)
+      minProfits: 0,     // No minimum NPV filter
       diversificationUnit: 0.05,  // $50K in millions
       model: 'o3',
       fallbackModel: 'gpt-4o',
@@ -68,7 +68,7 @@ Generate ${numNeeded} new solutions as JSON array:
 
 Each solution must have:
 - "idea_id": unique identifier (e.g., "he3_fusion_swap_v2")
-- "description": Business model in plain terms. Focus on ${dealTypes} with upfront costs under $${maxCapex}M
+- "description": Business model in plain terms. Focus on ${dealTypes}${maxCapex < 1000 ? ` with upfront costs under $${maxCapex}M` : ''}
 - "core_mechanism": How value is created and captured
 
 Requirements:
@@ -425,7 +425,17 @@ ${JSON.stringify(enrichedIdeas, null, 2)}`;
         max_tokens: 4000
       });
 
-      const formattedContent = response.choices[0].message.content.trim();
+      let formattedContent = response.choices[0].message.content.trim();
+      
+      // Remove markdown code blocks if present
+      formattedContent = formattedContent.replace(/```json\n?/g, '').replace(/```\n?/g, '');
+      
+      // Try to extract JSON array if still having issues
+      const jsonMatch = formattedContent.match(/\[[\s\S]*\]/);
+      if (jsonMatch) {
+        formattedContent = jsonMatch[0];
+      }
+      
       const formattedData = JSON.parse(formattedContent);
       
       logger.info('Successfully formatted enriched data');

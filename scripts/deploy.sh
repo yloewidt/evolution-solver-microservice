@@ -9,7 +9,7 @@ YELLOW='\033[1;33m'
 NC='\033[0m'
 
 # Configuration
-PROJECT_ID="${GCP_PROJECT_ID:-ideasgenerator}"
+PROJECT_ID="${GCP_PROJECT_ID:-evolutionsolver}"
 REGION="${GCP_REGION:-us-central1}"
 SERVICE_NAME="evolution-solver"
 IMAGE_NAME="gcr.io/${PROJECT_ID}/${SERVICE_NAME}"

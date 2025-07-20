@@ -9,12 +9,14 @@ class EvolutionarySolver {
     // This is needed because Cloud Run's gVisor sandbox has issues with HTTP/2
     const httpAgent = new http.Agent({
       keepAlive: true,
-      keepAliveMsecs: 30000,
+      keepAliveMsecs: 60000, // Keep connection alive for 1 minute
+      timeout: 900000, // 15 minute timeout
     });
     
     const httpsAgent = new https.Agent({
       keepAlive: true,
-      keepAliveMsecs: 30000,
+      keepAliveMsecs: 60000, // Keep connection alive for 1 minute
+      timeout: 900000, // 15 minute timeout
       // Disable HTTP/2 by not including 'h2' in ALPN protocols
       ALPNProtocols: ['http/1.1'],
     });
@@ -23,7 +25,7 @@ class EvolutionarySolver {
       apiKey: process.env.OPENAI_API_KEY,
       httpAgent: httpAgent,
       httpsAgent: httpsAgent,
-      timeout: 30000, // 30 second timeout to match Cloud Run's idle cutoff
+      timeout: 900000, // 15 minute timeout for o3 model operations
       maxRetries: 2,
     });
     
@@ -302,7 +304,7 @@ Ensure non-obvious evolutions that build on strengths while addressing weaknesse
     }
   }
 
-  async evolve(problemContext, initialSolutions = [], customConfig = {}) {
+  async evolve(problemContext, initialSolutions = [], customConfig = {}, progressTracker = null) {
     const config = {
       ...this.config,
       ...customConfig
@@ -323,11 +325,30 @@ Ensure non-obvious evolutions that build on strengths while addressing weaknesse
     for (let gen = 1; gen <= config.generations; gen++) {
       logger.info(`Generation ${gen}/${config.generations}`);
 
+      if (progressTracker?.resultStore && progressTracker?.jobId) {
+        await progressTracker.resultStore.updateGenerationProgress(
+          progressTracker.jobId, gen, config.generations, 'variator'
+        );
+      }
+
       if (currentGen.length < config.populationSize) {
         currentGen = await this.variator(currentGen, config.populationSize, problemContext, evolutionFeedback);
       }
 
+      if (progressTracker?.resultStore && progressTracker?.jobId) {
+        await progressTracker.resultStore.updateGenerationProgress(
+          progressTracker.jobId, gen, config.generations, 'enricher'
+        );
+      }
+
       const enriched = await this.enricher(currentGen);
+      
+      if (progressTracker?.resultStore && progressTracker?.jobId) {
+        await progressTracker.resultStore.updateGenerationProgress(
+          progressTracker.jobId, gen, config.generations, 'ranker'
+        );
+      }
+
       const { rankedIdeas, feedback } = await this.ranker(enriched);
       evolutionFeedback = feedback;
 
@@ -340,12 +361,21 @@ Ensure non-obvious evolutions that build on strengths while addressing weaknesse
         });
       });
 
-      generationHistory.push({
+      const generationData = {
         generation: gen,
         topScore: rankedIdeas[0]?.score || 0,
         avgScore: rankedIdeas.reduce((sum, idea) => sum + idea.score, 0) / rankedIdeas.length,
-        solutionCount: rankedIdeas.length
-      });
+        solutionCount: rankedIdeas.length,
+        solutions: rankedIdeas
+      };
+
+      generationHistory.push(generationData);
+
+      if (progressTracker?.resultStore && progressTracker?.jobId) {
+        await progressTracker.resultStore.savePartialResult(
+          progressTracker.jobId, gen, generationData
+        );
+      }
 
       if (gen === config.generations) {
         return {
@@ -355,6 +385,12 @@ Ensure non-obvious evolutions that build on strengths while addressing weaknesse
           totalEvaluations: gen * config.populationSize,
           totalSolutions: allGenerationSolutions.length
         };
+      }
+
+      if (progressTracker?.resultStore && progressTracker?.jobId) {
+        await progressTracker.resultStore.updateGenerationProgress(
+          progressTracker.jobId, gen, config.generations, 'refiner'
+        );
       }
 
       const topTwo = rankedIdeas.slice(0, config.topSelectCount);

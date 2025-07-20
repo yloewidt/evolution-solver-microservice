@@ -106,7 +106,10 @@ class EvolutionResultStore {
         createdAt: data.createdAt?.toDate?.() || data.createdAt,
         updatedAt: data.updatedAt?.toDate?.() || data.updatedAt,
         completedAt: data.completedAt?.toDate?.() || data.completedAt,
-        error: data.error
+        error: data.error,
+        progress: data.progress,
+        currentGeneration: data.currentGeneration,
+        generations: data.generations
       };
     } catch (error) {
       logger.error('Error getting job status:', error);
@@ -245,6 +248,57 @@ class EvolutionResultStore {
       return jobs;
     } catch (error) {
       logger.error(`Error getting jobs by status ${status}:`, error);
+      throw error;
+    }
+  }
+
+  async savePartialResult(jobId, generation, generationData) {
+    try {
+      const docRef = this.getCollection().doc(jobId);
+      
+      const updateData = {
+        [`generations.generation_${generation}`]: {
+          generation,
+          topScore: generationData.topScore,
+          avgScore: generationData.avgScore,
+          solutionCount: generationData.solutionCount,
+          solutions: generationData.solutions || [],
+          completedAt: Firestore.FieldValue.serverTimestamp()
+        },
+        currentGeneration: generation,
+        lastUpdateAt: Firestore.FieldValue.serverTimestamp(),
+        updatedAt: Firestore.FieldValue.serverTimestamp()
+      };
+      
+      await docRef.update(updateData);
+      
+      logger.info(`Saved partial result for job ${jobId}, generation ${generation}`);
+      return true;
+    } catch (error) {
+      logger.error('Error saving partial result:', error);
+      throw error;
+    }
+  }
+
+  async updateGenerationProgress(jobId, generation, totalGenerations, phase = 'processing') {
+    try {
+      const updateData = {
+        progress: {
+          currentGeneration: generation,
+          totalGenerations: totalGenerations,
+          phase: phase,
+          percentComplete: Math.round((generation / totalGenerations) * 100),
+          lastUpdateAt: Firestore.FieldValue.serverTimestamp()
+        },
+        updatedAt: Firestore.FieldValue.serverTimestamp()
+      };
+      
+      await this.getCollection().doc(jobId).update(updateData);
+      
+      logger.info(`Updated progress for job ${jobId}: generation ${generation}/${totalGenerations}, phase: ${phase}`);
+      return true;
+    } catch (error) {
+      logger.error('Error updating generation progress:', error);
       throw error;
     }
   }

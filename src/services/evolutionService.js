@@ -19,7 +19,10 @@ class EvolutionService {
       
       await this.resultStore.updateJobStatus(jobId, 'processing');
 
-      const result = await this.solver.evolve(problemContext, initialSolutions, evolutionConfig);
+      const result = await this.solver.evolve(problemContext, initialSolutions, evolutionConfig, {
+        jobId,
+        resultStore: this.resultStore
+      });
       
       const resultData = {
         jobId,

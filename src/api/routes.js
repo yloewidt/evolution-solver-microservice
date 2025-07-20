@@ -32,18 +32,28 @@ export default function createRoutes(evolutionService, taskHandler) {
         return res.status(400).json({ error: validationError.message });
       }
       
+      const evolutionConfig = {
+        generations: evolutionParams?.generations || 10,
+        populationSize: evolutionParams?.populationSize || 5,
+        maxCapex: evolutionParams?.maxCapex || 50000,
+        targetROI: evolutionParams?.targetROI || 10
+      };
+      
+      // Only add optional parameters if they are defined
+      if (evolutionParams?.mutationRate !== undefined) {
+        evolutionConfig.mutationRate = evolutionParams.mutationRate;
+      }
+      if (evolutionParams?.crossoverRate !== undefined) {
+        evolutionConfig.crossoverRate = evolutionParams.crossoverRate;
+      }
+      if (evolutionParams?.selectionMethod !== undefined) {
+        evolutionConfig.selectionMethod = evolutionParams.selectionMethod;
+      }
+      
       const jobData = {
         problemContext: enrichedContext,
         initialSolutions: [],
-        evolutionConfig: {
-          generations: evolutionParams?.generations || 10,
-          populationSize: evolutionParams?.populationSize || 5,
-          maxCapex: evolutionParams?.maxCapex || 50000,
-          targetROI: evolutionParams?.targetROI || 10,
-          mutationRate: evolutionParams?.mutationRate,
-          crossoverRate: evolutionParams?.crossoverRate,
-          selectionMethod: evolutionParams?.selectionMethod
-        },
+        evolutionConfig,
         userId: req.user?.id || 'anonymous',
         sessionId: req.sessionId || uuidv4()
       };

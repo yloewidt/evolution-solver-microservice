@@ -402,18 +402,16 @@ IMPORTANT: Return ONLY the raw JSON array. Do not wrap the output in markdown co
           const errorType = isTimeout ? 'timeout' : 'server error';
           logger.warn(`Retriable ${errorType} detected - allowing retry`);
           // For retriable errors, we allow up to 3 attempts total
-          if (!attempt) {
-            attempt = 1;
-          }
-          if (attempt < 3) {
-            logger.info(`Retrying enricher due to ${errorType} (attempt ${attempt + 1}/3)`);
+          const currentAttempt = attempt || 1;
+          if (currentAttempt < 3) {
+            logger.info(`Retrying enricher due to ${errorType} (attempt ${currentAttempt + 1}/3)`);
             this.apiCallCounts.enricher++; // Count the retry
             this.apiCallCounts.total++;
             // Add a small delay before retry for server errors
             if (isServerError) {
               await new Promise(resolve => setTimeout(resolve, 2000)); // 2 second delay
             }
-            return this.enricher(ideas, generation, jobId, resultStore, attempt + 1);
+            return this.enricher(ideas, generation, jobId, resultStore, currentAttempt + 1);
           }
         }
         

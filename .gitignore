@@ -42,3 +42,13 @@ service-account-key.json
 
 # Docker
 .dockerignore
+
+# Test and debug files
+debug/
+*-progress.json
+test-*.js
+run-*.js
+monitor-*.js
+analyze-*.js
+check-*.js
+NO-RETRY-SUMMARY.md

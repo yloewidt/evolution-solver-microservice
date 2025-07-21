@@ -106,8 +106,7 @@ IMPORTANT: Return ONLY the raw JSON array. Do not wrap the output in markdown co
           text: { format: { type: "text" } },
           reasoning: { effort: "medium" },
           stream: false, // Avoid long SSE streams in Cloud Run
-          store: true,
-          max_completion_time: 900 // 15 minutes server-side timeout (in seconds)
+          store: true
         };
         
         // Log the full API call for replay
@@ -305,8 +304,7 @@ IMPORTANT: Return ONLY the raw JSON array. Do not wrap the output in markdown co
           text: { format: { type: "text" } },
           reasoning: { effort: "high" },
           stream: false, // Avoid long SSE streams in Cloud Run
-          store: true,
-          max_completion_time: 900 // 15 minutes server-side timeout (in seconds)
+          store: true
         };
         
         // Log the full API call for replay

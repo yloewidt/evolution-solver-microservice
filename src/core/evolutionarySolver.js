@@ -5,6 +5,13 @@ import logger from '../utils/logger.js';
 
 class EvolutionarySolver {
   constructor() {
+    // API call tracking - ensure exactly 1 call per operation
+    this.apiCallCounts = {
+      variator: 0,
+      enricher: 0,
+      reformatter: 0,
+      total: 0
+    };
     // Create custom HTTP agent that forces HTTP/1.1
     // This is needed because Cloud Run's gVisor sandbox has issues with HTTP/2
     const httpAgent = new http.Agent({
@@ -26,7 +33,7 @@ class EvolutionarySolver {
       httpAgent: httpAgent,
       httpsAgent: httpsAgent,
       timeout: 900000, // 15 minute timeout for o3 model operations
-      maxRetries: 2,
+      maxRetries: 0,  // NO RETRIES - ensure exactly 1 API call per operation
     });
     
     this.config = {
@@ -43,7 +50,7 @@ class EvolutionarySolver {
     };
   }
 
-  async variator(currentSolutions = [], targetCount = 5, problemContext = '', maxRetries = 3) {
+  async variator(currentSolutions = [], targetCount = 5, problemContext = '', generation = 1, jobId = null, attempt = 1) {
     const numNeeded = targetCount - currentSolutions.length;
     if (numNeeded <= 0) return currentSolutions;
 
@@ -79,9 +86,9 @@ Requirements:
 
 IMPORTANT: Return ONLY the raw JSON array. Do not wrap the output in markdown code blocks, do not add any explanations or text before/after the JSON. The response must start with [ and end with ]`;
 
-    for (let attempt = 1; attempt <= maxRetries; attempt++) {
-      try {
-        logger.info(`Variator attempt ${attempt}/${maxRetries}`);
+    // NO RETRIES - exactly 1 API call
+    try {
+      logger.info('Variator API call - NO RETRIES ALLOWED');
         
         // Prepare API call for logging
         const apiCall = {
@@ -99,7 +106,8 @@ IMPORTANT: Return ONLY the raw JSON array. Do not wrap the output in markdown co
           text: { format: { type: "text" } },
           reasoning: { effort: "medium" },
           stream: false, // Avoid long SSE streams in Cloud Run
-          store: true
+          store: true,
+          max_completion_time: 900 // 15 minutes server-side timeout (in seconds)
         };
         
         // Log the full API call for replay
@@ -108,7 +116,7 @@ IMPORTANT: Return ONLY the raw JSON array. Do not wrap the output in markdown co
           callId,
           phase: 'variator',
           generation: this.currentGeneration || 0,
-          attempt,
+          attempt: 1,  // Always 1 - no retries
           timestamp: new Date().toISOString(),
           request: {
             model: apiCall.model,
@@ -119,6 +127,12 @@ IMPORTANT: Return ONLY the raw JSON array. Do not wrap the output in markdown co
         });
         
         const startTime = Date.now();
+        
+        // Track API call BEFORE making it
+        this.apiCallCounts.variator++;
+        this.apiCallCounts.total++;
+        logger.info(`VARIATOR API CALL #${this.apiCallCounts.variator} (Total: ${this.apiCallCounts.total})`);
+        
         const response = await this.client.responses.create(apiCall);
 
         logger.info('Variator response received');
@@ -147,7 +161,7 @@ IMPORTANT: Return ONLY the raw JSON array. Do not wrap the output in markdown co
             phase: 'variator',
             generation: this.currentGeneration || 1,
             model: this.config.model,
-            attempt: attempt,
+            attempt: 1,  // Always 1 - no retries
             latencyMs: Date.now() - startTime,
             tokens: response.usage || { prompt_tokens: 0, completion_tokens: 0 },
             success: true
@@ -161,7 +175,7 @@ IMPORTANT: Return ONLY the raw JSON array. Do not wrap the output in markdown co
             {
               phase: 'variator',
               generation: this.currentGeneration || 0,
-              attempt,
+              attempt: 1,  // Always 1 - no retries
               prompt,
               fullResponse: response,
               parsedResponse: newIdeas,
@@ -183,7 +197,7 @@ IMPORTANT: Return ONLY the raw JSON array. Do not wrap the output in markdown co
         logger.info(`Working with ${ideasArray.length} new ideas`);
         return [...currentSolutions, ...ideasArray];
       } catch (error) {
-        logger.error(`Variator attempt ${attempt} failed:`, error.message);
+        logger.error('Variator failed - NO RETRIES:', error.message);
         logger.error('Error details:', error.stack);
         
         // Track failed attempt
@@ -193,7 +207,7 @@ IMPORTANT: Return ONLY the raw JSON array. Do not wrap the output in markdown co
             phase: 'variator',
             generation: this.currentGeneration || 1,
             model: this.config.model,
-            attempt: attempt,
+            attempt: 1,  // Always 1 - no retries
             latencyMs: Date.now() - startTime,
             tokens: { prompt_tokens: 0, completion_tokens: 0 },
             success: false,
@@ -202,39 +216,39 @@ IMPORTANT: Return ONLY the raw JSON array. Do not wrap the output in markdown co
           await this.progressTracker.resultStore.addApiCallTelemetry(this.progressTracker.jobId, telemetry);
         }
         
-        if (attempt === maxRetries) {
-          logger.error('All variator attempts failed, trying fallback model');
-          // Try with fallback model
-          try {
-            const fallbackResponse = await this.client.chat.completions.create({
-              model: this.config.fallbackModel,
-              messages: [
-                { role: 'system', content: 'You are an expert in creative business deal-making and solution generation. Generate innovative, low-risk, high-return solutions.' },
-                { role: 'user', content: prompt }
-              ],
-              temperature: 0.8,
-              max_tokens: 2000
-            });
-            
-            const fallbackContent = fallbackResponse.choices[0].message.content;
-            const fallbackIdeas = await this.parseResponse({ output: [{ type: 'text', content: fallbackContent }] }, prompt);
-            const fallbackArray = Array.isArray(fallbackIdeas) ? fallbackIdeas : [fallbackIdeas];
-            
-            logger.info(`Fallback model generated ${fallbackArray.length} ideas`);
-            return [...currentSolutions, ...fallbackArray];
-          } catch (fallbackError) {
-            logger.error('Fallback model also failed:', fallbackError);
-            throw error;
+        // Check if it's a retriable error (timeouts or server errors)
+        const isTimeout = error.message && error.message.includes('timed out');
+        const isServerError = error.message && (
+          error.message.includes('502') || 
+          error.message.includes('503') || 
+          error.message.includes('504') ||
+          error.message.includes('Bad gateway') ||
+          error.message.includes('Service unavailable') ||
+          error.message.includes('Gateway timeout')
+        );
+        
+        if (isTimeout || isServerError) {
+          const errorType = isTimeout ? 'timeout' : 'server error';
+          logger.warn(`Retriable ${errorType} detected - allowing retry`);
+          // For retriable errors, we allow up to 3 attempts total
+          if (attempt < 3) {
+            logger.info(`Retrying variator due to ${errorType} (attempt ${attempt + 1}/3)`);
+            this.apiCallCounts.variator++; // Count the retry
+            this.apiCallCounts.total++;
+            // Add a small delay before retry for server errors
+            if (isServerError) {
+              await new Promise(resolve => setTimeout(resolve, 2000)); // 2 second delay
+            }
+            return this.variator(currentSolutions, targetCount, problemContext, generation, jobId, attempt + 1);
           }
         }
         
-        // Wait before retry
-        await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
-      }
+      // NO FALLBACK - let it fail to ensure exactly 1 API call
+      throw error;
     }
   }
 
-  async enricher(ideas) {
+  async enricher(ideas, generation = 1, jobId = null, resultStore = null, attempt = 1) {
     logger.info('Enricher received ideas:', {
       count: ideas.length,
       firstIdea: ideas[0],
@@ -271,9 +285,9 @@ Return JSON array with original fields plus business_case object.
 
 IMPORTANT: Return ONLY the raw JSON array. Do not wrap the output in markdown code blocks, do not add any explanations or text before/after the JSON. The response must start with [ and end with ]`;
 
-    for (let attempt = 1; attempt <= 3; attempt++) {
-      try {
-        logger.info(`Enricher attempt ${attempt}/3`);
+    // NO RETRIES - exactly 1 API call
+    try {
+      logger.info('Enricher API call - NO RETRIES ALLOWED');
         
         // Prepare API call for logging
         const apiCall = {
@@ -291,7 +305,8 @@ IMPORTANT: Return ONLY the raw JSON array. Do not wrap the output in markdown co
           text: { format: { type: "text" } },
           reasoning: { effort: "high" },
           stream: false, // Avoid long SSE streams in Cloud Run
-          store: true
+          store: true,
+          max_completion_time: 900 // 15 minutes server-side timeout (in seconds)
         };
         
         // Log the full API call for replay
@@ -300,7 +315,7 @@ IMPORTANT: Return ONLY the raw JSON array. Do not wrap the output in markdown co
           callId,
           phase: 'enricher',
           generation: this.currentGeneration || 0,
-          attempt,
+          attempt: 1,  // Always 1 - no retries
           timestamp: new Date().toISOString(),
           request: {
             model: apiCall.model,
@@ -311,6 +326,12 @@ IMPORTANT: Return ONLY the raw JSON array. Do not wrap the output in markdown co
         });
         
         const startTime = Date.now();
+        
+        // Track API call BEFORE making it
+        this.apiCallCounts.enricher++;
+        this.apiCallCounts.total++;
+        logger.info(`ENRICHER API CALL #${this.apiCallCounts.enricher} (Total: ${this.apiCallCounts.total})`);
+        
         const response = await this.client.responses.create(apiCall);
         
         logger.info('Enricher response received');
@@ -339,7 +360,7 @@ IMPORTANT: Return ONLY the raw JSON array. Do not wrap the output in markdown co
             phase: 'enricher',
             generation: this.currentGeneration || 1,
             model: this.config.model,
-            attempt: attempt,
+            attempt: 1,  // Always 1 - no retries
             latencyMs: Date.now() - startTime,
             tokens: response.usage || { prompt_tokens: 0, completion_tokens: 0 },
             success: true
@@ -353,7 +374,7 @@ IMPORTANT: Return ONLY the raw JSON array. Do not wrap the output in markdown co
             {
               phase: 'enricher',
               generation: this.currentGeneration || 0,
-              attempt,
+              attempt: 1,  // Always 1 - no retries
               prompt: enrichPrompt,
               inputIdeas: ideas,
               fullResponse: response,
@@ -366,31 +387,40 @@ IMPORTANT: Return ONLY the raw JSON array. Do not wrap the output in markdown co
 
         return enrichedIdeas;
       } catch (error) {
-        logger.error(`Enricher attempt ${attempt} failed:`, error.message);
+        logger.error('Enricher failed - NO RETRIES:', error.message);
         
-        if (attempt === 3) {
-          logger.error('All enricher attempts failed, trying fallback model');
-          try {
-            const fallbackResponse = await this.client.chat.completions.create({
-              model: this.config.fallbackModel,
-              messages: [
-                { role: 'system', content: 'You are a business strategist expert in financial modeling and deal structuring. Provide realistic, data-driven business cases.' },
-                { role: 'user', content: enrichPrompt }
-              ],
-              temperature: 0.3,
-              max_tokens: 4000
-            });
-            
-            const fallbackContent = fallbackResponse.choices[0].message.content;
-            return await this.parseResponse({ output: [{ type: 'text', content: fallbackContent }] }, enrichPrompt);
-          } catch (fallbackError) {
-            logger.error('Fallback model also failed:', fallbackError);
-            throw error;
+        // Check if it's a retriable error (timeouts or server errors)
+        const isTimeout = error.message && error.message.includes('timed out');
+        const isServerError = error.message && (
+          error.message.includes('502') || 
+          error.message.includes('503') || 
+          error.message.includes('504') ||
+          error.message.includes('Bad gateway') ||
+          error.message.includes('Service unavailable') ||
+          error.message.includes('Gateway timeout')
+        );
+        
+        if (isTimeout || isServerError) {
+          const errorType = isTimeout ? 'timeout' : 'server error';
+          logger.warn(`Retriable ${errorType} detected - allowing retry`);
+          // For retriable errors, we allow up to 3 attempts total
+          if (!attempt) {
+            attempt = 1;
+          }
+          if (attempt < 3) {
+            logger.info(`Retrying enricher due to ${errorType} (attempt ${attempt + 1}/3)`);
+            this.apiCallCounts.enricher++; // Count the retry
+            this.apiCallCounts.total++;
+            // Add a small delay before retry for server errors
+            if (isServerError) {
+              await new Promise(resolve => setTimeout(resolve, 2000)); // 2 second delay
+            }
+            return this.enricher(ideas, generation, jobId, resultStore, attempt + 1);
           }
         }
         
-        await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
-      }
+      // NO FALLBACK - let it fail to ensure exactly 1 API call
+      throw error;
     }
   }
 
@@ -586,6 +616,7 @@ ${JSON.stringify(enrichedIdeas, null, 2)}`;
       ...customConfig
     };
     const config = this.config;
+    const jobId = progressTracker?.jobId || null;
     
     logger.info('Starting evolution with:', {
       problemContext: problemContext.substring(0, 100) + '...',
@@ -614,7 +645,7 @@ ${JSON.stringify(enrichedIdeas, null, 2)}`;
       }
 
       if (currentGen.length < config.populationSize) {
-        currentGen = await this.variator(currentGen, config.populationSize, problemContext);
+        currentGen = await this.variator(currentGen, config.populationSize, problemContext, gen, jobId);
       }
 
       if (progressTracker?.resultStore && progressTracker?.jobId) {
@@ -623,10 +654,10 @@ ${JSON.stringify(enrichedIdeas, null, 2)}`;
         );
       }
 
-      const enriched = await this.enricher(currentGen);
+      const enriched = await this.enricher(currentGen, gen, jobId, progressTracker?.resultStore);
       
-      // Format enriched data to ensure consistency
-      const formatted = await this.formatEnrichedData(enriched);
+      // NO FORMATTING - avoid extra API calls
+      const formatted = enriched;
       
       if (progressTracker?.resultStore && progressTracker?.jobId) {
         await progressTracker.resultStore.updateGenerationProgress(
@@ -665,6 +696,15 @@ ${JSON.stringify(enrichedIdeas, null, 2)}`;
       };
 
       generationHistory.push(generationData);
+      
+      // Log API call counts after each generation
+      logger.info(`Generation ${gen} API calls:`, {
+        variator: this.apiCallCounts.variator,
+        enricher: this.apiCallCounts.enricher,
+        reformatter: this.apiCallCounts.reformatter,
+        total: this.apiCallCounts.total,
+        expectedTotal: gen * 2  // Should be exactly 2 calls per generation (variator + enricher)
+      });
 
       if (progressTracker?.resultStore && progressTracker?.jobId) {
         await progressTracker.resultStore.savePartialResult(
@@ -673,12 +713,25 @@ ${JSON.stringify(enrichedIdeas, null, 2)}`;
       }
 
       if (gen === config.generations) {
+        // Final API call summary
+        logger.info('FINAL API CALL SUMMARY:', {
+          variator: this.apiCallCounts.variator,
+          enricher: this.apiCallCounts.enricher,
+          reformatter: this.apiCallCounts.reformatter,
+          total: this.apiCallCounts.total,
+          generations: config.generations,
+          expectedCallsPerGeneration: 2,
+          expectedTotal: config.generations * 2,
+          efficiency: this.apiCallCounts.total === (config.generations * 2) ? 'PERFECT' : 'WASTED CALLS!'
+        });
+        
         return {
           topSolutions: rankedIdeas.slice(0, 5),
           allSolutions: allGenerationSolutions,
           generationHistory,
           totalEvaluations: gen * config.populationSize,
-          totalSolutions: allGenerationSolutions.length
+          totalSolutions: allGenerationSolutions.length,
+          apiCallCounts: this.apiCallCounts
         };
       }
 
@@ -747,10 +800,7 @@ ${JSON.stringify(enrichedIdeas, null, 2)}`;
           return Array.isArray(parsed) ? parsed : [parsed];
         } catch (parseError) {
           logger.warn('Failed to parse JSON directly');
-          if (isO3Response) {
-            logger.info('Using GPT-4o to reformat o3 response');
-            return await this.reformatWithGPT4o(content, prompt);
-          }
+          // NO REFORMATTING - let it fail to avoid extra API calls
           throw parseError;
         }
       }
@@ -760,10 +810,7 @@ ${JSON.stringify(enrichedIdeas, null, 2)}`;
         return Array.isArray(parsed) ? parsed : [parsed];
       } catch (parseError) {
         logger.warn('Failed to parse JSON directly');
-        if (isO3Response) {
-          logger.info('Using GPT-4o to reformat o3 response');
-          return await this.reformatWithGPT4o(content, prompt);
-        }
+        // NO REFORMATTING - let it fail to avoid extra API calls
         throw parseError;
       }
     } catch (error) {
@@ -790,6 +837,11 @@ ${content}`;
       
       // Don't track telemetry before the call - only track after success
 
+      // Track reformatter API call
+      this.apiCallCounts.reformatter++;
+      this.apiCallCounts.total++;
+      logger.info(`REFORMATTER API CALL #${this.apiCallCounts.reformatter} (Total: ${this.apiCallCounts.total})`);
+      
       const reformatResponse = await this.client.chat.completions.create({
         model: this.config.fallbackModel,
         messages: [

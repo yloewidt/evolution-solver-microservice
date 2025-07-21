@@ -1,0 +1,74 @@
+[
+  {
+    "core_mechanism": "The partnership enables logistics centers to save on energy costs and allows solar companies to expand their market. The charging hubs offer subscription-based services to electric truck fleets, providing a consistent revenue stream. By leveraging existing logistics locations, capital costs are minimized.",
+    "description": "Partner with solar energy companies and large logistics centers to create shared solar-powered truck charging hubs. These hubs are located at strategic points on major logistic routes and use solar panels on-site to provide energy, reducing the dependency on grid electricity.",
+    "idea_id": "solar_shared_hub_v1",
+    "business_case": {
+      "npv_success": 47.7,
+      "capex_est": 15,
+      "timeline_months": 12,
+      "likelihood": 0.45,
+      "risk_factors": [
+        "technical integration of solar and fast-charge hardware",
+        "market adoption rate of electric truck fleets",
+        "regulatory permitting for solar installations",
+        "execution complexity of multi-party partnerships"
+      ],
+      "yearly_cashflows": [
+        6,
+        12,
+        18,
+        24,
+        28
+      ]
+    }
+  },
+  {
+    "core_mechanism": "Value is captured through a pay-per-swap or subscription model. Battery manufacturers benefit from increased sales, while fleet operators reduce downtime for charging. The program uses existing truck stops to minimize infrastructure investment, and partnerships with leasing companies help integrate the solution into fleet operations efficiently.",
+    "description": "Develop a battery exchange program by collaborating with battery manufacturers and truck leasing companies. Implement swappable battery technology to allow trucks to exchange depleted batteries for fully charged ones at designated locations.",
+    "idea_id": "battery_swarm_exchange_v1",
+    "business_case": {
+      "npv_success": 62.8,
+      "capex_est": 25,
+      "timeline_months": 18,
+      "likelihood": 0.35,
+      "risk_factors": [
+        "technical reliability of swappable battery systems",
+        "market reluctance to standardize battery formats",
+        "regulatory certification of battery safety standards",
+        "execution risk of station rollout and battery inventory management"
+      ],
+      "yearly_cashflows": [
+        3,
+        12,
+        25,
+        37,
+        50
+      ]
+    }
+  },
+  {
+    "core_mechanism": "By using municipal land and resources, the cost of establishing charging stations is reduced. The microgrids provide reliable, low-cost power to fleets and capture value through long-term charging contracts. Local authorities benefit from reduced emissions and increased use of renewables, aligning with sustainability goals.",
+    "description": "Form alliances with municipal governments and local utility providers to create microgrids specifically for electric truck charging. These microgrids use renewable energy sources and are strategically placed in urban areas with high freight traffic.",
+    "idea_id": "microgrid_partnerships_v1",
+    "business_case": {
+      "npv_success": 36.3,
+      "capex_est": 20,
+      "timeline_months": 16,
+      "likelihood": 0.55,
+      "risk_factors": [
+        "technical complexity of microgrid integration",
+        "market risk if fleet electrification lags",
+        "regulatory changes in municipal energy policy",
+        "execution challenges coordinating public-private stakeholders"
+      ],
+      "yearly_cashflows": [
+        4,
+        10,
+        16,
+        22,
+        28
+      ]
+    }
+  }
+]

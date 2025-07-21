@@ -184,6 +184,23 @@ IMPORTANT: Return ONLY the raw JSON array. Do not wrap the output in markdown co
         return [...currentSolutions, ...ideasArray];
       } catch (error) {
         logger.error(`Variator attempt ${attempt} failed:`, error.message);
+        logger.error('Error details:', error.stack);
+        
+        // Track failed attempt
+        if (this.progressTracker?.resultStore && this.progressTracker?.jobId) {
+          const telemetry = {
+            timestamp: new Date().toISOString(),
+            phase: 'variator',
+            generation: this.currentGeneration || 1,
+            model: this.config.model,
+            attempt: attempt,
+            latencyMs: Date.now() - startTime,
+            tokens: { prompt_tokens: 0, completion_tokens: 0 },
+            success: false,
+            error: error.message
+          };
+          await this.progressTracker.resultStore.addApiCallTelemetry(this.progressTracker.jobId, telemetry);
+        }
         
         if (attempt === maxRetries) {
           logger.error('All variator attempts failed, trying fallback model');
@@ -715,15 +732,11 @@ ${JSON.stringify(enrichedIdeas, null, 2)}`;
         content = JSON.stringify(content);
       }
       
-      // For o3 model responses, always use GPT-4o to ensure clean JSON
+      // Try to parse o3 responses directly first
       const modelToCheck = model || response.model || this.config.model;
       const isO3Response = modelToCheck && modelToCheck.includes('o3');
-      if (isO3Response) {
-        logger.info('Processing o3 response through GPT-4o for consistent formatting');
-        return await this.reformatWithGPT4o(content, prompt);
-      }
       
-      // For other models, try to parse directly first
+      // Try to parse directly first for all models
       content = content.replace(/```json\n?/g, '').replace(/```\n?/g, '');
       content = content.replace(/\\\\"/g, '"');
       
@@ -733,8 +746,12 @@ ${JSON.stringify(enrichedIdeas, null, 2)}`;
           const parsed = JSON.parse(jsonMatch[0]);
           return Array.isArray(parsed) ? parsed : [parsed];
         } catch (parseError) {
-          logger.warn('Failed to parse JSON, using GPT-4o to reformat');
-          return await this.reformatWithGPT4o(content, prompt);
+          logger.warn('Failed to parse JSON directly');
+          if (isO3Response) {
+            logger.info('Using GPT-4o to reformat o3 response');
+            return await this.reformatWithGPT4o(content, prompt);
+          }
+          throw parseError;
         }
       }
       
@@ -742,8 +759,12 @@ ${JSON.stringify(enrichedIdeas, null, 2)}`;
         const parsed = JSON.parse(content);
         return Array.isArray(parsed) ? parsed : [parsed];
       } catch (parseError) {
-        logger.warn('Failed to parse JSON, using GPT-4o to reformat');
-        return await this.reformatWithGPT4o(content, prompt);
+        logger.warn('Failed to parse JSON directly');
+        if (isO3Response) {
+          logger.info('Using GPT-4o to reformat o3 response');
+          return await this.reformatWithGPT4o(content, prompt);
+        }
+        throw parseError;
       }
     } catch (error) {
       logger.error('Failed to parse response:', error);
@@ -767,20 +788,7 @@ ${content}`;
 
       const startTime = Date.now();
       
-      // Track GPT-4o reformatting call
-      if (this.progressTracker?.resultStore && this.progressTracker?.jobId) {
-        const telemetry = {
-          timestamp: new Date().toISOString(),
-          phase: 'reformatter',
-          generation: this.currentGeneration || 0,
-          model: this.config.fallbackModel,
-          attempt: 1,
-          latencyMs: 0,
-          tokens: { prompt_tokens: 0, completion_tokens: 0 },
-          success: false
-        };
-        await this.progressTracker.resultStore.addApiCallTelemetry(this.progressTracker.jobId, telemetry);
-      }
+      // Don't track telemetry before the call - only track after success
 
       const reformatResponse = await this.client.chat.completions.create({
         model: this.config.fallbackModel,

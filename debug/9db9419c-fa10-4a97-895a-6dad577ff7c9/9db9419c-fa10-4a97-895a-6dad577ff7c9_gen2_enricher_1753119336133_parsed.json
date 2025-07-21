@@ -1,0 +1,74 @@
+[
+  {
+    "core_mechanism": "Leverage existing infrastructure of malls/retailers to reduce installation costs. Capture value through a combination of charging fees and improved retail sales for partners.",
+    "description": "Partner with shopping malls and large retail chains to install charging hubs in their parking lots. In exchange, offer revenue sharing from charging fees and increased customer foot traffic.",
+    "idea_id": "charge_hub_network_01",
+    "business_case": {
+      "npv_success": 14.5,
+      "capex_est": 7.5,
+      "timeline_months": 9,
+      "likelihood": 0.35,
+      "risk_factors": [
+        "Technical: charger reliability and grid upgrades",
+        "Market: EV adoption rates and competitive charging networks",
+        "Regulatory: zoning, permitting, and utility interconnection rules",
+        "Execution: securing mall partnerships and project roll-out pace"
+      ],
+      "yearly_cashflows": [
+        1.5,
+        3,
+        6,
+        9,
+        12
+      ]
+    }
+  },
+  {
+    "core_mechanism": "Utilize solar energy to power electric truck fleets while offering parking lot owners a lease payment. Capture savings from reduced energy costs and share revenue with partners.",
+    "description": "Collaborate with solar panel manufacturers and parking lot owners to create solar-powered charging stations. Use a leasing model to deploy the infrastructure at a low upfront cost.",
+    "idea_id": "solar_parking_lots_02",
+    "business_case": {
+      "npv_success": 10,
+      "capex_est": 5,
+      "timeline_months": 12,
+      "likelihood": 0.3,
+      "risk_factors": [
+        "Technical: variability of solar generation and battery storage integration",
+        "Market: pace of electrification of truck fleets and competing energy prices",
+        "Regulatory: local incentives, lease regulations, interconnection standards",
+        "Execution: coordinating multiple stakeholders and supply-chain delays"
+      ],
+      "yearly_cashflows": [
+        1,
+        2.5,
+        4,
+        6,
+        8
+      ]
+    }
+  },
+  {
+    "core_mechanism": "Capture value by charging a subscription fee for the battery swap service, while battery manufacturers benefit from increased sales volume and market penetration with minimal capital investment.",
+    "description": "Create a partnership with battery manufacturers to offer a battery exchange program at truck stops. Provide quick battery swaps as a service, reducing downtime for electric truck drivers.",
+    "idea_id": "battery_exchange_program_03",
+    "business_case": {
+      "npv_success": 20.9,
+      "capex_est": 15,
+      "timeline_months": 8,
+      "likelihood": 0.25,
+      "risk_factors": [
+        "Technical: battery compatibility and technology obsolescence",
+        "Market: sufficient volume of electric trucks to use swap stations",
+        "Regulatory: safety standards and hazardous material transport rules",
+        "Execution: high working-capital tied in battery inventory and station rollout"
+      ],
+      "yearly_cashflows": [
+        3,
+        6,
+        10,
+        14,
+        18
+      ]
+    }
+  }
+]

@@ -1,0 +1,23 @@
+{
+  "callId": "gen2_variator_attempt2_12",
+  "timestamp": "2025-07-21T08:49:59.874Z",
+  "generation": 2,
+  "phase": "variator",
+  "attempt": 2,
+  "model": "o3",
+  "latencyMs": 100385,
+  "tokens": {
+    "input_tokens": 1355,
+    "input_tokens_details": {
+      "cached_tokens": 0
+    },
+    "output_tokens": 2498,
+    "output_tokens_details": {
+      "reasoning_tokens": 896
+    },
+    "total_tokens": 3853
+  },
+  "success": true,
+  "input": null,
+  "output": null
+}

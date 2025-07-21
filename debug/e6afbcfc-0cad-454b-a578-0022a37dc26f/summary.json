@@ -1,0 +1,214 @@
+{
+  "jobId": "e6afbcfc-0cad-454b-a578-0022a37dc26f",
+  "problemContext": "Generate innovative deal-making solutions for electric truck fleet charging infrastructure, focusing on creative partnerships and business models",
+  "evolutionConfig": {
+    "maxCapex": 100,
+    "minProfits": 0,
+    "topSelectCount": 4,
+    "offspringRatio": 0.8,
+    "generations": 20,
+    "populationSize": 20,
+    "dealTypes": "creative partnerships, revenue sharing, equipment leasing, and innovative business models",
+    "diversificationUnit": 0.05
+  },
+  "status": "processing",
+  "totalApiCalls": 16,
+  "apiCallsByGeneration": {
+    "gen1_variator": [
+      {
+        "timestamp": "2025-07-21T08:06:17.172Z",
+        "attempt": 1,
+        "latencyMs": 86583
+      },
+      {
+        "timestamp": "2025-07-21T08:22:52.656Z",
+        "attempt": 1,
+        "latencyMs": 171978
+      },
+      {
+        "timestamp": "2025-07-21T08:37:13.320Z",
+        "attempt": 1,
+        "latencyMs": 112591
+      }
+    ],
+    "gen1_enricher": [
+      {
+        "timestamp": "2025-07-21T08:09:00.933Z",
+        "attempt": 1,
+        "latencyMs": 163629
+      },
+      {
+        "timestamp": "2025-07-21T08:26:25.417Z",
+        "attempt": 1,
+        "latencyMs": 858271
+      },
+      {
+        "timestamp": "2025-07-21T08:38:15.419Z",
+        "attempt": 2,
+        "latencyMs": 195121
+      }
+    ],
+    "gen2_variator": [
+      {
+        "timestamp": "2025-07-21T08:11:51.493Z",
+        "attempt": 1,
+        "latencyMs": 90798
+      },
+      {
+        "timestamp": "2025-07-21T08:40:45.055Z",
+        "attempt": 1,
+        "latencyMs": 63582
+      },
+      {
+        "timestamp": "2025-07-21T08:46:15.385Z",
+        "attempt": 1,
+        "latencyMs": 155639
+      },
+      {
+        "timestamp": "2025-07-21T08:49:59.874Z",
+        "attempt": 2,
+        "latencyMs": 100385
+      }
+    ],
+    "gen3_variator": [
+      {
+        "timestamp": "2025-07-21T08:29:55.775Z",
+        "attempt": 1,
+        "latencyMs": 125198
+      },
+      {
+        "timestamp": "2025-07-21T09:03:25.944Z",
+        "attempt": 1,
+        "latencyMs": 100200
+      }
+    ],
+    "gen2_enricher": [
+      {
+        "timestamp": "2025-07-21T08:41:37.124Z",
+        "attempt": 1,
+        "latencyMs": 263657
+      },
+      {
+        "timestamp": "2025-07-21T08:49:06.232Z",
+        "attempt": 2,
+        "latencyMs": 227486
+      }
+    ],
+    "gen4_variator": [
+      {
+        "timestamp": "2025-07-21T08:52:00.644Z",
+        "attempt": 1,
+        "latencyMs": 79891
+      }
+    ],
+    "gen4_enricher": [
+      {
+        "timestamp": "2025-07-21T09:00:48.044Z",
+        "attempt": 2,
+        "latencyMs": 270040
+      }
+    ]
+  },
+  "duplicateCalls": [
+    {
+      "key": "gen1_variator",
+      "count": 3,
+      "calls": [
+        {
+          "timestamp": "2025-07-21T08:06:17.172Z",
+          "attempt": 1,
+          "latencyMs": 86583
+        },
+        {
+          "timestamp": "2025-07-21T08:22:52.656Z",
+          "attempt": 1,
+          "latencyMs": 171978
+        },
+        {
+          "timestamp": "2025-07-21T08:37:13.320Z",
+          "attempt": 1,
+          "latencyMs": 112591
+        }
+      ]
+    },
+    {
+      "key": "gen1_enricher",
+      "count": 3,
+      "calls": [
+        {
+          "timestamp": "2025-07-21T08:09:00.933Z",
+          "attempt": 1,
+          "latencyMs": 163629
+        },
+        {
+          "timestamp": "2025-07-21T08:26:25.417Z",
+          "attempt": 1,
+          "latencyMs": 858271
+        },
+        {
+          "timestamp": "2025-07-21T08:38:15.419Z",
+          "attempt": 2,
+          "latencyMs": 195121
+        }
+      ]
+    },
+    {
+      "key": "gen2_variator",
+      "count": 4,
+      "calls": [
+        {
+          "timestamp": "2025-07-21T08:11:51.493Z",
+          "attempt": 1,
+          "latencyMs": 90798
+        },
+        {
+          "timestamp": "2025-07-21T08:40:45.055Z",
+          "attempt": 1,
+          "latencyMs": 63582
+        },
+        {
+          "timestamp": "2025-07-21T08:46:15.385Z",
+          "attempt": 1,
+          "latencyMs": 155639
+        },
+        {
+          "timestamp": "2025-07-21T08:49:59.874Z",
+          "attempt": 2,
+          "latencyMs": 100385
+        }
+      ]
+    },
+    {
+      "key": "gen3_variator",
+      "count": 2,
+      "calls": [
+        {
+          "timestamp": "2025-07-21T08:29:55.775Z",
+          "attempt": 1,
+          "latencyMs": 125198
+        },
+        {
+          "timestamp": "2025-07-21T09:03:25.944Z",
+          "attempt": 1,
+          "latencyMs": 100200
+        }
+      ]
+    },
+    {
+      "key": "gen2_enricher",
+      "count": 2,
+      "calls": [
+        {
+          "timestamp": "2025-07-21T08:41:37.124Z",
+          "attempt": 1,
+          "latencyMs": 263657
+        },
+        {
+          "timestamp": "2025-07-21T08:49:06.232Z",
+          "attempt": 2,
+          "latencyMs": 227486
+        }
+      ]
+    }
+  ]
+}

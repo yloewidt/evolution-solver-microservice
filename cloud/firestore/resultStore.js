@@ -320,6 +320,25 @@ class EvolutionResultStore {
       throw error;
     }
   }
+  
+  async saveApiCallDebug(jobId, callId, debugData) {
+    try {
+      // Save full API call data in a separate subcollection for debugging
+      const debugRef = this.getCollection().doc(jobId).collection('apiDebug').doc(callId);
+      
+      await debugRef.set({
+        ...debugData,
+        createdAt: Firestore.FieldValue.serverTimestamp()
+      });
+      
+      logger.info(`Saved API debug data for job ${jobId}, callId: ${callId}`);
+      return true;
+    } catch (error) {
+      logger.error('Error saving API debug data:', error);
+      // Don't throw - this is optional debug data
+      return false;
+    }
+  }
 }
 
 export default EvolutionResultStore;

@@ -126,7 +126,8 @@ describe('EvolutionarySolver', () => {
             likelihood: 0.3,
             roi_proj: 2,
             capex_est: 40,
-            deal_value_percent: 70
+            deal_value_percent: 70,
+            npv_success: 2
           }
         },
         {
@@ -135,7 +136,8 @@ describe('EvolutionarySolver', () => {
             likelihood: 0.8,
             roi_proj: 10,
             capex_est: 20,
-            deal_value_percent: 85
+            deal_value_percent: 85,
+            npv_success: 10
           }
         }
       ];
@@ -156,7 +158,8 @@ describe('EvolutionarySolver', () => {
             likelihood: 0.1,
             roi_proj: 1,
             capex_est: 45,
-            deal_value_percent: 60
+            deal_value_percent: 60,
+            npv_success: 1
           }
         }
       ];
@@ -192,7 +195,8 @@ describe('EvolutionarySolver', () => {
             core_mechanism: 'Mechanism 1',
             business_case: {
               roi_proj: 5, capex_est: 30, risk_factors: [], 
-              deal_value_percent: 75, timeline_months: 4, likelihood: 0.7
+              deal_value_percent: 75, timeline_months: 4, likelihood: 0.7,
+              npv_success: 5
             }
           },
           {
@@ -201,7 +205,8 @@ describe('EvolutionarySolver', () => {
             core_mechanism: 'Mechanism 2',
             business_case: {
               roi_proj: 8, capex_est: 25, risk_factors: [], 
-              deal_value_percent: 80, timeline_months: 3, likelihood: 0.8
+              deal_value_percent: 80, timeline_months: 3, likelihood: 0.8,
+              npv_success: 8
             }
           },
           {
@@ -210,7 +215,8 @@ describe('EvolutionarySolver', () => {
             core_mechanism: 'Mechanism 3',
             business_case: {
               roi_proj: 3, capex_est: 40, risk_factors: [], 
-              deal_value_percent: 70, timeline_months: 5, likelihood: 0.5
+              deal_value_percent: 70, timeline_months: 5, likelihood: 0.5,
+              npv_success: 3
             }
           },
           {
@@ -219,7 +225,8 @@ describe('EvolutionarySolver', () => {
             core_mechanism: 'Mechanism 4',
             business_case: {
               roi_proj: 6, capex_est: 35, risk_factors: [], 
-              deal_value_percent: 75, timeline_months: 4, likelihood: 0.6
+              deal_value_percent: 75, timeline_months: 4, likelihood: 0.6,
+              npv_success: 6
             }
           },
           {
@@ -228,7 +235,8 @@ describe('EvolutionarySolver', () => {
             core_mechanism: 'Mechanism 5',
             business_case: {
               roi_proj: 4, capex_est: 45, risk_factors: [], 
-              deal_value_percent: 70, timeline_months: 6, likelihood: 0.4
+              deal_value_percent: 70, timeline_months: 6, likelihood: 0.4,
+              npv_success: 4
             }
           }
         ])
@@ -254,7 +262,8 @@ describe('EvolutionarySolver', () => {
             core_mechanism: 'Refined mechanism 1',
             business_case: {
               roi_proj: 10, capex_est: 20, risk_factors: [], 
-              deal_value_percent: 85, timeline_months: 3, likelihood: 0.9
+              deal_value_percent: 85, timeline_months: 3, likelihood: 0.9,
+              npv_success: 10
             }
           },
           {
@@ -263,7 +272,8 @@ describe('EvolutionarySolver', () => {
             core_mechanism: 'Refined mechanism 2',
             business_case: {
               roi_proj: 9, capex_est: 22, risk_factors: [], 
-              deal_value_percent: 82, timeline_months: 3, likelihood: 0.85
+              deal_value_percent: 82, timeline_months: 3, likelihood: 0.85,
+              npv_success: 9
             }
           },
           {
@@ -272,7 +282,8 @@ describe('EvolutionarySolver', () => {
             core_mechanism: 'Refined mechanism 3',
             business_case: {
               roi_proj: 7, capex_est: 28, risk_factors: [], 
-              deal_value_percent: 78, timeline_months: 4, likelihood: 0.75
+              deal_value_percent: 78, timeline_months: 4, likelihood: 0.75,
+              npv_success: 7
             }
           },
           {
@@ -281,7 +292,8 @@ describe('EvolutionarySolver', () => {
             core_mechanism: 'Refined mechanism 4',
             business_case: {
               roi_proj: 6, capex_est: 32, risk_factors: [], 
-              deal_value_percent: 76, timeline_months: 4, likelihood: 0.7
+              deal_value_percent: 76, timeline_months: 4, likelihood: 0.7,
+              npv_success: 6
             }
           },
           {
@@ -290,7 +302,8 @@ describe('EvolutionarySolver', () => {
             core_mechanism: 'Refined mechanism 5',
             business_case: {
               roi_proj: 5, capex_est: 38, risk_factors: [], 
-              deal_value_percent: 72, timeline_months: 5, likelihood: 0.65
+              deal_value_percent: 72, timeline_months: 5, likelihood: 0.65,
+              npv_success: 5
             }
           }
         ])

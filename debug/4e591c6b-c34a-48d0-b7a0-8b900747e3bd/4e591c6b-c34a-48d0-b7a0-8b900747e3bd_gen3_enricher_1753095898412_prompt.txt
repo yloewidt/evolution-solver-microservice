@@ -1,0 +1,424 @@
+Analyze each business idea and calculate key metrics:
+
+Required fields in business_case object (ALL monetary values in millions USD):
+- "npv_success": 5-year NPV if successful in $M (discounted at 10% annually)
+- "capex_est": Initial capital required in $M (e.g., 0.075 = $75K)
+- "timeline_months": Time to first revenue
+- "likelihood": Success probability (0-1)
+- "risk_factors": Array of key risks (technical, market, regulatory, execution)
+- "yearly_cashflows": Array of 5 yearly cash flows in $M
+
+IMPORTANT: All monetary values must be in millions. Examples:
+- $50K = 0.05
+- $100K = 0.1
+- $1M = 1.0
+- $50M = 50.0
+
+Analysis steps:
+1. Market size and growth potential
+2. Revenue projections by year (in $M)
+3. Cost structure and capital requirements (in $M)
+4. Risk assessment across all dimensions
+5. NPV calculation using 10% discount rate
+
+Ideas to analyze:
+[
+  {
+    "idea_id": "mobile_charging_units",
+    "description": "Deploy mobile charging units to service fleets at their locations, reducing infrastructure costs.",
+    "core_mechanism": "Lower upfront investment by using mobile chargers, capturing value through flexible service fees.",
+    "business_case": {
+      "npv_success": 5.78,
+      "capex_est": 0.5,
+      "timeline_months": 3,
+      "likelihood": 0.7,
+      "risk_factors": [
+        "Market: acceptance of mobile services",
+        "Technical: reliability of mobile units",
+        "Execution: logistics of mobile deployment"
+      ],
+      "yearly_cashflows": [
+        0.6,
+        1.2,
+        1.9,
+        2.4,
+        2.7
+      ]
+    },
+    "score": 1.2320233764016006,
+    "filtered": false,
+    "filterReason": null,
+    "metrics": {
+      "npv": 5.78,
+      "capex": 0.5,
+      "likelihood": 0.7,
+      "expectedValue": 3.8960000000000004
+    },
+    "rank": 1
+  },
+  {
+    "idea_id": "fleet_data_monetization",
+    "description": "Monetize data collected from fleet charging patterns by offering insights to utility companies.",
+    "core_mechanism": "Generate revenue through data sales, providing valuable analytics to optimize grid operations.",
+    "business_case": {
+      "npv_success": 6.38,
+      "capex_est": 0.7,
+      "timeline_months": 4,
+      "likelihood": 0.65,
+      "risk_factors": [
+        "Technical: data accuracy and privacy",
+        "Market: demand for data insights",
+        "Execution: managing data partnerships"
+      ],
+      "yearly_cashflows": [
+        0.5,
+        1.3,
+        2.2,
+        2.8,
+        3.2
+      ]
+    },
+    "score": 1.04285336594228,
+    "filtered": false,
+    "filterReason": null,
+    "metrics": {
+      "npv": 6.38,
+      "capex": 0.7,
+      "likelihood": 0.65,
+      "expectedValue": 3.902
+    },
+    "rank": 2
+  },
+  {
+    "idea_id": "performance_based_incentives",
+    "description": "Offer performance-based incentives to fleet operators for charging during low-demand periods.",
+    "core_mechanism": "Encourage efficient grid use by providing financial rewards for optimal charging behavior.",
+    "business_case": {
+      "npv_success": 5.74,
+      "capex_est": 0.8,
+      "timeline_months": 3,
+      "likelihood": 0.65,
+      "risk_factors": [
+        "Technical: tracking performance accurately",
+        "Market: fleet responsiveness to incentives",
+        "Execution: managing incentive payouts"
+      ],
+      "yearly_cashflows": [
+        0.5,
+        1.3,
+        2,
+        2.5,
+        2.9
+      ]
+    },
+    "score": 0.8627500000000001,
+    "filtered": false,
+    "filterReason": null,
+    "metrics": {
+      "npv": 5.74,
+      "capex": 0.8,
+      "likelihood": 0.65,
+      "expectedValue": 3.4510000000000005
+    },
+    "rank": 3
+  },
+  {
+    "idea_id": "integrated_nighttime_dynamic_pricing",
+    "description": "Combine nighttime discounts with dynamic pricing, offering lower rates during low demand periods and flexible pricing during peak times.",
+    "core_mechanism": "Maximize station utilization by attracting off-peak users and optimizing revenue through real-time pricing adjustments.",
+    "business_case": {
+      "npv_success": 5.98,
+      "capex_est": 0.9,
+      "timeline_months": 4,
+      "likelihood": 0.65,
+      "risk_factors": [
+        "Market: adapting to dual pricing models",
+        "Execution: seamless integration of pricing systems",
+        "Regulatory: compliance with dynamic pricing rules"
+      ],
+      "yearly_cashflows": [
+        0.5,
+        1.3,
+        2.1,
+        2.7,
+        3.1
+      ]
+    },
+    "score": 0.8419284741327828,
+    "filtered": false,
+    "filterReason": null,
+    "metrics": {
+      "npv": 5.98,
+      "capex": 0.9,
+      "likelihood": 0.65,
+      "expectedValue": 3.5720000000000005
+    },
+    "rank": 4
+  },
+  {
+    "idea_id": "green_sponsor_grant_combo",
+    "description": "Blend corporate sponsorship with government grants to subsidize eco-friendly charging stations.",
+    "core_mechanism": "Reduce capex by utilizing both corporate funds and government incentives, focusing on sustainability.",
+    "business_case": {
+      "npv_success": 6.3,
+      "capex_est": 1.2,
+      "timeline_months": 5,
+      "likelihood": 0.7,
+      "risk_factors": [
+        "Regulatory: dual compliance challenges",
+        "Market: aligning sponsor and grant objectives",
+        "Execution: managing multiple stakeholders"
+      ],
+      "yearly_cashflows": [
+        0.7,
+        1.5,
+        2.3,
+        2.8,
+        3.2
+      ]
+    },
+    "score": 0.8267027881893224,
+    "filtered": false,
+    "filterReason": null,
+    "metrics": {
+      "npv": 6.3,
+      "capex": 1.2,
+      "likelihood": 0.7,
+      "expectedValue": 4.049999999999999
+    },
+    "rank": 5
+  },
+  {
+    "idea_id": "mobile_dynamic_pricing_hybrid",
+    "description": "Deploy mobile charging units with integrated dynamic pricing, offering location-specific discounts during off-peak hours.",
+    "core_mechanism": "Reduce infrastructure costs with mobile units and maximize revenue with flexible pricing, capturing value through usage-based fees.",
+    "business_case": {
+      "npv_success": 6.2,
+      "capex_est": 0.6,
+      "timeline_months": 4,
+      "likelihood": 0.7,
+      "risk_factors": [
+        "Market: acceptance of mobile and dynamic pricing",
+        "Technical: reliability of mobile and pricing systems",
+        "Execution: integration of dynamic pricing"
+      ],
+      "yearly_cashflows": [
+        0.7,
+        1.4,
+        2.1,
+        2.7,
+        3
+      ]
+    },
+    "score": 1.235,
+    "filtered": false,
+    "filterReason": null,
+    "metrics": {
+      "npv": 6.2,
+      "capex": 0.6,
+      "likelihood": 0.7,
+      "expectedValue": 4.34
+    },
+    "rank": 1
+  },
+  {
+    "idea_id": "data_monetization_green_grant",
+    "description": "Monetize fleet data while securing green grants to fund eco-friendly charging infrastructure.",
+    "core_mechanism": "Generate dual revenue streams from data sales and grant funds, enhancing financial viability and sustainability.",
+    "business_case": {
+      "npv_success": 6.8,
+      "capex_est": 0.9,
+      "timeline_months": 5,
+      "likelihood": 0.7,
+      "risk_factors": [
+        "Technical: data accuracy and privacy",
+        "Regulatory: meeting grant conditions",
+        "Execution: managing grants and data partnerships"
+      ],
+      "yearly_cashflows": [
+        0.6,
+        1.4,
+        2.3,
+        2.9,
+        3.4
+      ]
+    },
+    "score": 1.052,
+    "filtered": false,
+    "filterReason": null,
+    "metrics": {
+      "npv": 6.8,
+      "capex": 0.9,
+      "likelihood": 0.7,
+      "expectedValue": 4.76
+    },
+    "rank": 2
+  },
+  {
+    "idea_id": "performance_mobile_incentives",
+    "description": "Offer performance-based incentives for fleets that utilize mobile charging units during low-demand periods.",
+    "core_mechanism": "Encourage optimal use of mobile charging, creating value by aligning fleet behavior with grid demands.",
+    "business_case": {
+      "npv_success": 6,
+      "capex_est": 0.7,
+      "timeline_months": 4,
+      "likelihood": 0.68,
+      "risk_factors": [
+        "Technical: reliable mobile usage tracking",
+        "Market: fleet adaptation to mobile incentives",
+        "Execution: incentive management"
+      ],
+      "yearly_cashflows": [
+        0.6,
+        1.3,
+        2.1,
+        2.6,
+        3
+      ]
+    },
+    "score": 0.984,
+    "filtered": false,
+    "filterReason": null,
+    "metrics": {
+      "npv": 6,
+      "capex": 0.7,
+      "likelihood": 0.68,
+      "expectedValue": 4.08
+    },
+    "rank": 3
+  },
+  {
+    "idea_id": "sponsor_dynamic_data_insights",
+    "description": "Collaborate with sponsors to subsidize charging stations and sell dynamic pricing insights to stakeholders.",
+    "core_mechanism": "Leverage sponsorship for capital relief and monetize pricing data to optimize station use and revenue.",
+    "business_case": {
+      "npv_success": 7,
+      "capex_est": 1,
+      "timeline_months": 5,
+      "likelihood": 0.65,
+      "risk_factors": [
+        "Market: interest in dynamic insights",
+        "Regulatory: sponsorship compliance",
+        "Execution: managing partnerships"
+      ],
+      "yearly_cashflows": [
+        0.7,
+        1.5,
+        2.4,
+        3,
+        3.5
+      ]
+    },
+    "score": 0.927,
+    "filtered": false,
+    "filterReason": null,
+    "metrics": {
+      "npv": 7,
+      "capex": 1,
+      "likelihood": 0.65,
+      "expectedValue": 4.55
+    },
+    "rank": 4
+  },
+  {
+    "idea_id": "integrated_sponsor_performance",
+    "description": "Offer integrated performance-based incentives supported by corporate sponsorship to encourage sustainable charging behavior.",
+    "core_mechanism": "Reduce costs with sponsorship and drive sustainable fleet behavior with performance incentives.",
+    "business_case": {
+      "npv_success": 6.5,
+      "capex_est": 0.9,
+      "timeline_months": 4,
+      "likelihood": 0.7,
+      "risk_factors": [
+        "Technical: accurate performance tracking",
+        "Market: fleet engagement",
+        "Execution: managing sponsorships"
+      ],
+      "yearly_cashflows": [
+        0.6,
+        1.4,
+        2.2,
+        2.8,
+        3.3
+      ]
+    },
+    "score": 0.91,
+    "filtered": false,
+    "filterReason": null,
+    "metrics": {
+      "npv": 6.5,
+      "capex": 0.9,
+      "likelihood": 0.7,
+      "expectedValue": 4.55
+    },
+    "rank": 5
+  },
+  {
+    "idea_id": "wildcard_solar_microgrid_integration",
+    "description": "Develop solar-powered microgrids for charging stations to leverage renewable energy and reduce grid dependency.",
+    "core_mechanism": "Capture value by using low-cost solar energy, reducing reliance on the grid, and lowering operational expenses.",
+    "business_case": {
+      "npv_success": 7.2,
+      "capex_est": 1.5,
+      "timeline_months": 6,
+      "likelihood": 0.6,
+      "risk_factors": [
+        "Technical: reliability of solar systems",
+        "Market: adoption of renewable solutions",
+        "Execution: integration of microgrids"
+      ],
+      "yearly_cashflows": [
+        0.8,
+        1.6,
+        2.5,
+        3.2,
+        3.6
+      ]
+    },
+    "score": 0.89,
+    "filtered": false,
+    "filterReason": null,
+    "metrics": {
+      "npv": 7.2,
+      "capex": 1.5,
+      "likelihood": 0.6,
+      "expectedValue": 4.32
+    },
+    "rank": 6
+  },
+  {
+    "idea_id": "wildcard_ev_rideshare_integration",
+    "description": "Create a rideshare platform specifically for electric fleets, using dynamic charging hubs to optimize routes and charging times.",
+    "core_mechanism": "Capture value by integrating charging with ridesharing logistics, enhancing efficiency and reducing empty miles.",
+    "business_case": {
+      "npv_success": 6.9,
+      "capex_est": 1.2,
+      "timeline_months": 5,
+      "likelihood": 0.65,
+      "risk_factors": [
+        "Market: competition from existing platforms",
+        "Technical: integration of real-time data",
+        "Execution: fleet management"
+      ],
+      "yearly_cashflows": [
+        0.7,
+        1.5,
+        2.3,
+        3,
+        3.4
+      ]
+    },
+    "score": 0.89,
+    "filtered": false,
+    "filterReason": null,
+    "metrics": {
+      "npv": 6.9,
+      "capex": 1.2,
+      "likelihood": 0.65,
+      "expectedValue": 4.485
+    },
+    "rank": 7
+  }
+]
+
+Return JSON array with original fields plus business_case object.

@@ -1,0 +1,23 @@
+{
+  "callId": "gen1_enricher_attempt1_3",
+  "timestamp": "2025-07-21T10:36:26.065Z",
+  "generation": 1,
+  "phase": "enricher",
+  "attempt": 1,
+  "model": "o3",
+  "latencyMs": 182797,
+  "tokens": {
+    "input_tokens": 1625,
+    "input_tokens_details": {
+      "cached_tokens": 0
+    },
+    "output_tokens": 9049,
+    "output_tokens_details": {
+      "reasoning_tokens": 5184
+    },
+    "total_tokens": 10674
+  },
+  "success": true,
+  "input": null,
+  "output": null
+}

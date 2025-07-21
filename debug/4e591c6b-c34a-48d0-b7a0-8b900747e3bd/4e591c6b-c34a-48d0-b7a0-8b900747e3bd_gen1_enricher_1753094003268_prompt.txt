@@ -1,0 +1,128 @@
+Analyze each business idea and calculate key metrics:
+
+Required fields in business_case object (ALL monetary values in millions USD):
+- "npv_success": 5-year NPV if successful in $M (discounted at 10% annually)
+- "capex_est": Initial capital required in $M (e.g., 0.075 = $75K)
+- "timeline_months": Time to first revenue
+- "likelihood": Success probability (0-1)
+- "risk_factors": Array of key risks (technical, market, regulatory, execution)
+- "yearly_cashflows": Array of 5 yearly cash flows in $M
+
+IMPORTANT: All monetary values must be in millions. Examples:
+- $50K = 0.05
+- $100K = 0.1
+- $1M = 1.0
+- $50M = 50.0
+
+Analysis steps:
+1. Market size and growth potential
+2. Revenue projections by year (in $M)
+3. Cost structure and capital requirements (in $M)
+4. Risk assessment across all dimensions
+5. NPV calculation using 10% discount rate
+
+Ideas to analyze:
+[
+  {
+    "idea_id": "modular_charging_hubs",
+    "description": "Develop modular charging hubs in key logistics locations through partnerships with real estate developers and local governments.",
+    "core_mechanism": "Create value by leasing space in logistics parks and partnering with developers who provide the land, while charging for electricity usage and membership fees."
+  },
+  {
+    "idea_id": "solar_rooftop_partnership",
+    "description": "Collaborate with warehouse owners to install solar panels on rooftops, using the energy generated to power charging stations for electric trucks.",
+    "core_mechanism": "Reduce costs by using warehouse rooftops and sharing revenues with property owners, while selling excess energy back to the grid."
+  },
+  {
+    "idea_id": "battery_swap_service",
+    "description": "Partner with battery manufacturers to implement a battery swap service, reducing downtime for electric trucks.",
+    "core_mechanism": "Sell battery swapping as a service, charging fleet operators for the convenience of quick swaps, while managing inventory and logistics."
+  },
+  {
+    "idea_id": "cooperative_fleet_charging_network",
+    "description": "Form a cooperative network among fleet operators to share charging infrastructure and minimize individual investment.",
+    "core_mechanism": "Co-share costs and revenues from charging stations, providing discounted rates to member fleets while ensuring high usage rates."
+  },
+  {
+    "idea_id": "dynamic_pricing_charging",
+    "description": "Implement dynamic pricing for charging based on grid demand and time of use, incentivizing off-peak charging.",
+    "core_mechanism": "Generate value by optimizing energy costs and providing cost benefits to fleets willing to charge during off-peak hours."
+  },
+  {
+    "idea_id": "mobile_charging_units",
+    "description": "Deploy mobile charging units that can be moved to different locations based on demand, reducing infrastructure costs.",
+    "core_mechanism": "Lease mobile units to fleet operators, capturing value through flexibility and reduced infrastructure costs."
+  },
+  {
+    "idea_id": "public-private_infrastructure_partnership",
+    "description": "Establish public-private partnerships to co-fund electric truck charging infrastructure along major freight corridors.",
+    "core_mechanism": "Leverage government incentives and investments from private companies to lower initial costs and ensure widespread availability."
+  },
+  {
+    "idea_id": "retail_location_piggyback",
+    "description": "Install charging stations at large retail locations, leveraging existing infrastructure and drawing in potential customers.",
+    "core_mechanism": "Secure agreements with retail chains, sharing foot traffic benefits with stores while making use of existing amenities."
+  },
+  {
+    "idea_id": "green_bond_financing",
+    "description": "Issue green bonds to finance charging infrastructure, appealing to investors focused on sustainability.",
+    "core_mechanism": "Use the bond proceeds to build infrastructure, paying back through charging fees and capturing environmental benefits."
+  },
+  {
+    "idea_id": "urban_microgrid_partnership",
+    "description": "Collaborate with urban microgrid developers to integrate electric truck charging as part of a broader energy solution.",
+    "core_mechanism": "Share infrastructure costs with microgrid operators, optimizing energy supply and reducing costs through shared resources."
+  },
+  {
+    "idea_id": "telecom_tower_collaboration",
+    "description": "Partner with telecom companies to use their towers for solar panel installations, powering nearby truck charging stations.",
+    "core_mechanism": "Utilize existing telecom infrastructure to reduce installation costs, sharing revenue with telecom providers."
+  },
+  {
+    "idea_id": "fleet_energy_contracts",
+    "description": "Negotiate bulk energy contracts on behalf of fleet operators to secure lower electricity rates for charging stations.",
+    "core_mechanism": "Capture value by leveraging collective bargaining to pass on savings to fleets, while earning a commission on each contract."
+  },
+  {
+    "idea_id": "energy_storage_collaboration",
+    "description": "Partner with energy storage companies to incorporate batteries at charging sites, ensuring grid stability and reducing peak charges.",
+    "core_mechanism": "Store energy during off-peak hours and release during peaks, capturing savings from energy arbitrage."
+  },
+  {
+    "idea_id": "crowdsourced_charging_map",
+    "description": "Develop an app where users can list and rent out available charging slots at their properties to truck fleets.",
+    "core_mechanism": "Facilitate a marketplace for charging slots, earning commissions on transactions between property owners and fleet operators."
+  },
+  {
+    "idea_id": "subscription_charging_model",
+    "description": "Offer a subscription-based model for electric truck fleets that includes charging services, maintenance, and energy management.",
+    "core_mechanism": "Generate steady revenue from subscription fees, providing comprehensive services that reduce operational complexity for fleet operators."
+  },
+  {
+    "idea_id": "vehicle-to-grid_integration",
+    "description": "Enable vehicle-to-grid technology for electric trucks to supply energy back to the grid during high-demand periods.",
+    "core_mechanism": "Monetize surplus energy from truck batteries, sharing revenue with fleet operators and supporting grid stability."
+  },
+  {
+    "idea_id": "community_energy_projects",
+    "description": "Work with local communities to co-develop charging stations powered by community-owned renewable energy projects.",
+    "core_mechanism": "Benefit from community investment reducing capital needs, sharing revenues from both charging and energy production."
+  },
+  {
+    "idea_id": "electricity_co-op_integration",
+    "description": "Integrate charging stations with local electricity cooperatives to access low-cost, community-generated power.",
+    "core_mechanism": "Capture value by purchasing electricity at cooperative rates and providing discounted charging services to members."
+  },
+  {
+    "idea_id": "autonomous_charging_robots",
+    "description": "Deploy autonomous robots to charge electric trucks, reducing labor costs and increasing operational efficiency.",
+    "core_mechanism": "Enhance service value through automation, charging a premium for convenience and reducing ongoing operational costs."
+  },
+  {
+    "idea_id": "fleet_usage_analytics_service",
+    "description": "Provide a data analytics service to help fleets optimize charging schedules and reduce costs.",
+    "core_mechanism": "Offer insights as a service, improving fleet efficiency and capturing value through subscription fees."
+  }
+]
+
+Return JSON array with original fields plus business_case object.

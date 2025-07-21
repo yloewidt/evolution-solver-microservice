@@ -7,7 +7,7 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "node src/server.js",
-    "worker": "node cloud/run/evolution-worker.js",
+    "worker": "node cloud/run/worker.js",
     "test": "NODE_OPTIONS=--experimental-vm-modules jest",
     "test:watch": "NODE_OPTIONS=--experimental-vm-modules jest --watch",
     "test:coverage": "NODE_OPTIONS=--experimental-vm-modules jest --coverage",
@@ -19,9 +19,11 @@
   "dependencies": {
     "@google-cloud/firestore": "^7.1.0",
     "@google-cloud/tasks": "^4.0.0",
+    "@google-cloud/workflows": "^3.0.0",
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",
     "express": "^4.18.2",
+    "firebase-admin": "^13.4.0",
     "openai": "^5.10.1",
     "uuid": "^11.0.4",
     "winston": "^3.11.0"

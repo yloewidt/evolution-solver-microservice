@@ -75,7 +75,9 @@ Requirements:
 - Business models must be realistic and implementable
 - Explain complex ideas simply (avoid jargon)
 - Focus on partnerships that reduce capital requirements
-- Consider timing advantages (why now?)`;
+- Consider timing advantages (why now?)
+
+IMPORTANT: Return ONLY the raw JSON array. Do not wrap the output in markdown code blocks, do not add any explanations or text before/after the JSON. The response must start with [ and end with ]`;
 
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
@@ -136,6 +138,8 @@ Requirements:
           fullResponse: JSON.stringify(response)  // Full response for replay
         });
         
+        const newIdeas = await this.parseResponse(response, prompt, this.config.model);
+        
         // Track API call telemetry
         if (this.progressTracker?.resultStore && this.progressTracker?.jobId && response) {
           const telemetry = {
@@ -166,8 +170,6 @@ Requirements:
             }
           );
         }
-        
-        const newIdeas = await this.parseResponse(response, prompt);
         
         logger.info('ParseResponse returned:', {
           type: typeof newIdeas,
@@ -248,7 +250,9 @@ Analysis steps:
 Ideas to analyze:
 ${JSON.stringify(ideas, null, 2)}
 
-Return JSON array with original fields plus business_case object.`;
+Return JSON array with original fields plus business_case object.
+
+IMPORTANT: Return ONLY the raw JSON array. Do not wrap the output in markdown code blocks, do not add any explanations or text before/after the JSON. The response must start with [ and end with ]`;
 
     for (let attempt = 1; attempt <= 3; attempt++) {
       try {
@@ -309,6 +313,8 @@ Return JSON array with original fields plus business_case object.`;
           fullResponse: JSON.stringify(response)  // Full response for replay
         });
 
+        const enrichedIdeas = await this.parseResponse(response, enrichPrompt, this.config.model);
+
         // Track API call telemetry
         if (this.progressTracker?.resultStore && this.progressTracker?.jobId && response) {
           const telemetry = {
@@ -334,14 +340,14 @@ Return JSON array with original fields plus business_case object.`;
               prompt: enrichPrompt,
               inputIdeas: ideas,
               fullResponse: response,
-              parsedResponse: await this.parseResponse(response, enrichPrompt),
+              parsedResponse: enrichedIdeas,
               usage: response.usage,
               latencyMs: Date.now() - startTime
             }
           );
         }
 
-        return await this.parseResponse(response, enrichPrompt);
+        return enrichedIdeas;
       } catch (error) {
         logger.error(`Enricher attempt ${attempt} failed:`, error.message);
         
@@ -512,7 +518,7 @@ CRITICAL RULES:
 
 Examples: $50K = 0.05, $100K = 0.1, $1M = 1.0, $50M = 50.0
 
-Return ONLY the JSON array with corrected data.
+Return ONLY the JSON array with corrected data. Do not wrap the output in markdown code blocks, do not add any explanations or text before/after the JSON. The response must start with [ and end with ].
 
 Data to format:
 ${JSON.stringify(enrichedIdeas, null, 2)}`;
@@ -665,7 +671,7 @@ ${JSON.stringify(enrichedIdeas, null, 2)}`;
     }
   }
 
-  async parseResponse(response, prompt = '') {
+  async parseResponse(response, prompt = '', model = null) {
     try {
       let content = '';
       
@@ -709,6 +715,15 @@ ${JSON.stringify(enrichedIdeas, null, 2)}`;
         content = JSON.stringify(content);
       }
       
+      // For o3 model responses, always use GPT-4o to ensure clean JSON
+      const modelToCheck = model || response.model || this.config.model;
+      const isO3Response = modelToCheck && modelToCheck.includes('o3');
+      if (isO3Response) {
+        logger.info('Processing o3 response through GPT-4o for consistent formatting');
+        return await this.reformatWithGPT4o(content, prompt);
+      }
+      
+      // For other models, try to parse directly first
       content = content.replace(/```json\n?/g, '').replace(/```\n?/g, '');
       content = content.replace(/\\\\"/g, '"');
       
@@ -739,7 +754,7 @@ ${JSON.stringify(enrichedIdeas, null, 2)}`;
 
   async reformatWithGPT4o(content, originalPrompt) {
     try {
-      logger.info('Using GPT-4o to reformat malformed JSON');
+      logger.info('Using GPT-4o to reformat o3 JSON output');
       
       const reformatPrompt = `The following text should be a JSON array but may have formatting issues. 
 Please extract and return ONLY a valid JSON array with the same data structure.
@@ -749,6 +764,23 @@ Original request context: ${originalPrompt.substring(0, 200)}...
 
 Text to reformat:
 ${content}`;
+
+      const startTime = Date.now();
+      
+      // Track GPT-4o reformatting call
+      if (this.progressTracker?.resultStore && this.progressTracker?.jobId) {
+        const telemetry = {
+          timestamp: new Date().toISOString(),
+          phase: 'reformatter',
+          generation: this.currentGeneration || 0,
+          model: this.config.fallbackModel,
+          attempt: 1,
+          latencyMs: 0,
+          tokens: { prompt_tokens: 0, completion_tokens: 0 },
+          success: false
+        };
+        await this.progressTracker.resultStore.addApiCallTelemetry(this.progressTracker.jobId, telemetry);
+      }
 
       const reformatResponse = await this.client.chat.completions.create({
         model: this.config.fallbackModel,
@@ -767,6 +799,21 @@ ${content}`;
       });
 
       const reformattedContent = reformatResponse.choices[0].message.content.trim();
+      
+      // Track successful GPT-4o reformatting
+      if (this.progressTracker?.resultStore && this.progressTracker?.jobId) {
+        const telemetry = {
+          timestamp: new Date().toISOString(),
+          phase: 'reformatter',
+          generation: this.currentGeneration || 0,
+          model: this.config.fallbackModel,
+          attempt: 1,
+          latencyMs: Date.now() - startTime,
+          tokens: reformatResponse.usage || { prompt_tokens: 0, completion_tokens: 0 },
+          success: true
+        };
+        await this.progressTracker.resultStore.addApiCallTelemetry(this.progressTracker.jobId, telemetry);
+      }
       
       const jsonMatch = reformattedContent.match(/\[[\s\S]*\]/);
       if (jsonMatch) {

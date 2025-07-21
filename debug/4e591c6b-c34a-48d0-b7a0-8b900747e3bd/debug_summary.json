@@ -1,0 +1,174 @@
+{
+  "jobId": "4e591c6b-c34a-48d0-b7a0-8b900747e3bd",
+  "problemContext": "Generate innovative solutions for electric truck fleet charging infrastructure",
+  "status": "failed",
+  "totalDebugEntries": 8,
+  "entries": [
+    {
+      "callId": "4e591c6b-c34a-48d0-b7a0-8b900747e3bd_gen1_enricher_1753094003268",
+      "phase": "enricher",
+      "generation": 1,
+      "attempt": 1,
+      "latencyMs": 182860,
+      "promptLength": 7737,
+      "responseLength": 33465,
+      "hasPrompt": true,
+      "hasResponse": true,
+      "hasParsedResponse": true,
+      "timestamp": "2025-07-21T10:36:26.201Z"
+    },
+    {
+      "callId": "4e591c6b-c34a-48d0-b7a0-8b900747e3bd_gen1_enricher_1753094824290",
+      "phase": "enricher",
+      "generation": 1,
+      "attempt": 1,
+      "latencyMs": 118509,
+      "promptLength": 7602,
+      "responseLength": 33520,
+      "hasPrompt": true,
+      "hasResponse": true,
+      "hasParsedResponse": true,
+      "timestamp": "2025-07-21T10:49:02.842Z"
+    },
+    {
+      "callId": "4e591c6b-c34a-48d0-b7a0-8b900747e3bd_gen2_enricher_1753094549501",
+      "phase": "enricher",
+      "generation": 2,
+      "attempt": 1,
+      "latencyMs": 720500,
+      "promptLength": 13723,
+      "responseLength": 26283,
+      "hasPrompt": true,
+      "hasResponse": true,
+      "hasParsedResponse": true,
+      "timestamp": "2025-07-21T10:54:30.047Z"
+    },
+    {
+      "callId": "4e591c6b-c34a-48d0-b7a0-8b900747e3bd_gen2_enricher_1753095318580",
+      "phase": "enricher",
+      "generation": 1,
+      "attempt": 1,
+      "latencyMs": 260185,
+      "promptLength": 13258,
+      "responseLength": 25282,
+      "hasPrompt": true,
+      "hasResponse": true,
+      "hasParsedResponse": true,
+      "timestamp": "2025-07-21T10:59:38.806Z"
+    },
+    {
+      "callId": "4e591c6b-c34a-48d0-b7a0-8b900747e3bd_gen3_enricher_1753095833023",
+      "phase": "enricher",
+      "generation": 3,
+      "attempt": 1,
+      "latencyMs": 222434,
+      "promptLength": 7968,
+      "responseLength": 34783,
+      "hasPrompt": true,
+      "hasResponse": true,
+      "hasParsedResponse": true,
+      "timestamp": "2025-07-21T11:07:35.497Z"
+    },
+    {
+      "callId": "4e591c6b-c34a-48d0-b7a0-8b900747e3bd_gen3_enricher_1753095898412",
+      "phase": "enricher",
+      "generation": 3,
+      "attempt": 1,
+      "latencyMs": 271527,
+      "promptLength": 12284,
+      "responseLength": 20804,
+      "hasPrompt": true,
+      "hasResponse": true,
+      "hasParsedResponse": true,
+      "timestamp": "2025-07-21T11:09:29.980Z"
+    },
+    {
+      "callId": "4e591c6b-c34a-48d0-b7a0-8b900747e3bd_gen4_enricher_1753096469228",
+      "phase": "enricher",
+      "generation": 4,
+      "attempt": 1,
+      "latencyMs": 632598,
+      "promptLength": 14344,
+      "responseLength": 27711,
+      "hasPrompt": true,
+      "hasResponse": true,
+      "hasParsedResponse": true,
+      "timestamp": "2025-07-21T11:25:06.469Z"
+    },
+    {
+      "callId": "4e591c6b-c34a-48d0-b7a0-8b900747e3bd_gen4_enricher_1753096500328",
+      "phase": "enricher",
+      "generation": 4,
+      "attempt": 1,
+      "latencyMs": 614899,
+      "promptLength": 13633,
+      "responseLength": 21612,
+      "hasPrompt": true,
+      "hasResponse": true,
+      "hasParsedResponse": true,
+      "timestamp": "2025-07-21T11:25:18.648Z"
+    }
+  ],
+  "duplicates": [
+    {
+      "key": "gen1_enricher",
+      "count": 3,
+      "entries": [
+        {
+          "callId": "4e591c6b-c34a-48d0-b7a0-8b900747e3bd_gen1_enricher_1753094003268",
+          "attempt": 1,
+          "timestamp": "2025-07-21T10:36:26.201Z",
+          "latencyMs": 182860
+        },
+        {
+          "callId": "4e591c6b-c34a-48d0-b7a0-8b900747e3bd_gen1_enricher_1753094824290",
+          "attempt": 1,
+          "timestamp": "2025-07-21T10:49:02.842Z",
+          "latencyMs": 118509
+        },
+        {
+          "callId": "4e591c6b-c34a-48d0-b7a0-8b900747e3bd_gen2_enricher_1753095318580",
+          "attempt": 1,
+          "timestamp": "2025-07-21T10:59:38.806Z",
+          "latencyMs": 260185
+        }
+      ]
+    },
+    {
+      "key": "gen3_enricher",
+      "count": 2,
+      "entries": [
+        {
+          "callId": "4e591c6b-c34a-48d0-b7a0-8b900747e3bd_gen3_enricher_1753095833023",
+          "attempt": 1,
+          "timestamp": "2025-07-21T11:07:35.497Z",
+          "latencyMs": 222434
+        },
+        {
+          "callId": "4e591c6b-c34a-48d0-b7a0-8b900747e3bd_gen3_enricher_1753095898412",
+          "attempt": 1,
+          "timestamp": "2025-07-21T11:09:29.980Z",
+          "latencyMs": 271527
+        }
+      ]
+    },
+    {
+      "key": "gen4_enricher",
+      "count": 2,
+      "entries": [
+        {
+          "callId": "4e591c6b-c34a-48d0-b7a0-8b900747e3bd_gen4_enricher_1753096469228",
+          "attempt": 1,
+          "timestamp": "2025-07-21T11:25:06.469Z",
+          "latencyMs": 632598
+        },
+        {
+          "callId": "4e591c6b-c34a-48d0-b7a0-8b900747e3bd_gen4_enricher_1753096500328",
+          "attempt": 1,
+          "timestamp": "2025-07-21T11:25:18.648Z",
+          "latencyMs": 614899
+        }
+      ]
+    }
+  ]
+}

@@ -25,24 +25,87 @@ class CloudTaskHandler {
   }
 
   async createEvolutionTask(jobData) {
+    // Legacy method - now creates an orchestrator task
+    return this.createOrchestratorTask({
+      jobId: jobData.jobId || uuidv4(),
+      evolutionConfig: jobData.evolutionConfig,
+      problemContext: jobData.problemContext,
+      userId: jobData.userId,
+      sessionId: jobData.sessionId
+    });
+  }
+
+  async createOrchestratorTask(taskData) {
     try {
-      const jobId = jobData.jobId || uuidv4();
+      const { jobId, scheduleTime, ...payload } = taskData;
       
       const task = {
         httpRequest: {
           httpMethod: 'POST',
-          url: `${this.workerUrl}/process-evolution`,
+          url: `${this.workerUrl}/orchestrate`,
           headers: {
             'Content-Type': 'application/json',
           },
           body: Buffer.from(JSON.stringify({
-            ...jobData,
+            type: 'orchestrator',
             jobId,
+            ...payload,
             taskCreatedAt: new Date().toISOString()
           })).toString('base64'),
         },
-        // Set dispatch deadline for the task (timeout per attempt)
-        dispatchDeadline: { seconds: 900 }, // 15 minutes timeout per attempt
+        dispatchDeadline: { seconds: 60 }, // 1 minute for orchestrator
+      };
+
+      if (scheduleTime) {
+        task.scheduleTime = {
+          seconds: Math.floor(scheduleTime.getTime() / 1000)
+        };
+      }
+
+      if (process.env.SERVICE_ACCOUNT_EMAIL) {
+        task.httpRequest.oidcToken = {
+          serviceAccountEmail: process.env.SERVICE_ACCOUNT_EMAIL,
+        };
+      }
+
+      const request = {
+        parent: this.getQueuePath(),
+        task: task,
+      };
+
+      const [response] = await this.client.createTask(request);
+      
+      logger.info(`Created orchestrator task: ${response.name}`);
+      
+      return {
+        jobId,
+        taskName: response.name,
+        status: 'queued'
+      };
+    } catch (error) {
+      logger.error('Error creating orchestrator task:', error);
+      throw error;
+    }
+  }
+
+  async createWorkerTask(taskData) {
+    try {
+      const { type, jobId, generation } = taskData;
+      
+      const task = {
+        httpRequest: {
+          httpMethod: 'POST',
+          url: `${this.workerUrl}/process-${type}`,
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: Buffer.from(JSON.stringify({
+            ...taskData,
+            taskCreatedAt: new Date().toISOString()
+          })).toString('base64'),
+        },
+        // Shorter timeout for individual phases
+        dispatchDeadline: { seconds: 300 }, // 5 minutes per phase
       };
 
       if (process.env.SERVICE_ACCOUNT_EMAIL) {
@@ -58,15 +121,14 @@ class CloudTaskHandler {
 
       const [response] = await this.client.createTask(request);
       
-      logger.info(`Created evolution task: ${response.name}`);
+      logger.info(`Created ${type} task for job ${jobId}, generation ${generation}: ${response.name}`);
       
       return {
-        jobId,
         taskName: response.name,
         status: 'queued'
       };
     } catch (error) {
-      logger.error('Error creating evolution task:', error);
+      logger.error('Error creating worker task:', error);
       throw error;
     }
   }

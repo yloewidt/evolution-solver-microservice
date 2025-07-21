@@ -339,6 +339,67 @@ class EvolutionResultStore {
       return false;
     }
   }
+  
+  async updatePhaseStatus(jobId, generation, phase, status) {
+    try {
+      const updates = {
+        [`generations.generation_${generation}.${phase}Started`]: status === 'started',
+        [`generations.generation_${generation}.${phase}StartedAt`]: Firestore.FieldValue.serverTimestamp(),
+        currentGeneration: generation,
+        currentPhase: phase,
+        updatedAt: Firestore.FieldValue.serverTimestamp()
+      };
+      
+      await this.getCollection().doc(jobId).update(updates);
+      
+      logger.info(`Updated phase status for job ${jobId}: gen ${generation}, ${phase} ${status}`);
+      return true;
+    } catch (error) {
+      logger.error('Error updating phase status:', error);
+      throw error;
+    }
+  }
+  
+  async savePhaseResults(jobId, generation, phase, results) {
+    try {
+      const genKey = `generations.generation_${generation}`;
+      const updates = {
+        [`${genKey}.${phase}Complete`]: true,
+        [`${genKey}.${phase}CompletedAt`]: Firestore.FieldValue.serverTimestamp(),
+        updatedAt: Firestore.FieldValue.serverTimestamp()
+      };
+      
+      // Add phase-specific results
+      Object.keys(results).forEach(key => {
+        updates[`${genKey}.${key}`] = results[key];
+      });
+      
+      await this.getCollection().doc(jobId).update(updates);
+      
+      logger.info(`Saved ${phase} results for job ${jobId}, generation ${generation}`);
+      return true;
+    } catch (error) {
+      logger.error('Error saving phase results:', error);
+      throw error;
+    }
+  }
+  
+  async completeJob(jobId, finalResults) {
+    try {
+      await this.getCollection().doc(jobId).update({
+        status: 'completed',
+        completedAt: Firestore.FieldValue.serverTimestamp(),
+        updatedAt: Firestore.FieldValue.serverTimestamp(),
+        ...finalResults
+      });
+      
+      logger.info(`Job ${jobId} marked as completed`);
+      return true;
+    } catch (error) {
+      logger.error('Error completing job:', error);
+      throw error;
+    }
+  }
 }
 
 export default EvolutionResultStore;

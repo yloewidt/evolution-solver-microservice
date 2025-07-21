@@ -1,0 +1,65 @@
+{
+  "jobId": "4e591c6b-c34a-48d0-b7a0-8b900747e3bd",
+  "problemContext": "Generate innovative solutions for electric truck fleet charging infrastructure",
+  "evolutionConfig": {
+    "maxCapex": 100,
+    "minProfits": 0,
+    "topSelectCount": 5,
+    "offspringRatio": 0.75,
+    "generations": 20,
+    "populationSize": 20,
+    "dealTypes": "partnerships, infrastructure deals, and service models",
+    "diversificationUnit": 0.05
+  },
+  "status": "processing",
+  "totalApiCalls": 4,
+  "apiCallsByGeneration": {
+    "gen1_variator": [
+      {
+        "timestamp": "2025-07-21T10:30:04.966Z",
+        "attempt": 1,
+        "latencyMs": 50816
+      },
+      {
+        "timestamp": "2025-07-21T10:31:09.471Z",
+        "attempt": 2,
+        "latencyMs": 63431
+      },
+      {
+        "timestamp": "2025-07-21T10:32:58.958Z",
+        "attempt": 3,
+        "latencyMs": 107395
+      }
+    ],
+    "gen1_enricher": [
+      {
+        "timestamp": "2025-07-21T10:36:26.065Z",
+        "attempt": 1,
+        "latencyMs": 182797
+      }
+    ]
+  },
+  "duplicateCalls": [
+    {
+      "key": "gen1_variator",
+      "count": 3,
+      "calls": [
+        {
+          "timestamp": "2025-07-21T10:30:04.966Z",
+          "attempt": 1,
+          "latencyMs": 50816
+        },
+        {
+          "timestamp": "2025-07-21T10:31:09.471Z",
+          "attempt": 2,
+          "latencyMs": 63431
+        },
+        {
+          "timestamp": "2025-07-21T10:32:58.958Z",
+          "attempt": 3,
+          "latencyMs": 107395
+        }
+      ]
+    }
+  ]
+}

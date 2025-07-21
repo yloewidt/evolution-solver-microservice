@@ -3,12 +3,14 @@ import { v4 as uuidv4 } from 'uuid';
 import EvolutionService from '../services/evolutionService.js';
 import AnalyticsService from '../services/analyticsService.js';
 import CloudTaskHandler from '../../cloud/tasks/taskHandler.js';
+import WorkflowHandler from '../../cloud/workflows/workflowHandler.js';
 import logger from '../utils/logger.js';
 
 const router = express.Router();
 
 export default function createRoutes(evolutionService, taskHandler) {
   const analyticsService = new AnalyticsService(evolutionService.resultStore);
+  const workflowHandler = new WorkflowHandler();
   // Submit new evolution job
   router.post('/jobs', async (req, res) => {
     try {
@@ -97,15 +99,29 @@ export default function createRoutes(evolutionService, taskHandler) {
         status: 'pending'
       });
       
-      // THEN create the task
-      const result = await taskHandler.createEvolutionTask(jobData);
+      // THEN create the workflow execution
+      const useWorkflow = process.env.USE_WORKFLOWS === 'true' || process.env.ENVIRONMENT === 'production';
       
-      res.json({
-        jobId: jobId,
-        taskName: result.taskName,
-        status: 'queued',
-        message: 'Evolution job queued for processing'
-      });
+      if (useWorkflow) {
+        const result = await workflowHandler.executeEvolutionWorkflow(jobData);
+        
+        res.json({
+          jobId: jobId,
+          executionName: result.executionName,
+          status: 'queued',
+          message: 'Evolution job queued for processing (workflow)'
+        });
+      } else {
+        // Legacy task-based approach
+        const result = await taskHandler.createEvolutionTask(jobData);
+        
+        res.json({
+          jobId: jobId,
+          taskName: result.taskName,
+          status: 'queued',
+          message: 'Evolution job queued for processing'
+        });
+      }
     } catch (error) {
       logger.error('Submit evolution job error:', error);
       res.status(500).json({ error: error.message });

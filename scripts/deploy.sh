@@ -67,17 +67,11 @@ SERVICE_URL=$(gcloud run services describe ${SERVICE_NAME}-${ENVIRONMENT} \
     --project ${PROJECT_ID} \
     --format 'value(status.url)')
 
-echo -e "${GREEN}Deployment complete!${NC}"
-echo "Service URL: ${SERVICE_URL}"
+echo -e "${GREEN}API deployment complete!${NC}"
+echo "API URL: ${SERVICE_URL}"
 
-# Update Cloud Tasks to use new service URL
-if [ "$ENVIRONMENT" = "production" ]; then
-    echo -e "${YELLOW}Updating Cloud Tasks configuration...${NC}"
-    # Update environment variable for worker URL
-    gcloud run services update ${SERVICE_NAME}-worker-${ENVIRONMENT} \
-        --update-env-vars "EVOLUTION_API_URL=${SERVICE_URL}" \
-        --region ${REGION} \
-        --project ${PROJECT_ID}
-fi
+# Deploy worker service
+echo -e "${YELLOW}Deploying worker service...${NC}"
+./scripts/deploy-worker.sh ${ENVIRONMENT} ${TAG}
 
-echo -e "${GREEN}All done!${NC}"
+echo -e "${GREEN}All deployments complete!${NC}"

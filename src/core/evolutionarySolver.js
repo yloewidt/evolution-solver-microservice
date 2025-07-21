@@ -81,8 +81,8 @@ Requirements:
       try {
         logger.info(`Variator attempt ${attempt}/${maxRetries}`);
         
-        const startTime = Date.now();
-        const response = await this.client.responses.create({
+        // Prepare API call for logging
+        const apiCall = {
           model: this.config.model,
           input: [
             {
@@ -98,9 +98,43 @@ Requirements:
           reasoning: { effort: "medium" },
           stream: false, // Avoid long SSE streams in Cloud Run
           store: true
+        };
+        
+        // Log the full API call for replay
+        const callId = `${this.progressTracker?.jobId || 'unknown'}_gen${this.currentGeneration || 0}_variator_${Date.now()}`;
+        logger.info('API_CALL_REPLAY:', {
+          callId,
+          phase: 'variator',
+          generation: this.currentGeneration || 0,
+          attempt,
+          timestamp: new Date().toISOString(),
+          request: {
+            model: apiCall.model,
+            promptLength: prompt.length,
+            promptPreview: prompt.substring(0, 200) + '...',
+            fullPrompt: prompt  // Full prompt for replay
+          }
         });
+        
+        const startTime = Date.now();
+        const response = await this.client.responses.create(apiCall);
 
         logger.info('Variator response received');
+        
+        // Log the full response for replay
+        logger.info('API_RESPONSE_REPLAY:', {
+          callId,
+          phase: 'variator',
+          generation: this.currentGeneration || 0,
+          latencyMs: Date.now() - startTime,
+          usage: response.usage,
+          responseStructure: {
+            hasOutput: !!response.output,
+            outputTypes: response.output?.map(o => o.type),
+            outputCount: response.output?.length
+          },
+          fullResponse: JSON.stringify(response)  // Full response for replay
+        });
         
         // Track API call telemetry
         if (this.progressTracker?.resultStore && this.progressTracker?.jobId && response) {
@@ -204,8 +238,8 @@ Return JSON array with original fields plus business_case object.`;
       try {
         logger.info(`Enricher attempt ${attempt}/3`);
         
-        const startTime = Date.now();
-        const response = await this.client.responses.create({
+        // Prepare API call for logging
+        const apiCall = {
           model: this.config.model,
           input: [
             {
@@ -221,6 +255,42 @@ Return JSON array with original fields plus business_case object.`;
           reasoning: { effort: "high" },
           stream: false, // Avoid long SSE streams in Cloud Run
           store: true
+        };
+        
+        // Log the full API call for replay
+        const callId = `${this.progressTracker?.jobId || 'unknown'}_gen${this.currentGeneration || 0}_enricher_${Date.now()}`;
+        logger.info('API_CALL_REPLAY:', {
+          callId,
+          phase: 'enricher',
+          generation: this.currentGeneration || 0,
+          attempt,
+          timestamp: new Date().toISOString(),
+          request: {
+            model: apiCall.model,
+            promptLength: enrichPrompt.length,
+            promptPreview: enrichPrompt.substring(0, 200) + '...',
+            fullPrompt: enrichPrompt  // Full prompt for replay
+          }
+        });
+        
+        const startTime = Date.now();
+        const response = await this.client.responses.create(apiCall);
+        
+        logger.info('Enricher response received');
+        
+        // Log the full response for replay
+        logger.info('API_RESPONSE_REPLAY:', {
+          callId,
+          phase: 'enricher',
+          generation: this.currentGeneration || 0,
+          latencyMs: Date.now() - startTime,
+          usage: response.usage,
+          responseStructure: {
+            hasOutput: !!response.output,
+            outputTypes: response.output?.map(o => o.type),
+            outputCount: response.output?.length
+          },
+          fullResponse: JSON.stringify(response)  // Full response for replay
         });
 
         // Track API call telemetry

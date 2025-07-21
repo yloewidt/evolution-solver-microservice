@@ -33,7 +33,7 @@ fi
 
 # Build and tag image
 echo -e "${YELLOW}Building Docker image...${NC}"
-docker build -t ${SERVICE_NAME}:${TAG} .
+docker buildx build --platform linux/amd64 -t ${SERVICE_NAME}:${TAG} --load .
 docker tag ${SERVICE_NAME}:${TAG} ${IMAGE_NAME}:${TAG}
 docker tag ${SERVICE_NAME}:${TAG} ${IMAGE_NAME}:${ENVIRONMENT}
 
@@ -58,7 +58,7 @@ gcloud run deploy ${SERVICE_NAME}-${ENVIRONMENT} \
     --port 8080 \
     --set-env-vars "ENVIRONMENT=${ENVIRONMENT},NODE_ENV=production" \
     --set-secrets "OPENAI_API_KEY=openai-api-key:latest" \
-    --service-account "${SERVICE_NAME}-sa@${PROJECT_ID}.iam.gserviceaccount.com"
+    --service-account "${SERVICE_NAME}@${PROJECT_ID}.iam.gserviceaccount.com"
 
 # Get service URL
 SERVICE_URL=$(gcloud run services describe ${SERVICE_NAME}-${ENVIRONMENT} \

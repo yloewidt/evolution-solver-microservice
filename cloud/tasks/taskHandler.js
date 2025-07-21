@@ -42,7 +42,7 @@ class CloudTaskHandler {
           })).toString('base64'),
         },
         // Set dispatch deadline for the task (timeout per attempt)
-        dispatchDeadline: '900s', // 15 minutes timeout per attempt
+        dispatchDeadline: { seconds: 900 }, // 15 minutes timeout per attempt
       };
 
       if (process.env.SERVICE_ACCOUNT_EMAIL) {

@@ -149,6 +149,22 @@ Requirements:
             success: true
           };
           await this.progressTracker.resultStore.addApiCallTelemetry(this.progressTracker.jobId, telemetry);
+          
+          // Save full debug data
+          await this.progressTracker.resultStore.saveApiCallDebug(
+            this.progressTracker.jobId,
+            callId,
+            {
+              phase: 'variator',
+              generation: this.currentGeneration || 0,
+              attempt,
+              prompt,
+              fullResponse: response,
+              parsedResponse: newIdeas,
+              usage: response.usage,
+              latencyMs: Date.now() - startTime
+            }
+          );
         }
         
         const newIdeas = await this.parseResponse(response, prompt);
@@ -306,6 +322,23 @@ Return JSON array with original fields plus business_case object.`;
             success: true
           };
           await this.progressTracker.resultStore.addApiCallTelemetry(this.progressTracker.jobId, telemetry);
+          
+          // Save full debug data
+          await this.progressTracker.resultStore.saveApiCallDebug(
+            this.progressTracker.jobId,
+            callId,
+            {
+              phase: 'enricher',
+              generation: this.currentGeneration || 0,
+              attempt,
+              prompt: enrichPrompt,
+              inputIdeas: ideas,
+              fullResponse: response,
+              parsedResponse: await this.parseResponse(response, enrichPrompt),
+              usage: response.usage,
+              latencyMs: Date.now() - startTime
+            }
+          );
         }
 
         return await this.parseResponse(response, enrichPrompt);

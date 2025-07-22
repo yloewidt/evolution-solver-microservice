@@ -59,14 +59,24 @@ class EvolutionarySolver {
 
     // Get configuration
     const dealTypes = this.config.dealTypes || 'creative partnerships and business models';
-    const maxCapex = this.config.maxCapex || 0.05;  // Default $50K in millions
+    const maxCapex = this.config.maxCapex || 100000;  // Default: no limit
+    const minProfits = this.config.minProfits || 0;
     const offspringRatio = this.config.offspringRatio || 0.7;
 
     // Calculate offspring vs wildcard split
     const offspringCount = currentSolutions.length > 0 ? Math.floor(numNeeded * offspringRatio) : 0;
     const wildcardCount = numNeeded - offspringCount;
 
-    const prompt = `Problem to solve: ${problemContext}
+    // Build guidance text based on preferences
+    let guidanceText = '';
+    if (maxCapex < 100) {
+      guidanceText += `\n\nPREFERRED APPROACH: Focus on capital-efficient solutions with initial investment under $${maxCapex}M. Low-cost, high-impact strategies are especially valued.`;
+    }
+    if (minProfits > 0) {
+      guidanceText += `\nTARGET OUTCOME: Aim for solutions with 5-year NPV potential above $${minProfits}M.`;
+    }
+
+    const prompt = `Problem to solve: ${problemContext}${guidanceText}
 
 ${currentSolutions.length > 0 ? `Top ${currentSolutions.length} performing solutions from previous generation:
 ${JSON.stringify(currentSolutions, null, 2)}
@@ -78,7 +88,7 @@ Generate ${numNeeded} new solutions as JSON array:
 
 Each solution must have:
 - "idea_id": unique identifier (e.g., "he3_fusion_swap_v2")
-- "description": Business model in plain terms. Focus on ${dealTypes}${maxCapex < 1000 ? ` with upfront costs under $${maxCapex}M` : ''}
+- "description": Business model in plain terms. Focus on ${dealTypes}
 - "core_mechanism": How value is created and captured
 
 Requirements:
@@ -259,6 +269,19 @@ IMPORTANT: Return ONLY the raw JSON array. Do not wrap the output in markdown co
 
     let startTime = Date.now(); // Define at method level for error handling
 
+    // Get configuration for preferences
+    const maxCapex = this.config.maxCapex || 100000;
+    const minProfits = this.config.minProfits || 0;
+
+    // Build preference guidance
+    let preferenceGuidance = '';
+    if (maxCapex < 100) {
+      preferenceGuidance += `\n\nPREFERRED APPROACH: When analyzing these ideas, note that capital-efficient solutions under $${maxCapex}M initial investment are preferred. Consider creative ways to reduce upfront costs through partnerships, phased rollouts, or asset-light models.`;
+    }
+    if (minProfits > 0) {
+      preferenceGuidance += `\nTARGET RETURNS: Solutions should ideally achieve 5-year NPV above $${minProfits}M. Look for high-impact, scalable opportunities.`;
+    }
+
     const enrichPrompt = `Analyze each business idea and calculate key metrics:
 
 Required fields in business_case object (ALL monetary values in millions USD):
@@ -273,7 +296,7 @@ IMPORTANT: All monetary values must be in millions. Examples:
 - $50K = 0.05
 - $100K = 0.1
 - $1M = 1.0
-- $50M = 50.0
+- $50M = 50.0${preferenceGuidance}
 
 Analysis steps:
 1. Market size and growth potential
@@ -476,39 +499,36 @@ IMPORTANT: Return ONLY the raw JSON array. Do not wrap the output in markdown co
       const npv = bc.npv_success;
       const capex = bc.capex_est;
 
-      // Apply user-defined filters
-      let filtered = false;
-      let filterReason = null;
+      // Calculate risk-adjusted score for ALL ideas (no filtering)
+      // Expected value: p * NPV_success - (1-p) * CAPEX
+      // All values now in millions USD
+      const expectedValue = p * npv - (1 - p) * capex;
 
-      if (capex > maxCapex) {
-        filtered = true;
-        filterReason = `CAPEX ($${capex}M) exceeds maximum ($${maxCapex}M)`;
-      } else if (npv < minProfits) {
-        filtered = true;
-        filterReason = `NPV ($${npv}M) below minimum ($${minProfits}M)`;
-      }
+      // Diversification penalty: sqrt(CAPEX/C0)
+      const diversificationPenalty = Math.sqrt(capex / C0);
 
-      // Calculate risk-adjusted score
-      let score = -Infinity;
-      let expectedValue = null;
+      // Risk-Adjusted NPV
+      const score = expectedValue / diversificationPenalty;
 
-      if (!filtered) {
-        // Expected value: p * NPV_success - (1-p) * CAPEX
-        // All values now in millions USD
-        expectedValue = p * npv - (1 - p) * capex;
+      // Track if idea violates preferences (for logging only)
+      let violatesPreferences = false;
+      let preferenceNote = null;
 
-        // Diversification penalty: sqrt(CAPEX/C0)
-        const diversificationPenalty = Math.sqrt(capex / C0);
-
-        // Risk-Adjusted NPV
-        score = expectedValue / diversificationPenalty;
+      if (maxCapex < 100 && capex > maxCapex) {
+        violatesPreferences = true;
+        preferenceNote = `CAPEX ($${capex}M) exceeds preference ($${maxCapex}M)`;
+      } else if (minProfits > 0 && npv < minProfits) {
+        violatesPreferences = true;
+        preferenceNote = `NPV ($${npv}M) below preference ($${minProfits}M)`;
       }
 
       return {
         ...idea,
         score,
-        filtered,
-        filterReason,
+        filtered: false,  // Never filter ideas
+        filterReason: null,
+        violatesPreferences,
+        preferenceNote,
         metrics: {
           npv: npv,
           capex: capex,
@@ -518,28 +538,25 @@ IMPORTANT: Return ONLY the raw JSON array. Do not wrap the output in markdown co
       };
     });
 
-    // Separate filtered and valid ideas
-    const validIdeas = scoredIdeas.filter(idea => !idea.filtered);
-    const filteredIdeas = scoredIdeas.filter(idea => idea.filtered);
+    // Sort ALL ideas by score (no filtering)
+    const rankedIdeas = [...scoredIdeas].sort((a, b) => b.score - a.score);
 
-    // Sort valid ideas by score
-    validIdeas.sort((a, b) => b.score - a.score);
-
-    // Assign ranks only to valid ideas
-    validIdeas.forEach((idea, index) => {
+    // Assign ranks to all ideas
+    rankedIdeas.forEach((idea, index) => {
       idea.rank = index + 1;
     });
 
-    // Log filtering results
-    if (filteredIdeas.length > 0) {
-      logger.info(`Filtered ${filteredIdeas.length} ideas:`,
-        filteredIdeas.map(i => ({ id: i.idea_id, reason: i.filterReason }))
+    // Log preference violations if any
+    const violatingIdeas = rankedIdeas.filter(idea => idea.violatesPreferences);
+    if (violatingIdeas.length > 0) {
+      logger.info(`${violatingIdeas.length} ideas violate preferences (but are NOT filtered):`,
+        violatingIdeas.map(i => ({ id: i.idea_id, note: i.preferenceNote, score: i.score.toFixed(2) }))
       );
     }
 
     return {
-      rankedIdeas: validIdeas,
-      filteredIdeas: filteredIdeas
+      rankedIdeas: rankedIdeas,
+      filteredIdeas: []  // No ideas are filtered anymore
     };
   }
 

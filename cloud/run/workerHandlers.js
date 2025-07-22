@@ -102,9 +102,6 @@ export async function processEnricher(taskData, resultStore) {
     
     logger.info(`Processing ${validIdeas.length} valid ideas out of ${ideas.length} total`);
     
-    // Use only valid ideas
-    ideas = validIdeas;
-    
     // Create solver instance
     const solver = new EvolutionarySolver();
     solver.config = { ...solver.config, ...evolutionConfig };
@@ -114,7 +111,7 @@ export async function processEnricher(taskData, resultStore) {
     solver.progressTracker = { resultStore, jobId };
     
     // Enrich ideas
-    const enrichedIdeas = await solver.enricher(ideas);
+    const enrichedIdeas = await solver.enricher(validIdeas);
     
     // Format enriched data
     const formattedIdeas = await solver.formatEnrichedData(enrichedIdeas);

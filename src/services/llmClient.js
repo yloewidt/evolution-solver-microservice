@@ -1,10 +1,12 @@
 import OpenAI from 'openai';
 import https from 'https';
 import logger from '../utils/logger.js';
-import { VariatorResponseSchema, EnricherResponseSchema } from '../schemas/evolutionSchemas.js';
+import { VariatorResponseSchema, EnricherResponseSchema } from '../schemas/structuredSchemas.js';
+import { ResponseParser } from '../utils/responseParser.js';
 
 /**
  * Unified LLM client that handles both OpenAI and Anthropic-style APIs
+ * Updated to use structured outputs when available
  */
 export class LLMClient {
   constructor(config = {}) {
@@ -193,25 +195,32 @@ export class LLMClient {
 
     try {
       if (apiStyle === 'openai') {
-        // Check for structured output first
-        if (response.choices?.[0]?.message?.parsed) {
-          logger.info(`${context}: Using structured output`);
-          const parsed = response.choices[0].message.parsed;
-
-          // Extract the array from the structured response
-          if (parsed.ideas) return parsed.ideas;
-          if (parsed.enriched_ideas) return parsed.enriched_ideas;
-
-          return Array.isArray(parsed) ? parsed : [parsed];
+        // Check for refusal first
+        if (response.choices?.[0]?.message?.refusal) {
+          throw new Error(`Model refused request: ${response.choices[0].message.refusal}`);
         }
 
-        // Fallback to content parsing
+        // Get content from response
         const content = response.choices?.[0]?.message?.content;
         if (!content) throw new Error('No content in OpenAI response');
 
+        // Parse the JSON content
+        const parsed = JSON.parse(content);
+        
+        // If using structured outputs, the response will be wrapped in an object
+        if (parsed.ideas) {
+          logger.info(`${context}: Structured output - extracted ${parsed.ideas.length} ideas`);
+          return parsed.ideas;
+        }
+        if (parsed.enriched_ideas) {
+          logger.info(`${context}: Structured output - extracted ${parsed.enriched_ideas.length} enriched ideas`);
+          return parsed.enriched_ideas;
+        }
+
+        // Fallback for non-structured responses
         return await this.parseTextContent(content, context);
       } else {
-        // Anthropic style (o3)
+        // Anthropic style (o3) - no structured outputs yet
         let content = '';
 
         if (response.output && Array.isArray(response.output)) {

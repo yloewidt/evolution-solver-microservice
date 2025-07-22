@@ -164,7 +164,12 @@ describe('LLMClient', () => {
       const result = await client.executeRequest(request);
       
       expect(result.success).toBe(true);
-      expect(mockOpenAIInstance.chat.completions.create).toHaveBeenCalledWith(request);
+      expect(mockOpenAIInstance.chat.completions.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          ...request,
+          signal: expect.any(AbortSignal)
+        })
+      );
       expect(mockOpenAIInstance.responses.create).not.toHaveBeenCalled();
     });
 
@@ -177,7 +182,12 @@ describe('LLMClient', () => {
       const result = await client.executeRequest(request);
       
       expect(result.success).toBe(true);
-      expect(mockOpenAIInstance.responses.create).toHaveBeenCalledWith(request);
+      expect(mockOpenAIInstance.responses.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          ...request,
+          signal: expect.any(AbortSignal)
+        })
+      );
       expect(mockOpenAIInstance.chat.completions.create).not.toHaveBeenCalled();
     });
   });
@@ -189,12 +199,12 @@ describe('LLMClient', () => {
         choices: [
           {
             message: {
-              parsed: {
+              content: JSON.stringify({
                 ideas: [
                   { idea_id: '1', description: 'Test 1' },
                   { idea_id: '2', description: 'Test 2' }
                 ]
-              }
+              })
             }
           }
         ]
@@ -320,11 +330,11 @@ describe('LLMClient', () => {
         choices: [
           {
             message: {
-              parsed: {
+              content: JSON.stringify({
                 enriched_ideas: [
                   { idea_id: '1', description: 'Test' }
                 ]
-              }
+              })
             }
           }
         ]

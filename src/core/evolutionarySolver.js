@@ -2,6 +2,7 @@ import OpenAI from 'openai';
 import https from 'https';
 import http from 'http';
 import logger from '../utils/logger.js';
+import RobustJsonParser from '../utils/jsonParser.js';
 
 class EvolutionarySolver {
   constructor() {
@@ -781,38 +782,23 @@ ${JSON.stringify(enrichedIdeas, null, 2)}`;
         content = JSON.stringify(content);
       }
       
-      // Try to parse o3 responses directly first
-      const modelToCheck = model || response.model || this.config.model;
-      const isO3Response = modelToCheck && modelToCheck.includes('o3');
+      // Use the robust JSON parser based on the context
+      const isEnricher = prompt.includes('business_case');
+      const isVariator = prompt.includes('idea_id') && prompt.includes('core_mechanism');
       
-      // Try to parse directly first for all models
-      content = content.replace(/```json\n?/g, '').replace(/```\n?/g, '');
-      content = content.replace(/\\\\"/g, '"');
-      
-      const jsonMatch = content.match(/\[[\s\S]*\]/);
-      if (jsonMatch) {
-        try {
-          const parsed = JSON.parse(jsonMatch[0]);
-          return Array.isArray(parsed) ? parsed : [parsed];
-        } catch (parseError) {
-          logger.warn('Failed to parse JSON directly');
-          // NO REFORMATTING - let it fail to avoid extra API calls
-          throw parseError;
-        }
-      }
-      
-      try {
-        const parsed = JSON.parse(content);
+      if (isEnricher) {
+        return RobustJsonParser.parseEnricherResponse(content);
+      } else if (isVariator) {
+        return RobustJsonParser.parseVariatorResponse(content);
+      } else {
+        // Generic parsing
+        const parsed = RobustJsonParser.parse(content, 'generic');
         return Array.isArray(parsed) ? parsed : [parsed];
-      } catch (parseError) {
-        logger.warn('Failed to parse JSON directly');
-        // NO REFORMATTING - let it fail to avoid extra API calls
-        throw parseError;
       }
     } catch (error) {
       logger.error('Failed to parse response:', error);
-      logger.error('Raw response:', JSON.stringify(response, null, 2));
-      throw new Error('Failed to parse LLM response');
+      logger.error('Raw response preview:', JSON.stringify(response, null, 2).substring(0, 1000));
+      throw new Error(`Failed to parse LLM response: ${error.message}`);
     }
   }
 

@@ -306,6 +306,76 @@ app.post('/process-ranker', async (req, res) => {
   }
 });
 
+// Retry enricher endpoint for manual recovery
+app.post('/retry-enricher', async (req, res) => {
+  const { jobId, generation } = req.body;
+  
+  logger.info(`Manual retry-enricher request for job ${jobId}, generation ${generation}`);
+  
+  try {
+    // Validate input
+    if (!jobId || !generation) {
+      return res.status(400).json({ error: 'jobId and generation are required' });
+    }
+    
+    // Get current job status
+    const job = await resultStore.getJobStatus(jobId);
+    if (!job) {
+      return res.status(404).json({ error: 'Job not found' });
+    }
+    
+    const genData = job.generations?.[`generation_${generation}`];
+    if (!genData) {
+      return res.status(404).json({ error: `Generation ${generation} not found` });
+    }
+    
+    // Check if variator is complete and enricher failed
+    if (!genData.variatorComplete) {
+      return res.status(400).json({ error: 'Variator not complete for this generation' });
+    }
+    
+    if (genData.enricherComplete && genData.solutions?.length > 0) {
+      return res.status(400).json({ error: 'Enricher already complete with valid solutions' });
+    }
+    
+    // Get the ideas from this generation
+    const ideas = genData.ideas;
+    if (!ideas || ideas.length === 0) {
+      return res.status(400).json({ error: 'No ideas found for this generation' });
+    }
+    
+    logger.info(`Retrying enricher with ${ideas.length} ideas`);
+    
+    // Process enricher
+    const taskData = {
+      jobId,
+      generation,
+      evolutionConfig: job.evolutionConfig,
+      ideas
+    };
+    
+    const result = await processEnricher(taskData, resultStore);
+    
+    logger.info(`Enricher retry successful for job ${jobId}, generation ${generation}`);
+    
+    res.json({ 
+      success: true,
+      jobId,
+      generation,
+      enrichedCount: result.ideasCount,
+      message: `Successfully enriched ${result.ideasCount} ideas`
+    });
+    
+  } catch (error) {
+    logger.error('Retry enricher error:', error);
+    res.status(500).json({ 
+      error: error.message,
+      jobId,
+      generation
+    });
+  }
+});
+
 // Legacy endpoint - create orchestrator task for backward compatibility
 app.post('/process-evolution', async (req, res) => {
   const jobData = req.body;

@@ -111,12 +111,41 @@ export async function processEnricher(taskData, resultStore) {
     solver.progressTracker = { resultStore, jobId };
     
     // Enrich ideas
-    const enrichedIdeas = await solver.enricher(validIdeas);
+    let enrichedIdeas;
+    let formattedIdeas;
     
-    // Format enriched data
-    const formattedIdeas = await solver.formatEnrichedData(enrichedIdeas);
+    try {
+      enrichedIdeas = await solver.enricher(validIdeas);
+      
+      // Validate we got valid enriched ideas
+      if (!enrichedIdeas || enrichedIdeas.length === 0) {
+        throw new Error('Enricher returned no valid ideas');
+      }
+      
+      // Format enriched data
+      formattedIdeas = await solver.formatEnrichedData(enrichedIdeas);
+      
+      // Double check we have valid formatted ideas
+      if (!formattedIdeas || formattedIdeas.length === 0) {
+        throw new Error('Formatting returned no valid ideas');
+      }
+      
+    } catch (parseError) {
+      logger.error(`Enricher parsing/formatting error for job ${jobId}, generation ${generation}:`, parseError);
+      
+      // Save error state but DO NOT mark enricherComplete=true
+      await resultStore.savePhaseResults(jobId, generation, 'enricher', {
+        enricherError: parseError.message,
+        enricherParseFailure: true,
+        enricherFailedAt: new Date(),
+        solutions: [] // Ensure solutions is empty
+      });
+      
+      // Re-throw with more context
+      throw new Error(`Enricher parsing failed: ${parseError.message}`);
+    }
     
-    // Save results
+    // Only mark complete if we have valid results
     await resultStore.savePhaseResults(jobId, generation, 'enricher', {
       enrichedIdeas: formattedIdeas,
       enricherComplete: true,
@@ -135,10 +164,11 @@ export async function processEnricher(taskData, resultStore) {
   } catch (error) {
     logger.error(`Enricher error for job ${jobId}, generation ${generation}:`, error);
     
-    // Update error state
+    // Update error state but DO NOT mark enricherComplete
     await resultStore.savePhaseResults(jobId, generation, 'enricher', {
       enricherError: error.message,
-      enricherFailedAt: new Date()
+      enricherFailedAt: new Date(),
+      solutions: [] // Ensure solutions is empty
     });
     
     throw error;

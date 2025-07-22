@@ -40,12 +40,11 @@ export class LLMClient {
    */
   getApiStyle() {
     const model = this.config.model.toLowerCase();
-    if (model.includes('o3')) {
-      return 'anthropic'; // o3 uses Anthropic-style API
-    } else if (model.includes('o1') || model.includes('gpt')) {
-      return 'openai'; // o1 and GPT models use OpenAI API
+    // All OpenAI models use OpenAI API style
+    if (model.includes('o3') || model.includes('o1') || model.includes('gpt')) {
+      return 'openai';
     }
-    return 'anthropic'; // Default to Anthropic style
+    return 'anthropic'; // Default to Anthropic style for non-OpenAI models
   }
 
   /**
@@ -162,16 +161,16 @@ export class LLMClient {
     }, timeoutMs);
     
     try {
-      // Add signal to request options
-      const requestWithSignal = {
-        ...request,
-        signal: controller.signal
-      };
-      
       let response;
       if (apiStyle === 'openai') {
-        response = await this.client.chat.completions.create(requestWithSignal);
+        // OpenAI doesn't support signal in the request, use client-level timeout
+        response = await this.client.chat.completions.create(request);
       } else {
+        // Add signal to request options for Anthropic-style
+        const requestWithSignal = {
+          ...request,
+          signal: controller.signal
+        };
         response = await this.client.responses.create(requestWithSignal);
       }
       
@@ -204,21 +203,26 @@ export class LLMClient {
         const content = response.choices?.[0]?.message?.content;
         if (!content) throw new Error('No content in OpenAI response');
 
-        // Parse the JSON content
-        const parsed = JSON.parse(content);
-        
-        // If using structured outputs, the response will be wrapped in an object
-        if (parsed.ideas) {
-          logger.info(`${context}: Structured output - extracted ${parsed.ideas.length} ideas`);
-          return parsed.ideas;
+        // Try to parse as JSON first (for structured outputs)
+        try {
+          const parsed = JSON.parse(content);
+          
+          // If using structured outputs, the response will be wrapped in an object
+          if (parsed.ideas) {
+            logger.info(`${context}: Structured output - extracted ${parsed.ideas.length} ideas`);
+            return parsed.ideas;
+          }
+          if (parsed.enriched_ideas) {
+            logger.info(`${context}: Structured output - extracted ${parsed.enriched_ideas.length} enriched ideas`);
+            return parsed.enriched_ideas;
+          }
+          
+          // If it's valid JSON but not structured output format, return it
+          return Array.isArray(parsed) ? parsed : [parsed];
+        } catch (jsonError) {
+          // Not valid JSON, fallback to text parsing
+          return await this.parseTextContent(content, context);
         }
-        if (parsed.enriched_ideas) {
-          logger.info(`${context}: Structured output - extracted ${parsed.enriched_ideas.length} enriched ideas`);
-          return parsed.enriched_ideas;
-        }
-
-        // Fallback for non-structured responses
-        return await this.parseTextContent(content, context);
       } else {
         // Anthropic style (o3) - no structured outputs yet
         let content = '';

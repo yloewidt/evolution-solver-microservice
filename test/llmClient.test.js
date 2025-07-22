@@ -67,12 +67,12 @@ describe('LLMClient', () => {
   });
 
   describe('getApiStyle', () => {
-    it('should return anthropic for o3 models', () => {
+    it('should return openai for o3 models', () => {
       client.config.model = 'o3';
-      expect(client.getApiStyle()).toBe('anthropic');
+      expect(client.getApiStyle()).toBe('openai');
       
       client.config.model = 'o3-mini';
-      expect(client.getApiStyle()).toBe('anthropic');
+      expect(client.getApiStyle()).toBe('openai');
     });
 
     it('should return openai for o1 models', () => {
@@ -95,20 +95,19 @@ describe('LLMClient', () => {
   });
 
   describe('createVariatorRequest', () => {
-    it('should create Anthropic-style request for o3', async () => {
+    it('should create OpenAI-style request for o3', async () => {
       client.config.model = 'o3';
       const prompt = 'Generate solutions for this problem';
       const request = await client.createVariatorRequest(prompt);
       
       expect(request.model).toBe('o3');
-      expect(request.input).toBeDefined();
-      expect(request.input[0].role).toBe('developer');
-      expect(request.input[0].content[0].type).toBe('input_text');
-      expect(request.input[1].role).toBe('user');
-      expect(request.input[1].content[0].type).toBe('input_text');
-      expect(request.input[1].content[0].text).toBe(prompt);
-      expect(request.text.format.type).toBe('text');
-      expect(request.reasoning.effort).toBe('medium');
+      expect(request.messages).toBeDefined();
+      expect(request.messages).toHaveLength(2);
+      expect(request.messages[0].role).toBe('system');
+      expect(request.messages[1].role).toBe('user');
+      expect(request.messages[1].content).toBe(prompt);
+      expect(request.response_format).toBeDefined();
+      expect(request.temperature).toBe(0.7);
     });
 
     it('should create OpenAI-style request for gpt models', async () => {
@@ -127,17 +126,19 @@ describe('LLMClient', () => {
   });
 
   describe('createEnricherRequest', () => {
-    it('should create Anthropic-style enricher request', async () => {
+    it('should create OpenAI-style enricher request for o3', async () => {
       client.config.model = 'o3';
       const prompt = 'Enrich these ideas with business cases';
       const request = await client.createEnricherRequest(prompt);
       
       expect(request.model).toBe('o3');
-      expect(request.input).toBeDefined();
-      expect(request.input[0].role).toBe('developer');
-      expect(request.input[1].role).toBe('user');
-      expect(request.input[1].content[0].text).toBe(prompt);
-      expect(request.reasoning.effort).toBe('high');
+      expect(request.messages).toBeDefined();
+      expect(request.messages).toHaveLength(2);
+      expect(request.messages[0].role).toBe('system');
+      expect(request.messages[1].role).toBe('user');
+      expect(request.messages[1].content).toBe(prompt);
+      expect(request.response_format).toBeDefined();
+      expect(request.temperature).toBe(0.5);
     });
 
     it('should create OpenAI-style enricher request', async () => {
@@ -164,31 +165,21 @@ describe('LLMClient', () => {
       const result = await client.executeRequest(request);
       
       expect(result.success).toBe(true);
-      expect(mockOpenAIInstance.chat.completions.create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          ...request,
-          signal: expect.any(AbortSignal)
-        })
-      );
+      expect(mockOpenAIInstance.chat.completions.create).toHaveBeenCalledWith(request);
       expect(mockOpenAIInstance.responses.create).not.toHaveBeenCalled();
     });
 
-    it('should call responses.create for o3 models', async () => {
+    it('should call chat.completions.create for o3 models', async () => {
       client.config.model = 'o3';
-      const request = { model: 'o3', input: [] };
+      const request = { model: 'o3', messages: [] };
       
-      mockOpenAIInstance.responses.create.mockResolvedValueOnce({ success: true });
+      mockOpenAIInstance.chat.completions.create.mockResolvedValueOnce({ success: true });
       
       const result = await client.executeRequest(request);
       
       expect(result.success).toBe(true);
-      expect(mockOpenAIInstance.responses.create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          ...request,
-          signal: expect.any(AbortSignal)
-        })
-      );
-      expect(mockOpenAIInstance.chat.completions.create).not.toHaveBeenCalled();
+      expect(mockOpenAIInstance.chat.completions.create).toHaveBeenCalledWith(request);
+      expect(mockOpenAIInstance.responses.create).not.toHaveBeenCalled();
     });
   });
 
@@ -218,6 +209,7 @@ describe('LLMClient', () => {
     });
 
     it('should parse Anthropic-style response with text output', async () => {
+      client.config.model = 'claude-3'; // Force Anthropic style
       const response = {
         output: [
           {
@@ -238,6 +230,7 @@ describe('LLMClient', () => {
     });
 
     it('should parse Anthropic-style response with message output', async () => {
+      client.config.model = 'claude-3'; // Force Anthropic style
       const response = {
         output: [
           {
@@ -276,6 +269,7 @@ describe('LLMClient', () => {
     });
 
     it('should parse response with output_text', async () => {
+      client.config.model = 'claude-3'; // Force Anthropic style
       const response = {
         output_text: JSON.stringify([{"idea_id": "1", "description": "Test"}])
       };
@@ -293,14 +287,16 @@ describe('LLMClient', () => {
     });
 
     it('should handle JSON extraction from markdown', async () => {
+      client.config.model = 'gpt-4'; // Use OpenAI style
       const response = {
-        output: [
+        choices: [
           {
-            type: 'text',
-            content: `Here is the response:
+            message: {
+              content: `Here is the response:
 \`\`\`json
 [{"idea_id": "1", "description": "Test"}]
 \`\`\``
+            }
           }
         ]
       };

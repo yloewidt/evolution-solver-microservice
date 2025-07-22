@@ -28,7 +28,7 @@ export class LLMClient {
     this.client = new OpenAI({
       apiKey: this.config.apiKey,
       httpAgent: agent,
-      timeout: 120000,
+      timeout: 300000, // 5 minutes
       maxRetries: 0
     });
   }
@@ -145,15 +145,43 @@ export class LLMClient {
   }
 
   /**
-   * Execute the request
+   * Execute the request with timeout protection
    */
   async executeRequest(request) {
     const apiStyle = this.getApiStyle();
-
-    if (apiStyle === 'openai') {
-      return await this.client.chat.completions.create(request);
-    } else {
-      return await this.client.responses.create(request);
+    
+    // Create an AbortController with timeout
+    const controller = new AbortController();
+    const timeoutMs = this.config.timeout || 300000; // 5 minutes default
+    
+    const timeoutId = setTimeout(() => {
+      controller.abort();
+      logger.error(`API request timed out after ${timeoutMs}ms`);
+    }, timeoutMs);
+    
+    try {
+      // Add signal to request options
+      const requestWithSignal = {
+        ...request,
+        signal: controller.signal
+      };
+      
+      let response;
+      if (apiStyle === 'openai') {
+        response = await this.client.chat.completions.create(requestWithSignal);
+      } else {
+        response = await this.client.responses.create(requestWithSignal);
+      }
+      
+      clearTimeout(timeoutId);
+      return response;
+    } catch (error) {
+      clearTimeout(timeoutId);
+      
+      if (error.name === 'AbortError' || controller.signal.aborted) {
+        throw new Error(`API request timed out after ${timeoutMs}ms`);
+      }
+      throw error;
     }
   }
 

@@ -5,6 +5,9 @@
 
 set -e
 
+# Add gcloud to PATH
+export PATH="/Users/yonatanloewidt/google-cloud-sdk/bin:$PATH"
+
 # Configuration
 ENVIRONMENT=${1:-staging}
 PROJECT_ID="evolutionsolver"

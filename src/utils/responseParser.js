@@ -21,25 +21,25 @@ export class ResponseParser {
         }
       }
     }
-    
+
     // Alternative o3 format
     if (response.output_text) {
       return response.output_text;
     }
-    
+
     // OpenAI chat completion format
     if (response.choices?.[0]?.message?.content) {
       return response.choices[0].message.content;
     }
-    
+
     // Direct content
     if (response.content) {
       return typeof response.content === 'string' ? response.content : JSON.stringify(response.content);
     }
-    
+
     throw new Error('No content found in response');
   }
-  
+
   /**
    * Parse JSON with automatic repair
    */
@@ -50,7 +50,7 @@ export class ResponseParser {
       .replace(/^```(?:json)?\s*/i, '')
       .replace(/```\s*$/i, '')
       .trim();
-    
+
     // Try direct parsing first
     try {
       const parsed = JSON.parse(cleaned);
@@ -70,56 +70,56 @@ export class ResponseParser {
       }
     }
   }
-  
+
   /**
    * Parse and validate variator response
    */
   static parseVariatorResponse(response) {
     const content = this.extractContent(response);
     const parsed = this.parseJSON(content, 'variator');
-    
+
     // Ensure it's an array
     const ideas = Array.isArray(parsed) ? parsed : (parsed.ideas || [parsed]);
-    
+
     // Validate required fields
     const validIdeas = ideas.filter(idea => {
       if (!idea || typeof idea !== 'object') return false;
       if (!idea.idea_id || !idea.description || !idea.core_mechanism) {
-        logger.warn(`Variator: Invalid idea structure`, idea);
+        logger.warn('Variator: Invalid idea structure', idea);
         return false;
       }
       return true;
     });
-    
+
     if (validIdeas.length === 0) {
       throw new Error('No valid ideas found in variator response');
     }
-    
+
     logger.info(`Variator: Parsed ${validIdeas.length} valid ideas`);
     return validIdeas;
   }
-  
+
   /**
    * Parse and validate enricher response
    */
   static parseEnricherResponse(response) {
     const content = this.extractContent(response);
     const parsed = this.parseJSON(content, 'enricher');
-    
+
     // Ensure it's an array
     const ideas = Array.isArray(parsed) ? parsed : (parsed.enriched_ideas || [parsed]);
-    
+
     // Validate required fields
     const validIdeas = ideas.filter(idea => {
       if (!idea || typeof idea !== 'object') return false;
       if (!idea.idea_id || !idea.description) return false;
-      
+
       const bc = idea.business_case;
       if (!bc || typeof bc !== 'object') {
         logger.warn(`Enricher: Missing business_case for ${idea.idea_id}`);
         return false;
       }
-      
+
       // Check required business case fields
       const requiredFields = ['npv_success', 'capex_est', 'timeline_months', 'likelihood'];
       for (const field of requiredFields) {
@@ -128,19 +128,19 @@ export class ResponseParser {
           return false;
         }
       }
-      
+
       if (!Array.isArray(bc.risk_factors) || !Array.isArray(bc.yearly_cashflows)) {
         logger.warn(`Enricher: Missing arrays in business_case for ${idea.idea_id}`);
         return false;
       }
-      
+
       return true;
     });
-    
+
     if (validIdeas.length === 0) {
       throw new Error('No valid enriched ideas found in response');
     }
-    
+
     logger.info(`Enricher: Parsed ${validIdeas.length} valid ideas`);
     return validIdeas;
   }

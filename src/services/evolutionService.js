@@ -9,14 +9,14 @@ class EvolutionService {
 
   async processEvolutionJob(jobData) {
     const { jobId, problemContext, initialSolutions, userId, sessionId, evolutionConfig } = jobData;
-    
+
     try {
       logger.info(`Starting evolutionary solution generation for job ${jobId}`);
       logger.info(`Problem context length: ${problemContext?.length}`);
       logger.info(`Initial solutions: ${initialSolutions?.length || 0}`);
       logger.info(`User ID: ${userId}, Session ID: ${sessionId}`);
-      logger.info(`Evolution config:`, evolutionConfig);
-      
+      logger.info('Evolution config:', evolutionConfig);
+
       await this.resultStore.updateJobStatus(jobId, 'processing');
 
       // Set a timeout slightly less than Cloud Run's timeout (15 minutes)
@@ -24,15 +24,15 @@ class EvolutionService {
       const timeoutPromise = new Promise((_, reject) => {
         setTimeout(() => reject(new Error('Evolution job timed out after 14 minutes')), timeoutMs);
       });
-      
+
       const resultPromise = this.solver.evolve(problemContext, initialSolutions, evolutionConfig, {
         jobId,
         resultStore: this.resultStore
       });
-      
+
       // Race between evolution and timeout
       const result = await Promise.race([resultPromise, timeoutPromise]);
-      
+
       const resultData = {
         jobId,
         userId,
@@ -45,17 +45,17 @@ class EvolutionService {
         totalSolutions: result.totalSolutions,
         status: 'completed'
       };
-      
+
       const resultId = await this.resultStore.saveResult(resultData);
-      
+
       logger.info(`Evolution job ${jobId} completed, result saved as ${resultId}`);
-      
+
       return { success: true, resultId, result };
     } catch (error) {
       logger.error(`Evolution job ${jobId} failed:`, error);
-      
+
       await this.resultStore.updateJobStatus(jobId, 'failed', error.message);
-      
+
       throw error;
     }
   }
@@ -64,15 +64,15 @@ class EvolutionService {
     if (!problemContext || typeof problemContext !== 'string') {
       throw new Error('Problem context must be a non-empty string');
     }
-    
+
     if (problemContext.length < 10) {
       throw new Error('Problem context too short - please provide more detail');
     }
-    
+
     if (problemContext.length > 5000) {
       throw new Error('Problem context too long - please keep under 5000 characters');
     }
-    
+
     return true;
   }
 
@@ -116,23 +116,23 @@ class EvolutionService {
 
   async getJobStats() {
     const recentJobs = await this.resultStore.getRecentJobs(100);
-    
+
     const stats = {
       total: recentJobs.length,
       completed: recentJobs.filter(j => j.status === 'completed').length,
       pending: recentJobs.filter(j => j.status === 'pending').length,
       processing: recentJobs.filter(j => j.status === 'processing').length,
       failed: recentJobs.filter(j => j.status === 'failed').length,
-      avgSolutions: recentJobs.reduce((sum, j) => 
+      avgSolutions: recentJobs.reduce((sum, j) =>
         sum + (j.topSolutions?.length || 0), 0) / (recentJobs.filter(j => j.status === 'completed').length || 1)
     };
-    
+
     return stats;
   }
 
   enrichContextWithBottleneck(selectedBottleneck, filters) {
     let enrichedContext = '';
-    
+
     if (selectedBottleneck) {
       enrichedContext = `Industry: ${selectedBottleneck.industry_name}
 Market Size: ${selectedBottleneck.market_size}
@@ -154,34 +154,34 @@ Generate innovative solutions that:
 - Target the $${selectedBottleneck.bottleneck.impact_usd_m}M problem size
 - Use creative partnerships and deal structures with minimal CapEx`;
     }
-    
+
     if (filters?.industries?.length > 0) {
       enrichedContext += `\n\nFocus on industries: ${filters.industries.join(', ')}`;
     }
-    
+
     if (filters?.growthRate) {
       enrichedContext += `\n\nTarget industry growth rate: ${filters.growthRate.min}% - ${filters.growthRate.max}%`;
     }
-    
+
     if (filters?.problemSize) {
       enrichedContext += `\n\nProblem size range: $${filters.problemSize.min}M - $${filters.problemSize.max}M`;
     }
-    
+
     return enrichedContext;
   }
 
   async getBottleneckSolutions(industryName, problem) {
     const jobs = await this.resultStore.getAllResults();
-    
+
     const matchingJobs = jobs.filter(job => {
       const context = job.problemContext || '';
       return context.includes(industryName) && context.includes(problem);
     });
-    
+
     const allSolutions = [];
     matchingJobs.forEach(job => {
       const solutionsToUse = job.allSolutions || job.topSolutions || [];
-      
+
       solutionsToUse.forEach(solution => {
         allSolutions.push({
           ...solution,
@@ -192,9 +192,9 @@ Generate innovative solutions that:
         });
       });
     });
-    
+
     allSolutions.sort((a, b) => (b.score || 0) - (a.score || 0));
-    
+
     return {
       solutions: allSolutions,
       totalJobs: matchingJobs.length,

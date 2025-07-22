@@ -2,7 +2,7 @@ import OpenAI from 'openai';
 import https from 'https';
 import http from 'http';
 import logger from '../utils/logger.js';
-import RobustJsonParser from '../utils/jsonParser.js';
+import { ResponseParser } from '../utils/responseParser.js';
 
 class EvolutionarySolver {
   constructor() {
@@ -18,25 +18,25 @@ class EvolutionarySolver {
     const httpAgent = new http.Agent({
       keepAlive: true,
       keepAliveMsecs: 60000, // Keep connection alive for 1 minute
-      timeout: 900000, // 15 minute timeout
+      timeout: 900000 // 15 minute timeout
     });
-    
+
     const httpsAgent = new https.Agent({
       keepAlive: true,
       keepAliveMsecs: 60000, // Keep connection alive for 1 minute
       timeout: 900000, // 15 minute timeout
       // Disable HTTP/2 by not including 'h2' in ALPN protocols
-      ALPNProtocols: ['http/1.1'],
+      ALPNProtocols: ['http/1.1']
     });
-    
+
     this.client = new OpenAI({
       apiKey: process.env.OPENAI_API_KEY,
       httpAgent: httpAgent,
       httpsAgent: httpsAgent,
       timeout: 900000, // 15 minute timeout for o3 model operations
-      maxRetries: 0,  // NO RETRIES - ensure exactly 1 API call per operation
+      maxRetries: 0  // NO RETRIES - ensure exactly 1 API call per operation
     });
-    
+
     this.config = {
       generations: process.env.EVOLUTION_GENERATIONS ? parseInt(process.env.EVOLUTION_GENERATIONS) : 10,
       populationSize: 5,
@@ -55,11 +55,13 @@ class EvolutionarySolver {
     const numNeeded = targetCount - currentSolutions.length;
     if (numNeeded <= 0) return currentSolutions;
 
+    let startTime = Date.now(); // Define at method level for error handling
+
     // Get configuration
     const dealTypes = this.config.dealTypes || 'creative partnerships and business models';
     const maxCapex = this.config.maxCapex || 0.05;  // Default $50K in millions
     const offspringRatio = this.config.offspringRatio || 0.7;
-    
+
     // Calculate offspring vs wildcard split
     const offspringCount = currentSolutions.length > 0 ? Math.floor(numNeeded * offspringRatio) : 0;
     const wildcardCount = numNeeded - offspringCount;
@@ -90,159 +92,159 @@ IMPORTANT: Return ONLY the raw JSON array. Do not wrap the output in markdown co
     // NO RETRIES - exactly 1 API call
     try {
       logger.info('Variator API call - NO RETRIES ALLOWED');
-        
-        // Prepare API call for logging
-        const apiCall = {
-          model: this.config.model,
-          input: [
-            {
-              role: "developer",
-              content: [{ type: "input_text", text: "You are an expert in creative business deal-making and solution generation. Generate innovative, low-risk, high-return solutions." }]
-            },
-            {
-              role: "user",
-              content: [{ type: "input_text", text: prompt }]
-            }
-          ],
-          text: { format: { type: "text" } },
-          reasoning: { effort: "medium" },
-          stream: false, // Avoid long SSE streams in Cloud Run
-          store: true
-        };
-        
-        // Log the full API call for replay
-        const callId = `${this.progressTracker?.jobId || 'unknown'}_gen${this.currentGeneration || 0}_variator_${Date.now()}`;
-        logger.info('API_CALL_REPLAY:', {
-          callId,
-          phase: 'variator',
-          generation: this.currentGeneration || 0,
-          attempt: 1,  // Always 1 - no retries
-          timestamp: new Date().toISOString(),
-          request: {
-            model: apiCall.model,
-            promptLength: prompt.length,
-            promptPreview: prompt.substring(0, 200) + '...',
-            fullPrompt: prompt  // Full prompt for replay
-          }
-        });
-        
-        const startTime = Date.now();
-        
-        // Track API call BEFORE making it
-        this.apiCallCounts.variator++;
-        this.apiCallCounts.total++;
-        logger.info(`VARIATOR API CALL #${this.apiCallCounts.variator} (Total: ${this.apiCallCounts.total})`);
-        
-        const response = await this.client.responses.create(apiCall);
 
-        logger.info('Variator response received');
-        
-        // Log the full response for replay
-        logger.info('API_RESPONSE_REPLAY:', {
-          callId,
-          phase: 'variator',
-          generation: this.currentGeneration || 0,
-          latencyMs: Date.now() - startTime,
-          usage: response.usage,
-          responseStructure: {
-            hasOutput: !!response.output,
-            outputTypes: response.output?.map(o => o.type),
-            outputCount: response.output?.length
+      // Prepare API call for logging
+      const apiCall = {
+        model: this.config.model,
+        input: [
+          {
+            role: 'developer',
+            content: [{ type: 'input_text', text: 'You are an expert in creative business deal-making and solution generation. Generate innovative, low-risk, high-return solutions.' }]
           },
-          fullResponse: JSON.stringify(response)  // Full response for replay
-        });
-        
-        const newIdeas = await this.parseResponse(response, prompt, this.config.model);
-        
-        // Track API call telemetry
-        if (this.progressTracker?.resultStore && this.progressTracker?.jobId && response) {
-          const telemetry = {
-            timestamp: new Date().toISOString(),
-            phase: 'variator',
-            generation: this.currentGeneration || 1,
-            model: this.config.model,
-            attempt: 1,  // Always 1 - no retries
-            latencyMs: Date.now() - startTime,
-            tokens: response.usage || { prompt_tokens: 0, completion_tokens: 0 },
-            success: true
-          };
-          await this.progressTracker.resultStore.addApiCallTelemetry(this.progressTracker.jobId, telemetry);
-          
-          // Save full debug data
-          await this.progressTracker.resultStore.saveApiCallDebug(
-            this.progressTracker.jobId,
-            callId,
-            {
-              phase: 'variator',
-              generation: this.currentGeneration || 0,
-              attempt: 1,  // Always 1 - no retries
-              prompt,
-              fullResponse: response,
-              parsedResponse: newIdeas,
-              usage: response.usage,
-              latencyMs: Date.now() - startTime
-            }
-          );
+          {
+            role: 'user',
+            content: [{ type: 'input_text', text: prompt }]
+          }
+        ],
+        text: { format: { type: 'text' } },
+        reasoning: { effort: 'medium' },
+        stream: false, // Avoid long SSE streams in Cloud Run
+        store: true
+      };
+
+      // Log the full API call for replay
+      const callId = `${this.progressTracker?.jobId || 'unknown'}_gen${this.currentGeneration || 0}_variator_${Date.now()}`;
+      logger.info('API_CALL_REPLAY:', {
+        callId,
+        phase: 'variator',
+        generation: this.currentGeneration || 0,
+        attempt: 1,  // Always 1 - no retries
+        timestamp: new Date().toISOString(),
+        request: {
+          model: apiCall.model,
+          promptLength: prompt.length,
+          promptPreview: prompt.substring(0, 200) + '...',
+          fullPrompt: prompt  // Full prompt for replay
         }
-        
-        logger.info('ParseResponse returned:', {
-          type: typeof newIdeas,
-          isArray: Array.isArray(newIdeas),
-          length: Array.isArray(newIdeas) ? newIdeas.length : 'N/A',
-          sample: Array.isArray(newIdeas) && newIdeas.length > 0 ? newIdeas[0] : newIdeas
-        });
-        
-        const ideasArray = Array.isArray(newIdeas) ? newIdeas : [newIdeas];
-        
-        logger.info(`Working with ${ideasArray.length} new ideas`);
-        return [...currentSolutions, ...ideasArray];
-      } catch (error) {
-        logger.error('Variator failed - NO RETRIES:', error.message);
-        logger.error('Error details:', error.stack);
-        
-        // Track failed attempt
-        if (this.progressTracker?.resultStore && this.progressTracker?.jobId) {
-          const telemetry = {
-            timestamp: new Date().toISOString(),
+      });
+
+      startTime = Date.now();
+
+      // Track API call BEFORE making it
+      this.apiCallCounts.variator++;
+      this.apiCallCounts.total++;
+      logger.info(`VARIATOR API CALL #${this.apiCallCounts.variator} (Total: ${this.apiCallCounts.total})`);
+
+      const response = await this.client.responses.create(apiCall);
+
+      logger.info('Variator response received');
+
+      // Log the full response for replay
+      logger.info('API_RESPONSE_REPLAY:', {
+        callId,
+        phase: 'variator',
+        generation: this.currentGeneration || 0,
+        latencyMs: Date.now() - startTime,
+        usage: response.usage,
+        responseStructure: {
+          hasOutput: !!response.output,
+          outputTypes: response.output?.map(o => o.type),
+          outputCount: response.output?.length
+        },
+        fullResponse: JSON.stringify(response)  // Full response for replay
+      });
+
+      const newIdeas = ResponseParser.parseVariatorResponse(response);
+
+      // Track API call telemetry
+      if (this.progressTracker?.resultStore && this.progressTracker?.jobId && response) {
+        const telemetry = {
+          timestamp: new Date().toISOString(),
+          phase: 'variator',
+          generation: this.currentGeneration || 1,
+          model: this.config.model,
+          attempt: 1,  // Always 1 - no retries
+          latencyMs: Date.now() - startTime,
+          tokens: response.usage || { prompt_tokens: 0, completion_tokens: 0 },
+          success: true
+        };
+        await this.progressTracker.resultStore.addApiCallTelemetry(this.progressTracker.jobId, telemetry);
+
+        // Save full debug data
+        await this.progressTracker.resultStore.saveApiCallDebug(
+          this.progressTracker.jobId,
+          callId,
+          {
             phase: 'variator',
-            generation: this.currentGeneration || 1,
-            model: this.config.model,
+            generation: this.currentGeneration || 0,
             attempt: 1,  // Always 1 - no retries
-            latencyMs: Date.now() - startTime,
-            tokens: { prompt_tokens: 0, completion_tokens: 0 },
-            success: false,
-            error: error.message
-          };
-          await this.progressTracker.resultStore.addApiCallTelemetry(this.progressTracker.jobId, telemetry);
-        }
-        
-        // Check if it's a retriable error (timeouts or server errors)
-        const isTimeout = error.message && error.message.includes('timed out');
-        const isServerError = error.message && (
-          error.message.includes('502') || 
-          error.message.includes('503') || 
+            prompt,
+            fullResponse: response,
+            parsedResponse: newIdeas,
+            usage: response.usage,
+            latencyMs: Date.now() - startTime
+          }
+        );
+      }
+
+      logger.info('ParseResponse returned:', {
+        type: typeof newIdeas,
+        isArray: Array.isArray(newIdeas),
+        length: Array.isArray(newIdeas) ? newIdeas.length : 'N/A',
+        sample: Array.isArray(newIdeas) && newIdeas.length > 0 ? newIdeas[0] : newIdeas
+      });
+
+      const ideasArray = Array.isArray(newIdeas) ? newIdeas : [newIdeas];
+
+      logger.info(`Working with ${ideasArray.length} new ideas`);
+      return [...currentSolutions, ...ideasArray];
+    } catch (error) {
+      logger.error('Variator failed - NO RETRIES:', error.message);
+      logger.error('Error details:', error.stack);
+
+      // Track failed attempt
+      if (this.progressTracker?.resultStore && this.progressTracker?.jobId) {
+        const telemetry = {
+          timestamp: new Date().toISOString(),
+          phase: 'variator',
+          generation: this.currentGeneration || 1,
+          model: this.config.model,
+          attempt: 1,  // Always 1 - no retries
+          latencyMs: Date.now() - startTime,
+          tokens: { prompt_tokens: 0, completion_tokens: 0 },
+          success: false,
+          error: error.message
+        };
+        await this.progressTracker.resultStore.addApiCallTelemetry(this.progressTracker.jobId, telemetry);
+      }
+
+      // Check if it's a retriable error (timeouts or server errors)
+      const isTimeout = error.message && error.message.includes('timed out');
+      const isServerError = error.message && (
+        error.message.includes('502') ||
+          error.message.includes('503') ||
           error.message.includes('504') ||
           error.message.includes('Bad gateway') ||
           error.message.includes('Service unavailable') ||
           error.message.includes('Gateway timeout')
-        );
-        
-        if (isTimeout || isServerError) {
-          const errorType = isTimeout ? 'timeout' : 'server error';
-          logger.warn(`Retriable ${errorType} detected - allowing retry`);
-          // For retriable errors, we allow up to 3 attempts total
-          if (attempt < 3) {
-            logger.info(`Retrying variator due to ${errorType} (attempt ${attempt + 1}/3)`);
-            this.apiCallCounts.variator++; // Count the retry
-            this.apiCallCounts.total++;
-            // Add a small delay before retry for server errors
-            if (isServerError) {
-              await new Promise(resolve => setTimeout(resolve, 2000)); // 2 second delay
-            }
-            return this.variator(currentSolutions, targetCount, problemContext, generation, jobId, attempt + 1);
+      );
+
+      if (isTimeout || isServerError) {
+        const errorType = isTimeout ? 'timeout' : 'server error';
+        logger.warn(`Retriable ${errorType} detected - allowing retry`);
+        // For retriable errors, we allow up to 3 attempts total
+        if (attempt < 3) {
+          logger.info(`Retrying variator due to ${errorType} (attempt ${attempt + 1}/3)`);
+          this.apiCallCounts.variator++; // Count the retry
+          this.apiCallCounts.total++;
+          // Add a small delay before retry for server errors
+          if (isServerError) {
+            await new Promise(resolve => setTimeout(resolve, 2000)); // 2 second delay
           }
+          return this.variator(currentSolutions, targetCount, problemContext, generation, jobId, attempt + 1);
         }
-        
+      }
+
       // NO FALLBACK - let it fail to ensure exactly 1 API call
       throw error;
     }
@@ -254,7 +256,9 @@ IMPORTANT: Return ONLY the raw JSON array. Do not wrap the output in markdown co
       firstIdea: ideas[0],
       allIds: ideas.map(i => i?.idea_id || 'NO_ID')
     });
-    
+
+    let startTime = Date.now(); // Define at method level for error handling
+
     const enrichPrompt = `Analyze each business idea and calculate key metrics:
 
 Required fields in business_case object (ALL monetary values in millions USD):
@@ -288,134 +292,134 @@ IMPORTANT: Return ONLY the raw JSON array. Do not wrap the output in markdown co
     // NO RETRIES - exactly 1 API call
     try {
       logger.info('Enricher API call - NO RETRIES ALLOWED');
-        
-        // Prepare API call for logging
-        const apiCall = {
-          model: this.config.model,
-          input: [
-            {
-              role: "developer",
-              content: [{ type: "input_text", text: "You are a business strategist expert in financial modeling and deal structuring. Provide realistic, data-driven business cases." }]
-            },
-            {
-              role: "user",
-              content: [{ type: "input_text", text: enrichPrompt }]
-            }
-          ],
-          text: { format: { type: "text" } },
-          reasoning: { effort: "high" },
-          stream: false, // Avoid long SSE streams in Cloud Run
-          store: true
-        };
-        
-        // Log the full API call for replay
-        const callId = `${this.progressTracker?.jobId || 'unknown'}_gen${this.currentGeneration || 0}_enricher_${Date.now()}`;
-        logger.info('API_CALL_REPLAY:', {
-          callId,
-          phase: 'enricher',
-          generation: this.currentGeneration || 0,
-          attempt: 1,  // Always 1 - no retries
-          timestamp: new Date().toISOString(),
-          request: {
-            model: apiCall.model,
-            promptLength: enrichPrompt.length,
-            promptPreview: enrichPrompt.substring(0, 200) + '...',
-            fullPrompt: enrichPrompt  // Full prompt for replay
-          }
-        });
-        
-        const startTime = Date.now();
-        
-        // Track API call BEFORE making it
-        this.apiCallCounts.enricher++;
-        this.apiCallCounts.total++;
-        logger.info(`ENRICHER API CALL #${this.apiCallCounts.enricher} (Total: ${this.apiCallCounts.total})`);
-        
-        const response = await this.client.responses.create(apiCall);
-        
-        logger.info('Enricher response received');
-        
-        // Log the full response for replay
-        logger.info('API_RESPONSE_REPLAY:', {
-          callId,
-          phase: 'enricher',
-          generation: this.currentGeneration || 0,
-          latencyMs: Date.now() - startTime,
-          usage: response.usage,
-          responseStructure: {
-            hasOutput: !!response.output,
-            outputTypes: response.output?.map(o => o.type),
-            outputCount: response.output?.length
+
+      // Prepare API call for logging
+      const apiCall = {
+        model: this.config.model,
+        input: [
+          {
+            role: 'developer',
+            content: [{ type: 'input_text', text: 'You are a business strategist expert in financial modeling and deal structuring. Provide realistic, data-driven business cases.' }]
           },
-          fullResponse: JSON.stringify(response)  // Full response for replay
-        });
+          {
+            role: 'user',
+            content: [{ type: 'input_text', text: enrichPrompt }]
+          }
+        ],
+        text: { format: { type: 'text' } },
+        reasoning: { effort: 'high' },
+        stream: false, // Avoid long SSE streams in Cloud Run
+        store: true
+      };
 
-        const enrichedIdeas = await this.parseResponse(response, enrichPrompt, this.config.model);
-
-        // Track API call telemetry
-        if (this.progressTracker?.resultStore && this.progressTracker?.jobId && response) {
-          const telemetry = {
-            timestamp: new Date().toISOString(),
-            phase: 'enricher',
-            generation: this.currentGeneration || 1,
-            model: this.config.model,
-            attempt: 1,  // Always 1 - no retries
-            latencyMs: Date.now() - startTime,
-            tokens: response.usage || { prompt_tokens: 0, completion_tokens: 0 },
-            success: true
-          };
-          await this.progressTracker.resultStore.addApiCallTelemetry(this.progressTracker.jobId, telemetry);
-          
-          // Save full debug data
-          await this.progressTracker.resultStore.saveApiCallDebug(
-            this.progressTracker.jobId,
-            callId,
-            {
-              phase: 'enricher',
-              generation: this.currentGeneration || 0,
-              attempt: 1,  // Always 1 - no retries
-              prompt: enrichPrompt,
-              inputIdeas: ideas,
-              fullResponse: response,
-              parsedResponse: enrichedIdeas,
-              usage: response.usage,
-              latencyMs: Date.now() - startTime
-            }
-          );
+      // Log the full API call for replay
+      const callId = `${this.progressTracker?.jobId || 'unknown'}_gen${this.currentGeneration || 0}_enricher_${Date.now()}`;
+      logger.info('API_CALL_REPLAY:', {
+        callId,
+        phase: 'enricher',
+        generation: this.currentGeneration || 0,
+        attempt: 1,  // Always 1 - no retries
+        timestamp: new Date().toISOString(),
+        request: {
+          model: apiCall.model,
+          promptLength: enrichPrompt.length,
+          promptPreview: enrichPrompt.substring(0, 200) + '...',
+          fullPrompt: enrichPrompt  // Full prompt for replay
         }
+      });
 
-        return enrichedIdeas;
-      } catch (error) {
-        logger.error('Enricher failed - NO RETRIES:', error.message);
-        
-        // Check if it's a retriable error (timeouts or server errors)
-        const isTimeout = error.message && error.message.includes('timed out');
-        const isServerError = error.message && (
-          error.message.includes('502') || 
-          error.message.includes('503') || 
+      startTime = Date.now();
+
+      // Track API call BEFORE making it
+      this.apiCallCounts.enricher++;
+      this.apiCallCounts.total++;
+      logger.info(`ENRICHER API CALL #${this.apiCallCounts.enricher} (Total: ${this.apiCallCounts.total})`);
+
+      const response = await this.client.responses.create(apiCall);
+
+      logger.info('Enricher response received');
+
+      // Log the full response for replay
+      logger.info('API_RESPONSE_REPLAY:', {
+        callId,
+        phase: 'enricher',
+        generation: this.currentGeneration || 0,
+        latencyMs: Date.now() - startTime,
+        usage: response.usage,
+        responseStructure: {
+          hasOutput: !!response.output,
+          outputTypes: response.output?.map(o => o.type),
+          outputCount: response.output?.length
+        },
+        fullResponse: JSON.stringify(response)  // Full response for replay
+      });
+
+      const enrichedIdeas = ResponseParser.parseEnricherResponse(response);
+
+      // Track API call telemetry
+      if (this.progressTracker?.resultStore && this.progressTracker?.jobId && response) {
+        const telemetry = {
+          timestamp: new Date().toISOString(),
+          phase: 'enricher',
+          generation: this.currentGeneration || 1,
+          model: this.config.model,
+          attempt: 1,  // Always 1 - no retries
+          latencyMs: Date.now() - startTime,
+          tokens: response.usage || { prompt_tokens: 0, completion_tokens: 0 },
+          success: true
+        };
+        await this.progressTracker.resultStore.addApiCallTelemetry(this.progressTracker.jobId, telemetry);
+
+        // Save full debug data
+        await this.progressTracker.resultStore.saveApiCallDebug(
+          this.progressTracker.jobId,
+          callId,
+          {
+            phase: 'enricher',
+            generation: this.currentGeneration || 0,
+            attempt: 1,  // Always 1 - no retries
+            prompt: enrichPrompt,
+            inputIdeas: ideas,
+            fullResponse: response,
+            parsedResponse: enrichedIdeas,
+            usage: response.usage,
+            latencyMs: Date.now() - startTime
+          }
+        );
+      }
+
+      return enrichedIdeas;
+    } catch (error) {
+      logger.error('Enricher failed - NO RETRIES:', error.message);
+
+      // Check if it's a retriable error (timeouts or server errors)
+      const isTimeout = error.message && error.message.includes('timed out');
+      const isServerError = error.message && (
+        error.message.includes('502') ||
+          error.message.includes('503') ||
           error.message.includes('504') ||
           error.message.includes('Bad gateway') ||
           error.message.includes('Service unavailable') ||
           error.message.includes('Gateway timeout')
-        );
-        
-        if (isTimeout || isServerError) {
-          const errorType = isTimeout ? 'timeout' : 'server error';
-          logger.warn(`Retriable ${errorType} detected - allowing retry`);
-          // For retriable errors, we allow up to 3 attempts total
-          const currentAttempt = attempt || 1;
-          if (currentAttempt < 3) {
-            logger.info(`Retrying enricher due to ${errorType} (attempt ${currentAttempt + 1}/3)`);
-            this.apiCallCounts.enricher++; // Count the retry
-            this.apiCallCounts.total++;
-            // Add a small delay before retry for server errors
-            if (isServerError) {
-              await new Promise(resolve => setTimeout(resolve, 2000)); // 2 second delay
-            }
-            return this.enricher(ideas, generation, jobId, resultStore, currentAttempt + 1);
+      );
+
+      if (isTimeout || isServerError) {
+        const errorType = isTimeout ? 'timeout' : 'server error';
+        logger.warn(`Retriable ${errorType} detected - allowing retry`);
+        // For retriable errors, we allow up to 3 attempts total
+        const currentAttempt = attempt || 1;
+        if (currentAttempt < 3) {
+          logger.info(`Retrying enricher due to ${errorType} (attempt ${currentAttempt + 1}/3)`);
+          this.apiCallCounts.enricher++; // Count the retry
+          this.apiCallCounts.total++;
+          // Add a small delay before retry for server errors
+          if (isServerError) {
+            await new Promise(resolve => setTimeout(resolve, 2000)); // 2 second delay
           }
+          return this.enricher(ideas, generation, jobId, resultStore, currentAttempt + 1);
         }
-        
+      }
+
       // NO FALLBACK - let it fail to ensure exactly 1 API call
       throw error;
     }
@@ -426,7 +430,7 @@ IMPORTANT: Return ONLY the raw JSON array. Do not wrap the output in markdown co
     const C0 = this.config.diversificationUnit || 0.05; // Default $50K in millions
     const maxCapex = this.config.maxCapex || Infinity;
     const minProfits = this.config.minProfits || 0;
-    
+
     // Validate all ideas have required fields
     const validationErrors = [];
     enrichedIdeas.forEach((idea, index) => {
@@ -434,9 +438,9 @@ IMPORTANT: Return ONLY the raw JSON array. Do not wrap the output in markdown co
         validationErrors.push(`Idea ${idea.idea_id || index}: Missing business_case object`);
         return;
       }
-      
+
       const bc = idea.business_case;
-      
+
       // Check required fields exist
       if (bc.npv_success === undefined) {
         validationErrors.push(`Idea ${idea.idea_id || index}: Missing npv_success`);
@@ -447,7 +451,7 @@ IMPORTANT: Return ONLY the raw JSON array. Do not wrap the output in markdown co
       if (bc.likelihood === undefined) {
         validationErrors.push(`Idea ${idea.idea_id || index}: Missing likelihood`);
       }
-      
+
       // Validate data types and ranges
       if (typeof bc.npv_success !== 'number' || isNaN(bc.npv_success)) {
         validationErrors.push(`Idea ${idea.idea_id || index}: npv_success must be a number`);
@@ -459,23 +463,23 @@ IMPORTANT: Return ONLY the raw JSON array. Do not wrap the output in markdown co
         validationErrors.push(`Idea ${idea.idea_id || index}: likelihood must be between 0 and 1`);
       }
     });
-    
+
     if (validationErrors.length > 0) {
       logger.error('Ranker validation errors:', validationErrors);
       throw new Error(`Data validation failed in ranker:\n${validationErrors.join('\n')}`);
     }
-    
+
     // Score and filter ideas
     const scoredIdeas = enrichedIdeas.map(idea => {
       const bc = idea.business_case;
       const p = bc.likelihood;
       const npv = bc.npv_success;
       const capex = bc.capex_est;
-      
+
       // Apply user-defined filters
       let filtered = false;
       let filterReason = null;
-      
+
       if (capex > maxCapex) {
         filtered = true;
         filterReason = `CAPEX ($${capex}M) exceeds maximum ($${maxCapex}M)`;
@@ -483,26 +487,26 @@ IMPORTANT: Return ONLY the raw JSON array. Do not wrap the output in markdown co
         filtered = true;
         filterReason = `NPV ($${npv}M) below minimum ($${minProfits}M)`;
       }
-      
+
       // Calculate risk-adjusted score
       let score = -Infinity;
       let expectedValue = null;
-      
+
       if (!filtered) {
         // Expected value: p * NPV_success - (1-p) * CAPEX
         // All values now in millions USD
         expectedValue = p * npv - (1 - p) * capex;
-        
+
         // Diversification penalty: sqrt(CAPEX/C0)
         const diversificationPenalty = Math.sqrt(capex / C0);
-        
+
         // Risk-Adjusted NPV
         score = expectedValue / diversificationPenalty;
       }
-      
-      return { 
-        ...idea, 
-        score, 
+
+      return {
+        ...idea,
+        score,
         filtered,
         filterReason,
         metrics: {
@@ -517,23 +521,23 @@ IMPORTANT: Return ONLY the raw JSON array. Do not wrap the output in markdown co
     // Separate filtered and valid ideas
     const validIdeas = scoredIdeas.filter(idea => !idea.filtered);
     const filteredIdeas = scoredIdeas.filter(idea => idea.filtered);
-    
+
     // Sort valid ideas by score
     validIdeas.sort((a, b) => b.score - a.score);
-    
+
     // Assign ranks only to valid ideas
     validIdeas.forEach((idea, index) => {
       idea.rank = index + 1;
     });
-    
+
     // Log filtering results
     if (filteredIdeas.length > 0) {
-      logger.info(`Filtered ${filteredIdeas.length} ideas:`, 
+      logger.info(`Filtered ${filteredIdeas.length} ideas:`,
         filteredIdeas.map(i => ({ id: i.idea_id, reason: i.filterReason }))
       );
     }
 
-    return { 
+    return {
       rankedIdeas: validIdeas,
       filteredIdeas: filteredIdeas
     };
@@ -543,7 +547,7 @@ IMPORTANT: Return ONLY the raw JSON array. Do not wrap the output in markdown co
   async formatEnrichedData(enrichedIdeas) {
     try {
       logger.info('Formatting enriched data for consistency');
-      
+
       const formatPrompt = `Ensure the following business ideas have correctly formatted metrics.
       
 For each idea, validate and reformat the business_case object to have (ALL monetary values in millions USD):
@@ -584,21 +588,21 @@ ${JSON.stringify(enrichedIdeas, null, 2)}`;
       });
 
       let formattedContent = response.choices[0].message.content.trim();
-      
+
       // Remove markdown code blocks if present
       formattedContent = formattedContent.replace(/```json\n?/g, '').replace(/```\n?/g, '');
-      
+
       // Try to extract JSON array if still having issues
       const jsonMatch = formattedContent.match(/\[[\s\S]*\]/);
       if (jsonMatch) {
         formattedContent = jsonMatch[0];
       }
-      
+
       const formattedData = JSON.parse(formattedContent);
-      
+
       logger.info('Successfully formatted enriched data');
       return formattedData;
-      
+
     } catch (error) {
       logger.error('Data formatting failed:', error);
       // Return original data if formatting fails
@@ -614,24 +618,24 @@ ${JSON.stringify(enrichedIdeas, null, 2)}`;
     };
     const config = this.config;
     const jobId = progressTracker?.jobId || null;
-    
+
     logger.info('Starting evolution with:', {
       problemContext: problemContext.substring(0, 100) + '...',
       initialSolutionCount: initialSolutions.length,
       generations: config.generations,
       customConfig
     });
-    
+
     // Store progressTracker for use in methods
     this.progressTracker = progressTracker;
-    
+
     let currentGen = initialSolutions;
     let generationHistory = [];
     let allGenerationSolutions = [];
 
     for (let gen = 1; gen <= config.generations; gen++) {
       logger.info(`Generation ${gen}/${config.generations}`);
-      
+
       // Store current generation for telemetry
       this.currentGeneration = gen;
 
@@ -652,10 +656,10 @@ ${JSON.stringify(enrichedIdeas, null, 2)}`;
       }
 
       const enriched = await this.enricher(currentGen, gen, jobId, progressTracker?.resultStore);
-      
+
       // NO FORMATTING - avoid extra API calls
       const formatted = enriched;
-      
+
       if (progressTracker?.resultStore && progressTracker?.jobId) {
         await progressTracker.resultStore.updateGenerationProgress(
           progressTracker.jobId, gen, config.generations, 'ranker'
@@ -663,10 +667,10 @@ ${JSON.stringify(enrichedIdeas, null, 2)}`;
       }
 
       const { rankedIdeas, filteredIdeas } = await this.ranker(formatted);
-      
+
       // Log filtered ideas for visibility
       if (filteredIdeas && filteredIdeas.length > 0) {
-        logger.info(`Generation ${gen}: Filtered ${filteredIdeas.length} ideas`, 
+        logger.info(`Generation ${gen}: Filtered ${filteredIdeas.length} ideas`,
           filteredIdeas.map(i => ({ id: i.idea_id, reason: i.filterReason }))
         );
       }
@@ -693,7 +697,7 @@ ${JSON.stringify(enrichedIdeas, null, 2)}`;
       };
 
       generationHistory.push(generationData);
-      
+
       // Log API call counts after each generation
       logger.info(`Generation ${gen} API calls:`, {
         variator: this.apiCallCounts.variator,
@@ -721,7 +725,7 @@ ${JSON.stringify(enrichedIdeas, null, 2)}`;
           expectedTotal: config.generations * 2,
           efficiency: this.apiCallCounts.total === (config.generations * 2) ? 'PERFECT' : 'WASTED CALLS!'
         });
-        
+
         return {
           topSolutions: rankedIdeas.slice(0, 5),
           allSolutions: allGenerationSolutions,

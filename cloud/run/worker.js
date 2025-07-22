@@ -10,6 +10,41 @@ import os from 'os';
 
 dotenv.config();
 
+// Validate required environment variables for worker
+const validateEnvironment = () => {
+  const required = {
+    OPENAI_API_KEY: process.env.OPENAI_API_KEY,
+    GCP_PROJECT_ID: process.env.GCP_PROJECT_ID
+  };
+  
+  const missing = [];
+  for (const [key, value] of Object.entries(required)) {
+    if (!value) {
+      missing.push(key);
+    }
+  }
+  
+  if (missing.length > 0) {
+    logger.error(`Worker: Missing required environment variables: ${missing.join(', ')}`);
+    
+    // Workers should always exit if environment is not properly configured
+    if (process.env.NODE_ENV !== 'test') {
+      process.exit(1);
+    }
+  }
+  
+  logger.info('Worker environment configuration:', {
+    NODE_ENV: process.env.NODE_ENV || 'development',
+    ENVIRONMENT: process.env.ENVIRONMENT || 'development',
+    K_SERVICE: process.env.K_SERVICE || 'local',
+    GCP_PROJECT_ID: process.env.GCP_PROJECT_ID || 'not-set',
+    OPENAI_API_KEY: process.env.OPENAI_API_KEY ? 'configured' : 'missing'
+  });
+};
+
+// Validate environment on startup
+validateEnvironment();
+
 const app = express();
 app.use(express.json({ limit: '50mb' }));
 

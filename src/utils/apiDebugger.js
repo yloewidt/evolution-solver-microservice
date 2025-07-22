@@ -12,7 +12,7 @@ class APIDebugger {
   constructor() {
     this.debugDir = path.join(__dirname, '../../debug');
     this.enabled = process.env.API_DEBUG === 'true';
-    
+
     if (this.enabled) {
       // Ensure debug directory exists
       if (!fs.existsSync(this.debugDir)) {

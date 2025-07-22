@@ -51,4 +51,16 @@ run-*.js
 monitor-*.js
 analyze-*.js
 check-*.js
+debug-*.js
+fix-*.js
+show-*.js
+submit-*.js
+count-*.js
+extract-*.js
+verify-*.js
+quick-test-*.js
+final-test*.js
+job-status-summary.js
 NO-RETRY-SUMMARY.md
+failed-response.json
+raw-response.txt

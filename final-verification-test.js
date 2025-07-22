@@ -7,7 +7,7 @@ const API_URL = 'https://evolution-solver-production-871069696471.us-central1.ru
 const testJobs = [
   { name: '1x17 Retry', generations: 1, populationSize: 17 },
   { name: '1x34 Retry', generations: 1, populationSize: 34 },
-  { name: '20x20 Mini', generations: 5, populationSize: 10 }
+  { name: '5x20 Mini', generations: 5, populationSize: 20 }
 ];
 
 async function runJob(config) {

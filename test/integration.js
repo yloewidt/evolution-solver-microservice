@@ -4,23 +4,23 @@ const API_URL = 'http://localhost:8080';
 
 async function testHealthEndpoints() {
   console.log('Testing health endpoints...');
-  
+
   try {
     // Test root endpoint
     const rootResponse = await fetch(`${API_URL}/`);
     const rootData = await rootResponse.json();
     console.log('✓ Root endpoint:', rootData.status);
-    
+
     // Test health endpoint
     const healthResponse = await fetch(`${API_URL}/health`);
     const healthData = await healthResponse.json();
     console.log('✓ Health endpoint:', healthData.status);
-    
+
     // Test ready endpoint
     const readyResponse = await fetch(`${API_URL}/ready`);
     const readyData = await readyResponse.json();
     console.log('✓ Ready endpoint:', readyData.status);
-    
+
   } catch (error) {
     console.error('✗ Health check failed:', error.message);
   }
@@ -28,7 +28,7 @@ async function testHealthEndpoints() {
 
 async function testEvolutionJobSubmission() {
   console.log('\nTesting job submission...');
-  
+
   try {
     const jobData = {
       problemContext: 'Test problem: How to reduce supply chain costs by 20% in the automotive industry',
@@ -39,7 +39,7 @@ async function testEvolutionJobSubmission() {
         targetROI: 10
       }
     };
-    
+
     const response = await fetch(`${API_URL}/api/evolution/jobs`, {
       method: 'POST',
       headers: {
@@ -47,9 +47,9 @@ async function testEvolutionJobSubmission() {
       },
       body: JSON.stringify(jobData)
     });
-    
+
     const result = await response.json();
-    
+
     if (response.ok) {
       console.log('✓ Job submitted:', result.jobId);
       console.log('  Status:', result.status);
@@ -65,11 +65,11 @@ async function testEvolutionJobSubmission() {
 
 async function testJobStatus(jobId) {
   console.log(`\nTesting job status for ${jobId}...`);
-  
+
   try {
     const response = await fetch(`${API_URL}/api/evolution/jobs/${jobId}`);
     const status = await response.json();
-    
+
     if (response.ok) {
       console.log('✓ Job status retrieved:');
       console.log('  Status:', status.status);
@@ -85,11 +85,11 @@ async function testJobStatus(jobId) {
 
 async function testListJobs() {
   console.log('\nTesting job listing...');
-  
+
   try {
     const response = await fetch(`${API_URL}/api/evolution/jobs?limit=10`);
     const data = await response.json();
-    
+
     if (response.ok) {
       console.log('✓ Jobs listed:');
       console.log('  Total:', data.total);
@@ -107,11 +107,11 @@ async function testListJobs() {
 
 async function testStats() {
   console.log('\nTesting statistics endpoint...');
-  
+
   try {
     const response = await fetch(`${API_URL}/api/evolution/stats`);
     const stats = await response.json();
-    
+
     if (response.ok) {
       console.log('✓ Statistics retrieved:');
       console.log('  Total jobs:', stats.jobs?.total || 0);
@@ -128,19 +128,19 @@ async function testStats() {
 async function runIntegrationTests() {
   console.log('Starting Evolution Microservice Integration Tests\n');
   console.log('='.repeat(50));
-  
+
   await testHealthEndpoints();
   const jobId = await testEvolutionJobSubmission();
-  
+
   if (jobId) {
     // Wait a bit for job to process
     await new Promise(resolve => setTimeout(resolve, 2000));
     await testJobStatus(jobId);
   }
-  
+
   await testListJobs();
   await testStats();
-  
+
   console.log('\n' + '='.repeat(50));
   console.log('Integration tests completed!');
 }

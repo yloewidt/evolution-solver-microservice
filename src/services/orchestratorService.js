@@ -2,7 +2,7 @@ import logger from '../utils/logger.js';
 
 /**
  * Orchestrator Service - Manages the workflow of evolution jobs
- * 
+ *
  * Responsibilities:
  * - Determine next phase based on job state
  * - Create appropriate worker tasks
@@ -20,28 +20,28 @@ class OrchestratorService {
    */
   async orchestrateJob(taskData) {
     const { jobId, checkAttempt = 0, maxCheckAttempts = 100 } = taskData;
-    
+
     logger.info(`Orchestrating job ${jobId}, attempt ${checkAttempt}`);
-    
+
     try {
       // Get current job state
       const job = await this.resultStore.getJobStatus(jobId);
-      
+
       if (!job) {
         logger.error(`Job ${jobId} not found`);
         throw new Error(`Job ${jobId} not found`);
       }
-      
+
       // Determine next action
       const nextAction = this.determineNextAction(job);
       logger.info(`Next action for job ${jobId}:`, nextAction);
-      
+
       // Execute action
       await this.executeAction(jobId, job, nextAction, taskData);
-      
+
     } catch (error) {
       logger.error(`Orchestration error for job ${jobId}:`, error);
-      
+
       if (checkAttempt >= maxCheckAttempts) {
         await this.markJobFailed(jobId, 'Max orchestration attempts exceeded');
       } else {
@@ -59,10 +59,10 @@ class OrchestratorService {
     if (job.status === 'completed' || job.status === 'failed') {
       return { type: 'ALREADY_COMPLETE' };
     }
-    
+
     // New job - start generation 1 variator
     if (job.status === 'pending') {
-      return { 
+      return {
         type: 'CREATE_TASK',
         task: {
           type: 'variator',
@@ -70,11 +70,11 @@ class OrchestratorService {
         }
       };
     }
-    
+
     // Check current generation progress
     const currentGen = job.currentGeneration || 1;
     const genData = job.generations?.[`generation_${currentGen}`] || {};
-    
+
     // Determine current phase state
     if (!genData.variatorComplete) {
       if (genData.variatorStarted) {
@@ -88,7 +88,7 @@ class OrchestratorService {
         }
       };
     }
-    
+
     if (!genData.enricherComplete) {
       if (genData.enricherStarted) {
         return { type: 'WAIT', reason: 'Enricher in progress' };
@@ -101,7 +101,7 @@ class OrchestratorService {
         }
       };
     }
-    
+
     if (!genData.rankerComplete) {
       if (genData.rankerStarted) {
         return { type: 'WAIT', reason: 'Ranker in progress' };
@@ -114,10 +114,10 @@ class OrchestratorService {
         }
       };
     }
-    
+
     // Generation complete - check if more generations needed
     const totalGenerations = job.evolutionConfig?.generations || 10;
-    
+
     if (currentGen < totalGenerations) {
       // Start next generation
       return {
@@ -128,7 +128,7 @@ class OrchestratorService {
         }
       };
     }
-    
+
     // All generations complete
     return { type: 'MARK_COMPLETE' };
   }
@@ -138,28 +138,28 @@ class OrchestratorService {
    */
   async executeAction(jobId, job, action, taskData) {
     switch (action.type) {
-      case 'CREATE_TASK':
-        await this.createWorkerTask(jobId, job, action.task);
-        // Re-queue orchestrator to check progress later
-        await this.requeueOrchestrator(jobId, taskData.checkAttempt + 1);
-        break;
-        
-      case 'WAIT':
-        // Phase still processing, check again later
-        logger.info(`Job ${jobId} waiting: ${action.reason}`);
-        await this.requeueOrchestrator(jobId, taskData.checkAttempt + 1);
-        break;
-        
-      case 'MARK_COMPLETE':
-        await this.markJobComplete(jobId, job);
-        break;
-        
-      case 'ALREADY_COMPLETE':
-        logger.info(`Job ${jobId} already in terminal state: ${job.status}`);
-        break;
-        
-      default:
-        logger.error(`Unknown action type: ${action.type}`);
+    case 'CREATE_TASK':
+      await this.createWorkerTask(jobId, job, action.task);
+      // Re-queue orchestrator to check progress later
+      await this.requeueOrchestrator(jobId, taskData.checkAttempt + 1);
+      break;
+
+    case 'WAIT':
+      // Phase still processing, check again later
+      logger.info(`Job ${jobId} waiting: ${action.reason}`);
+      await this.requeueOrchestrator(jobId, taskData.checkAttempt + 1);
+      break;
+
+    case 'MARK_COMPLETE':
+      await this.markJobComplete(jobId, job);
+      break;
+
+    case 'ALREADY_COMPLETE':
+      logger.info(`Job ${jobId} already in terminal state: ${job.status}`);
+      break;
+
+    default:
+      logger.error(`Unknown action type: ${action.type}`);
     }
   }
 
@@ -168,9 +168,9 @@ class OrchestratorService {
    */
   async createWorkerTask(jobId, job, taskConfig) {
     const { type, generation } = taskConfig;
-    
+
     logger.info(`Creating ${type} task for job ${jobId}, generation ${generation}`);
-    
+
     // Build task payload based on type
     const taskPayload = {
       jobId,
@@ -179,7 +179,7 @@ class OrchestratorService {
       evolutionConfig: job.evolutionConfig,
       problemContext: job.problemContext
     };
-    
+
     // Add phase-specific data
     if (type === 'variator' && generation > 1) {
       // Get top performers from previous generation
@@ -194,10 +194,10 @@ class OrchestratorService {
       const currentGen = job.generations?.[`generation_${generation}`];
       taskPayload.enrichedIdeas = currentGen?.enrichedIdeas || [];
     }
-    
+
     // Create the task
     await this.taskHandler.createWorkerTask(taskPayload);
-    
+
     // Mark phase as started
     await this.resultStore.updatePhaseStatus(jobId, generation, type, 'started');
   }
@@ -207,9 +207,9 @@ class OrchestratorService {
    */
   async requeueOrchestrator(jobId, nextAttempt) {
     const delayMs = this.calculateBackoff(nextAttempt);
-    
+
     logger.info(`Re-queuing orchestrator for job ${jobId}, attempt ${nextAttempt}, delay ${delayMs}ms`);
-    
+
     await this.taskHandler.createOrchestratorTask({
       jobId,
       checkAttempt: nextAttempt,
@@ -224,7 +224,7 @@ class OrchestratorService {
     const baseDelay = 5000; // 5 seconds
     const maxDelay = 60000; // 1 minute
     const jitter = Math.random() * 1000; // 0-1 second jitter
-    
+
     const delay = Math.min(baseDelay * Math.pow(1.5, attempt), maxDelay);
     return Math.floor(delay + jitter);
   }
@@ -234,13 +234,13 @@ class OrchestratorService {
    */
   async markJobComplete(jobId, job) {
     logger.info(`Marking job ${jobId} as complete`);
-    
+
     // Gather final results
     const allSolutions = [];
     const generationHistory = [];
-    
+
     const totalGenerations = job.evolutionConfig?.generations || 10;
-    
+
     for (let gen = 1; gen <= totalGenerations; gen++) {
       const genData = job.generations?.[`generation_${gen}`];
       if (genData) {
@@ -252,7 +252,7 @@ class OrchestratorService {
           avgScore: genData.avgScore,
           completedAt: genData.completedAt
         });
-        
+
         // Collect all solutions
         if (genData.solutions) {
           genData.solutions.forEach(solution => {
@@ -264,10 +264,10 @@ class OrchestratorService {
         }
       }
     }
-    
+
     // Sort solutions by score
     allSolutions.sort((a, b) => (b.score || 0) - (a.score || 0));
-    
+
     await this.resultStore.completeJob(jobId, {
       topSolutions: allSolutions.slice(0, 10),
       allSolutions,
@@ -282,7 +282,7 @@ class OrchestratorService {
    */
   async markJobFailed(jobId, reason) {
     logger.error(`Marking job ${jobId} as failed: ${reason}`);
-    
+
     await this.resultStore.updateJobStatus(jobId, 'failed', reason);
   }
 }

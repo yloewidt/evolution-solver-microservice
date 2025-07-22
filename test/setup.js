@@ -21,3 +21,20 @@ global.console = {
   // Keep error for debugging
   error: console.error
 };
+
+// Clean up after all tests
+afterAll(() => {
+  // Clear all timers
+  jest.clearAllTimers();
+  
+  // Clear all mocks
+  jest.clearAllMocks();
+  
+  // Restore real timers
+  jest.useRealTimers();
+});
+
+// Handle unhandled promise rejections
+process.on('unhandledRejection', (error) => {
+  console.error('Unhandled Promise Rejection:', error);
+});

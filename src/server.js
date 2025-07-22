@@ -9,6 +9,44 @@ import logger from './utils/logger.js';
 
 dotenv.config();
 
+// Validate required environment variables
+const validateEnvironment = () => {
+  const required = {
+    OPENAI_API_KEY: process.env.OPENAI_API_KEY,
+    GCP_PROJECT_ID: process.env.GCP_PROJECT_ID
+  };
+  
+  const missing = [];
+  for (const [key, value] of Object.entries(required)) {
+    if (!value) {
+      missing.push(key);
+    }
+  }
+  
+  if (missing.length > 0) {
+    logger.error(`Missing required environment variables: ${missing.join(', ')}`);
+    logger.error('Please check your .env file or environment configuration');
+    
+    // In production, exit. In development/test, just warn
+    if (process.env.NODE_ENV === 'production') {
+      process.exit(1);
+    }
+  }
+  
+  // Log configuration (without sensitive values)
+  logger.info('Environment configuration:', {
+    NODE_ENV: process.env.NODE_ENV || 'development',
+    PORT: process.env.PORT || 8080,
+    GCP_PROJECT_ID: process.env.GCP_PROJECT_ID || 'not-set',
+    CLOUD_TASKS_QUEUE: process.env.CLOUD_TASKS_QUEUE || 'evolution-jobs',
+    EVOLUTION_WORKER_URL: process.env.EVOLUTION_WORKER_URL ? 'configured' : 'using-default',
+    OPENAI_API_KEY: process.env.OPENAI_API_KEY ? 'configured' : 'missing'
+  });
+};
+
+// Validate environment on startup
+validateEnvironment();
+
 const app = express();
 const PORT = process.env.PORT || 8080;
 
@@ -60,7 +98,7 @@ app.get('/ready', async (req, res) => {
   try {
     // Check Firestore connection
     await resultStore.getCollection().limit(1).get();
-    
+
     res.json({
       status: 'ready',
       services: {
@@ -83,9 +121,9 @@ const apiRouter = createRoutes(evolutionService, taskHandler);
 app.use('/api/evolution', apiRouter);
 
 // Error handling
-app.use((err, req, res, next) => {
+app.use((err, req, res, _next) => {
   logger.error('Unhandled error:', err);
-  
+
   res.status(err.status || 500).json({
     error: 'Internal server error',
     message: err.message,
@@ -104,12 +142,12 @@ app.use((req, res) => {
 // Graceful shutdown
 process.on('SIGTERM', async () => {
   logger.info('SIGTERM received, shutting down gracefully...');
-  
+
   server.close(() => {
     logger.info('Server closed');
     process.exit(0);
   });
-  
+
   setTimeout(() => {
     logger.error('Forced shutdown after timeout');
     process.exit(1);

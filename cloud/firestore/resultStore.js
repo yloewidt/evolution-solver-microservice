@@ -33,7 +33,10 @@ class EvolutionResultStore {
         ...resultData,
         createdAt: Firestore.FieldValue.serverTimestamp(),
         completedAt: resultData.status === 'completed' ? Firestore.FieldValue.serverTimestamp() : null,
-        updatedAt: Firestore.FieldValue.serverTimestamp()
+        updatedAt: Firestore.FieldValue.serverTimestamp(),
+        // Initialize arrays to ensure they exist
+        apiCalls: resultData.apiCalls || [],
+        generations: resultData.generations || {}
       };
       
       await docRef.set(dataToSave, { merge: true });
@@ -109,7 +112,17 @@ class EvolutionResultStore {
         error: data.error,
         progress: data.progress,
         currentGeneration: data.currentGeneration,
-        generations: data.generations
+        generations: data.generations,
+        // Include all job configuration data
+        evolutionConfig: data.evolutionConfig,
+        problemContext: data.problemContext,
+        userId: data.userId,
+        sessionId: data.sessionId,
+        // Include results if available
+        topSolutions: data.topSolutions,
+        totalSolutions: data.totalSolutions,
+        allSolutions: data.allSolutions,
+        apiCalls: data.apiCalls || []
       };
     } catch (error) {
       logger.error('Error getting job status:', error);

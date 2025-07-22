@@ -17,7 +17,17 @@ class CloudTaskHandler {
     this.projectId = process.env.GCP_PROJECT_ID || 'evolutionsolver';
     this.location = process.env.GCP_LOCATION || 'us-central1';
     this.queueName = process.env.CLOUD_TASKS_QUEUE || 'evolution-jobs';
-    this.workerUrl = process.env.EVOLUTION_WORKER_URL || 'https://evolution-worker-prod-xxxx.run.app';
+    
+    // Determine worker URL based on environment
+    if (process.env.EVOLUTION_WORKER_URL) {
+      this.workerUrl = process.env.EVOLUTION_WORKER_URL;
+    } else if (process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test') {
+      // Use HTTP for local development
+      this.workerUrl = 'http://localhost:8081';
+    } else {
+      // Use HTTPS for production
+      this.workerUrl = 'https://evolution-worker-prod-xxxx.run.app';
+    }
   }
 
   getQueuePath() {
@@ -62,7 +72,8 @@ class CloudTaskHandler {
         };
       }
 
-      if (process.env.SERVICE_ACCOUNT_EMAIL) {
+      // Only add OIDC token for HTTPS URLs (required by Cloud Tasks)
+      if (process.env.SERVICE_ACCOUNT_EMAIL && this.workerUrl.startsWith('https://')) {
         task.httpRequest.oidcToken = {
           serviceAccountEmail: process.env.SERVICE_ACCOUNT_EMAIL,
         };
@@ -108,7 +119,8 @@ class CloudTaskHandler {
         dispatchDeadline: { seconds: 300 }, // 5 minutes per phase
       };
 
-      if (process.env.SERVICE_ACCOUNT_EMAIL) {
+      // Only add OIDC token for HTTPS URLs (required by Cloud Tasks)
+      if (process.env.SERVICE_ACCOUNT_EMAIL && this.workerUrl.startsWith('https://')) {
         task.httpRequest.oidcToken = {
           serviceAccountEmail: process.env.SERVICE_ACCOUNT_EMAIL,
         };

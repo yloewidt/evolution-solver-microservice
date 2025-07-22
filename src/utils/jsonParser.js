@@ -41,17 +41,17 @@ export class RobustJsonParser {
     try {
       // Remove markdown code blocks
       let cleaned = content.replace(/```json\s*/g, '').replace(/```\s*/g, '');
-      
+
       // Find JSON array or object
       const arrayMatch = cleaned.match(/\[[\s\S]*\]/);
       const objectMatch = cleaned.match(/\{[\s\S]*\}/);
-      
+
       if (arrayMatch) {
         const parsed = JSON.parse(arrayMatch[0]);
         logger.info(`${context}: Extracted JSON array from mixed content`);
         return parsed;
       }
-      
+
       if (objectMatch) {
         const parsed = JSON.parse(objectMatch[0]);
         logger.info(`${context}: Extracted JSON object from mixed content`);
@@ -82,7 +82,7 @@ export class RobustJsonParser {
     }
 
     // All strategies failed
-    throw new Error(`Failed to parse JSON after trying all strategies`);
+    throw new Error('Failed to parse JSON after trying all strategies');
   }
 
   /**
@@ -92,8 +92,8 @@ export class RobustJsonParser {
    * @returns {boolean} - True if valid
    */
   static validate(parsed, options = {}) {
-    const { 
-      requireArray = false, 
+    const {
+      requireArray = false,
       requireObject = false,
       minLength = 0,
       requiredFields = []
@@ -113,8 +113,8 @@ export class RobustJsonParser {
 
     if (requiredFields.length > 0) {
       const items = Array.isArray(parsed) ? parsed : [parsed];
-      return items.every(item => 
-        requiredFields.every(field => item.hasOwnProperty(field))
+      return items.every(item =>
+        requiredFields.every(field => Object.prototype.hasOwnProperty.call(item, field))
       );
     }
 
@@ -129,31 +129,31 @@ export class RobustJsonParser {
    */
   static parseEnricherResponse(content) {
     const parsed = this.parse(content, 'enricher');
-    
+
     // Ensure it's an array
     const ideas = Array.isArray(parsed) ? parsed : [parsed];
-    
+
     // Validate each idea has required fields
     const validIdeas = ideas.filter(idea => {
       if (!idea || typeof idea !== 'object') return false;
       if (!idea.idea_id || !idea.description) return false;
       if (!idea.business_case || typeof idea.business_case !== 'object') return false;
-      
+
       // Check required business_case fields
       const bc = idea.business_case;
-      const hasRequiredFields = 
+      const hasRequiredFields =
         typeof bc.npv_success === 'number' &&
         typeof bc.capex_est === 'number' &&
         typeof bc.timeline_months === 'number' &&
         typeof bc.likelihood === 'number' &&
         Array.isArray(bc.risk_factors) &&
         Array.isArray(bc.yearly_cashflows);
-      
+
       if (!hasRequiredFields) {
         logger.warn(`Enricher: Idea ${idea.idea_id} missing required business_case fields`);
         return false;
       }
-      
+
       return true;
     });
 
@@ -173,10 +173,10 @@ export class RobustJsonParser {
    */
   static parseVariatorResponse(content) {
     const parsed = this.parse(content, 'variator');
-    
+
     // Ensure it's an array
     const ideas = Array.isArray(parsed) ? parsed : [parsed];
-    
+
     // Validate each idea has required fields
     const validIdeas = ideas.filter(idea => {
       if (!idea || typeof idea !== 'object') return false;

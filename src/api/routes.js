@@ -1,8 +1,6 @@
 import express from 'express';
 import { v4 as uuidv4 } from 'uuid';
-import EvolutionService from '../services/evolutionService.js';
 import AnalyticsService from '../services/analyticsService.js';
-import CloudTaskHandler from '../../cloud/tasks/taskHandler.js';
 import WorkflowHandler from '../../cloud/workflows/workflowHandler.js';
 import logger from '../utils/logger.js';
 
@@ -17,11 +15,11 @@ export default function createRoutes(evolutionService, taskHandler) {
       // Support both 'parameters' and 'params' for backward compatibility
       const { problemContext, parameters, params, filters, selectedBottleneck } = req.body;
       const evolutionParams = parameters || params || {};
-      
+
       logger.info('Received evolution parameters:', evolutionParams);
-      
+
       let enrichedContext = '';
-      
+
       if (selectedBottleneck) {
         enrichedContext = evolutionService.enrichContextWithBottleneck(selectedBottleneck, filters);
       } else if (!problemContext) {
@@ -29,13 +27,13 @@ export default function createRoutes(evolutionService, taskHandler) {
       } else {
         enrichedContext = problemContext;
       }
-      
+
       try {
         evolutionService.validateProblemContext(enrichedContext);
       } catch (validationError) {
         return res.status(400).json({ error: validationError.message });
       }
-      
+
       // Validate monetary parameters if provided
       if (evolutionParams?.maxCapex !== undefined && evolutionParams.maxCapex > 10) {
         logger.warn(`maxCapex value ${evolutionParams.maxCapex} seems high. Expected units are millions USD (e.g., 0.1 = $100K)`);
@@ -43,7 +41,7 @@ export default function createRoutes(evolutionService, taskHandler) {
       if (evolutionParams?.diversificationUnit !== undefined && evolutionParams.diversificationUnit > 10) {
         logger.warn(`diversificationUnit value ${evolutionParams.diversificationUnit} seems high. Expected units are millions USD (e.g., 0.05 = $50K)`);
       }
-      
+
       const evolutionConfig = {
         generations: evolutionParams?.generations || 10,
         populationSize: evolutionParams?.populationSize || 5,
@@ -52,7 +50,7 @@ export default function createRoutes(evolutionService, taskHandler) {
         offspringRatio: evolutionParams?.offspringRatio || 0.7,
         diversificationUnit: evolutionParams?.diversificationUnit || 0.05  // Default $50K in millions
       };
-      
+
       // Only add optional parameters if they are defined
       if (evolutionParams?.dealTypes !== undefined) {
         evolutionConfig.dealTypes = evolutionParams.dealTypes;
@@ -66,7 +64,7 @@ export default function createRoutes(evolutionService, taskHandler) {
       if (evolutionParams?.fallbackModel !== undefined) {
         evolutionConfig.fallbackModel = evolutionParams.fallbackModel;
       }
-      
+
       const jobId = uuidv4();
       const jobData = {
         jobId,
@@ -76,7 +74,7 @@ export default function createRoutes(evolutionService, taskHandler) {
         userId: req.user?.id || 'anonymous',
         sessionId: req.sessionId || uuidv4()
       };
-      
+
       // Check if job already exists (prevent duplicates)
       const existingJob = await evolutionService.resultStore.getJobStatus(jobId);
       if (existingJob) {
@@ -88,7 +86,7 @@ export default function createRoutes(evolutionService, taskHandler) {
           existingJob: true
         });
       }
-      
+
       // Create document FIRST
       await evolutionService.resultStore.saveResult({
         jobId: jobId,
@@ -98,13 +96,13 @@ export default function createRoutes(evolutionService, taskHandler) {
         evolutionConfig: jobData.evolutionConfig,
         status: 'pending'
       });
-      
+
       // THEN create the workflow execution
       const useWorkflow = process.env.USE_WORKFLOWS === 'true' || process.env.ENVIRONMENT === 'production';
-      
+
       if (useWorkflow) {
         const result = await workflowHandler.executeEvolutionWorkflow(jobData);
-        
+
         res.json({
           jobId: jobId,
           executionName: result.executionName,
@@ -114,7 +112,7 @@ export default function createRoutes(evolutionService, taskHandler) {
       } else {
         // Legacy task-based approach
         const result = await taskHandler.createEvolutionTask(jobData);
-        
+
         res.json({
           jobId: jobId,
           taskName: result.taskName,
@@ -132,13 +130,13 @@ export default function createRoutes(evolutionService, taskHandler) {
   router.get('/jobs/:jobId', async (req, res) => {
     try {
       const { jobId } = req.params;
-      
+
       const status = await evolutionService.getJobStatus(jobId);
-      
+
       if (!status) {
         return res.status(404).json({ error: 'Job not found' });
       }
-      
+
       res.json(status);
     } catch (error) {
       logger.error('Get job status error:', error);
@@ -150,13 +148,13 @@ export default function createRoutes(evolutionService, taskHandler) {
   router.get('/results/:jobId', async (req, res) => {
     try {
       const { jobId } = req.params;
-      
+
       const results = await evolutionService.getResults(jobId);
-      
+
       if (!results) {
         return res.status(404).json({ error: 'Results not found' });
       }
-      
+
       res.json(results);
     } catch (error) {
       logger.error('Get results error:', error);
@@ -167,21 +165,21 @@ export default function createRoutes(evolutionService, taskHandler) {
   // List jobs
   router.get('/jobs', async (req, res) => {
     try {
-      const { status, limit = 50, offset = 0 } = req.query;
-      
+      const { status, limit = 50 } = req.query;
+
       let jobs;
       if (status) {
         jobs = await evolutionService.resultStore.getJobsByStatus(status, parseInt(limit));
       } else {
         jobs = await evolutionService.getRecentJobs(parseInt(limit));
       }
-      
+
       const pendingTasks = await taskHandler.listTasks();
-      
+
       const pendingJobs = pendingTasks.map(task => {
         let jobId = 'pending';
         let problemContext = 'Pending in Cloud Tasks';
-        
+
         try {
           if (task.httpRequest?.body) {
             const decodedBody = JSON.parse(Buffer.from(task.httpRequest.body, 'base64').toString());
@@ -191,7 +189,7 @@ export default function createRoutes(evolutionService, taskHandler) {
         } catch (e) {
           // Ignore parsing errors
         }
-        
+
         return {
           jobId,
           status: 'pending',
@@ -201,11 +199,11 @@ export default function createRoutes(evolutionService, taskHandler) {
           isPendingTask: true
         };
       });
-      
+
       const allJobs = [...pendingJobs, ...jobs];
-      
+
       res.json({
-        jobs: allJobs.sort((a, b) => 
+        jobs: allJobs.sort((a, b) =>
           new Date(b.createdAt) - new Date(a.createdAt)
         ).slice(0, limit),
         total: allJobs.length,
@@ -221,7 +219,7 @@ export default function createRoutes(evolutionService, taskHandler) {
   router.get('/stats', async (req, res) => {
     try {
       const stats = await evolutionService.getJobStats();
-      
+
       res.json({
         jobs: stats,
         queue: await taskHandler.getQueueStats()
@@ -236,13 +234,13 @@ export default function createRoutes(evolutionService, taskHandler) {
   router.get('/jobs/:jobId/analytics', async (req, res) => {
     try {
       const { jobId } = req.params;
-      
+
       const analytics = await analyticsService.getJobAnalytics(jobId);
-      
+
       if (!analytics) {
         return res.status(404).json({ error: 'Job not found' });
       }
-      
+
       res.json(analytics);
     } catch (error) {
       logger.error('Get job analytics error:', error);
@@ -255,9 +253,9 @@ export default function createRoutes(evolutionService, taskHandler) {
     try {
       const { userId } = req.params;
       const { limit = 10 } = req.query;
-      
+
       const results = await evolutionService.getUserResults(userId, parseInt(limit));
-      
+
       res.json({ results });
     } catch (error) {
       logger.error('Get user results error:', error);
@@ -269,9 +267,9 @@ export default function createRoutes(evolutionService, taskHandler) {
   router.get('/solutions', async (req, res) => {
     try {
       const { limit = 100 } = req.query;
-      
+
       const allResults = await evolutionService.getAllResults(parseInt(limit));
-      
+
       const solutions = allResults.map(result => ({
         jobId: result.jobId || result.id,
         problemContext: result.problemContext,
@@ -282,12 +280,12 @@ export default function createRoutes(evolutionService, taskHandler) {
         totalSolutions: result.totalSolutions || (result.allSolutions || result.topSolutions || []).length,
         generationHistory: result.generationHistory || []
       }));
-      
+
       let totalSolutionsCount = 0;
       let totalScore = 0;
       let scoreCount = 0;
       const uniqueBottlenecks = new Set();
-      
+
       solutions.forEach(result => {
         if (result.solutions && Array.isArray(result.solutions)) {
           result.solutions.forEach(solution => {
@@ -302,10 +300,10 @@ export default function createRoutes(evolutionService, taskHandler) {
           });
         }
       });
-      
+
       const avgScore = scoreCount > 0 ? totalScore / scoreCount : 0;
-      
-      res.json({ 
+
+      res.json({
         solutions,
         totalSolutions: totalSolutionsCount,
         totalBottlenecks: uniqueBottlenecks.size,
@@ -322,15 +320,15 @@ export default function createRoutes(evolutionService, taskHandler) {
   router.get('/bottleneck-solutions', async (req, res) => {
     try {
       const { industryName, problem } = req.query;
-      
+
       if (!industryName || !problem) {
-        return res.status(400).json({ 
-          error: 'Both industryName and problem parameters are required' 
+        return res.status(400).json({
+          error: 'Both industryName and problem parameters are required'
         });
       }
-      
+
       const result = await evolutionService.getBottleneckSolutions(industryName, problem);
-      
+
       res.json(result);
     } catch (error) {
       logger.error('Get bottleneck solutions error:', error);

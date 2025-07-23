@@ -53,7 +53,7 @@ gcloud run deploy ${SERVICE_NAME}-${ENVIRONMENT} \
     --max-instances 100 \
     --min-instances 0 \
     --port 8080 \
-    --set-env-vars "ENVIRONMENT=${ENVIRONMENT},NODE_ENV=production,IS_WORKER=true,EVOLUTION_API_URL=${API_SERVICE_URL}" \
+    --set-env-vars "ENVIRONMENT=${ENVIRONMENT},NODE_ENV=production,IS_WORKER=true,EVOLUTION_API_URL=${API_SERVICE_URL},GCP_PROJECT_ID=${PROJECT_ID}" \
     --set-secrets "OPENAI_API_KEY=openai-api-key:latest" \
     --service-account "evolution-solver@${PROJECT_ID}.iam.gserviceaccount.com"
 

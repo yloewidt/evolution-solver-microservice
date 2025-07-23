@@ -1,0 +1,752 @@
+Enrich these 144 ideas with detailed business case analysis.
+
+For each idea, add a "business_case" object with:
+- "npv_success": 5-year NPV if successful in $M (discounted at 10% annually)
+- "capex_est": Initial capital required in $M (e.g., 0.075 = $75K)
+- "timeline_months": Time to first revenue
+- "likelihood": Success probability (0-1)
+- "risk_factors": Array of key risks (technical, market, regulatory, execution)
+- "yearly_cashflows": Array of 5 yearly cash flows in $M
+
+IMPORTANT: All monetary values must be in millions. Examples:
+- $50K = 0.05
+- $100K = 0.1
+- $1M = 1.0
+- $50M = 50.0
+PREFERRED APPROACH: Focus on capital-efficient solutions with initial investment under $5M. Low-cost, high-impact strategies are especially valued.
+TARGET OUTCOME: Aim for solutions with 5-year NPV potential above $2M.
+
+Analysis steps:
+1. Market size and growth potential
+2. Revenue projections by year (in $M)
+3. Cost structure and capital requirements (in $M)
+4. Risk assessment across all dimensions
+5. NPV calculation using 10% discount rate
+
+Ideas to analyze:
+[
+  {
+    "idea_id": "gym_kiosk_hub",
+    "description": "Set up 200-sq-ft mini-shops inside national gym chains selling fitness gear and offering online order pick-ups; gyms get % of sales instead of rent.",
+    "core_mechanism": "Piggybacks on existing gym traffic, slashes lease costs, drives e-commerce orders to low-cost lockers while sharing revenue instead of fixed rent."
+  },
+  {
+    "idea_id": "library_click_collect",
+    "description": "Partner with public libraries to place branded click-and-collect lockers and curated book-related merchandise stands.",
+    "core_mechanism": "Uses free/cheap civic space to fulfill online orders, boosts community goodwill, and sells impulse items with minimal real estate expense."
+  },
+  {
+    "idea_id": "mobile_showroom_bus",
+    "description": "Convert used buses into roaming showrooms that park at events and office parks; customers scan items to order for home delivery.",
+    "core_mechanism": "Moves inventory virtually, not physically; attracts new shoppers where they gather, saving on permanent store rent."
+  },
+  {
+    "idea_id": "after_hours_darkstore_flip",
+    "description": "Transform closed stores into micro-fulfillment centers after 8 pm, renting picking capacity to local DTC brands.",
+    "core_mechanism": "Sweats existing assets twice a day, generates service fees, lowers per-unit fulfillment cost for all partners."
+  },
+  {
+    "idea_id": "cowork_retail_combo",
+    "description": "Sublet 30% of store floor to a coworking operator; offer fast Wi-Fi, coffee, and in-store discount perks.",
+    "core_mechanism": "Shares rent, boosts day-long foot traffic, converts coworkers into shoppers, and earns margin from beverages."
+  },
+  {
+    "idea_id": "doctor_office_corner",
+    "description": "Lease unused corner space to telehealth clinics needing physical exam rooms a few days a week.",
+    "core_mechanism": "Generates rental income, attracts health-conscious visitors, cross-promotes wellness products with no inventory risk."
+  },
+  {
+    "idea_id": "local_artist_market",
+    "description": "Host rotating booths for local artisans on weekends, charging a small fee plus sales commission.",
+    "core_mechanism": "Drives unique foot traffic, refreshes store experience weekly, and collects revenue without owning the inventory."
+  },
+  {
+    "idea_id": "returns_clearinghouse",
+    "description": "Partner with e-commerce firms to act as centralized returns drop-off and instant refund point.",
+    "core_mechanism": "Earns handling fees, increases in-store visits, and upsells returners using targeted coupons."
+  },
+  {
+    "idea_id": "electric_vehicle_chargers",
+    "description": "Install EV fast chargers in parking lots with energy-company financing; shoppers charge free for 30 min while browsing.",
+    "core_mechanism": "Utility funds hardware, store captures captive dwell time driving sales, plus revenue share on charging fees."
+  },
+  {
+    "idea_id": "community_kitchen_demo",
+    "description": "Create rentable demonstration kitchens for meal-kit startups and cooking classes.",
+    "core_mechanism": "Charges hourly rental, draws foodie crowds, and sells related kitchenware from store shelves."
+  },
+  {
+    "idea_id": "esports_arena_popin",
+    "description": "Convert underused basement areas into small esports arenas with tournament operators.",
+    "core_mechanism": "Operator funds gear; store gains rent, concession sales, and Gen-Z traffic that normally shops online."
+  },
+  {
+    "idea_id": "pharmacy_integration",
+    "description": "White-label a local pharmacy chain inside our stores to offer prescriptions and health consults.",
+    "core_mechanism": "Pharmacy covers build-out; we receive rent and cross-sell health products, raising basket size."
+  },
+  {
+    "idea_id": "pet_daycare_drop",
+    "description": "Partner with pet-care startup to run in-store dog daycare during shopping hours.",
+    "core_mechanism": "Generates service fees, removes barrier for pet owners to visit, and upsells pet supplies."
+  },
+  {
+    "idea_id": "urban_microhub_drones",
+    "description": "Co-invest with drone-delivery firm in rooftop pads; use stores as city microhubs for 30-minute delivery.",
+    "core_mechanism": "Shares cost, unlocks premium delivery fees, and uses existing inventory more efficiently."
+  },
+  {
+    "idea_id": "shopper_subscriber_club",
+    "description": "Offer $15/month membership with free same-day delivery, exclusive events, and partner perks.",
+    "core_mechanism": "Creates recurring revenue and loyalty; bulk deals with partners lower benefit costs."
+  },
+  {
+    "idea_id": "college_campus_popup",
+    "description": "Deploy seasonal pop-up shops in university student centers selling dorm essentials and online pickup.",
+    "core_mechanism": "Short-term leases align with demand peaks; drives low-CAC customer acquisition among young shoppers."
+  },
+  {
+    "idea_id": "unused_space_studio_rental",
+    "description": "Turn storage rooms into TikTok/YouTube content studios rentable by the hour.",
+    "core_mechanism": "Captures creator economy spend; in-studio product placement spurs social media virality."
+  },
+  {
+    "idea_id": "subscription_tool_library",
+    "description": "Launch tool-rental subscription in partnership with hardware brands; in-store pickup and return.",
+    "core_mechanism": "Generates recurring fees, reduces inventory risk via brand consignment, and attracts DIY traffic."
+  },
+  {
+    "idea_id": "brand_test_lab",
+    "description": "Offer 90-day pilot shelf space to emerging DTC brands for data sharing fees.",
+    "core_mechanism": "Monetizes shelf real estate, diversifies assortment, and benefits from supplier marketing dollars."
+  },
+  {
+    "idea_id": "night_market_events",
+    "description": "Host themed night markets in parking lots with food trucks and live music.",
+    "core_mechanism": "Vendor booth fees cover costs; events reignite community engagement and next-day store visits."
+  },
+  {
+    "idea_id": "smart_mirror_stylist",
+    "description": "Partner with AR mirror vendor to add virtual try-on kiosks; charge brands for placement.",
+    "core_mechanism": "Improves conversion, lowers returns, and extracts tech sponsorship revenue."
+  },
+  {
+    "idea_id": "health_insurer_rewards",
+    "description": "Collaborate with insurers to offer policyholder discounts for in-store healthy purchases.",
+    "core_mechanism": "Insurer subsidizes discounts; we gain guaranteed foot traffic at lower acquisition cost."
+  },
+  {
+    "idea_id": "gig_worker_lounge",
+    "description": "Create rest lounges for rideshare drivers with free Wi-Fi and discounted snacks.",
+    "core_mechanism": "Captures off-peak traffic cheaply; snack sales and loyalty program sign-ups drive profit."
+  },
+  {
+    "idea_id": "crowdstock_flash_vote",
+    "description": "Let customers vote weekly on limited-run products; only chosen items are stocked.",
+    "core_mechanism": "Reduces inventory risk, builds engagement, and secures pre-orders before buying stock."
+  },
+  {
+    "idea_id": "recommerce_corner",
+    "description": "Set up a trade-in counter for used electronics and apparel with refurb partner.",
+    "core_mechanism": "Partner handles refurbishment; we earn commission and traffic from sustainability-minded shoppers."
+  },
+  {
+    "idea_id": "micro-clinic screenings",
+    "description": "Host monthly free health screenings sponsored by medical device firms.",
+    "core_mechanism": "Sponsors pay fees; screenings pull community into store, boosting incidental sales."
+  },
+  {
+    "idea_id": "corporate_gift_portal",
+    "description": "Launch B2B portal for corporate gifting, fulfilled from store inventory.",
+    "core_mechanism": "Uses existing stock for bulk orders, capturing higher-margin enterprise clients with minimal marketing spend."
+  },
+  {
+    "idea_id": "beacon_loyalty_walkby",
+    "description": "Install Bluetooth beacons outside to push instant coupons to passerby phones via ad-tech partner.",
+    "core_mechanism": "Partner funds hardware; we pay per converted visit, lowering CAC."
+  },
+  {
+    "idea_id": "solar_canopy_parking",
+    "description": "Lease roof rights to solar firm; gain shaded parking plus energy credits.",
+    "core_mechanism": "No-cost installation; energy savings drop operating expenses while enhancing eco image."
+  },
+  {
+    "idea_id": "last_mile_cold_storage",
+    "description": "Let meal-kit companies rent cold storage inside backrooms for evening deliveries.",
+    "core_mechanism": "Generates rental income and cross-marketing without extra real estate."
+  },
+  {
+    "idea_id": "charity_roundup_match",
+    "description": "Introduce POS donation roundup matched by partner NGOs on specific days.",
+    "core_mechanism": "Drives cause-marketing traffic; NGOs promote shopping dates, increasing volume at negligible cost."
+  },
+  {
+    "idea_id": "smart_cart_ad_network",
+    "description": "Deploy screen-equipped smart carts; sell ad slots to CPG brands.",
+    "core_mechanism": "Brand ad revenue subsidizes cart tech, while data improves merchandising efficiency."
+  },
+  {
+    "idea_id": "on-demand_tailor_station",
+    "description": "Partner with mobile tailoring service for 1-hour alterations in-store.",
+    "core_mechanism": "Service vendor pays kiosk rent; we upsell apparel and increase satisfaction."
+  },
+  {
+    "idea_id": "warranty_care_center",
+    "description": "Act as warranty service drop point for electronics makers.",
+    "core_mechanism": "Earn handling fees and impulse purchases from service visitors."
+  },
+  {
+    "idea_id": "crossfit_morning_pop",
+    "description": "Lease parking lot to CrossFit instructors for dawn classes; offer healthy breakfast bar afterward.",
+    "core_mechanism": "Instructor pays small fee and promotes store; we sell breakfast items to participants."
+  },
+  {
+    "idea_id": "3d_print_gift_bar",
+    "description": "Install 3D-printing kiosk for custom gifts run by tech partner.",
+    "core_mechanism": "Partner invests; we get revenue share and unique attraction reducing need for inventory variety."
+  },
+  {
+    "idea_id": "weekday_farmer_market",
+    "description": "Host weekday indoor micro farmer market in aisle ends.",
+    "core_mechanism": "Stall fees offset space loss; freshness theme increases overall visit frequency."
+  },
+  {
+    "idea_id": "vr_travel_corner",
+    "description": "Set up VR travel experience pods co-branded with travel agency; book trips on spot.",
+    "core_mechanism": "Agency funds pods; we earn commission per booking and sell travel accessories."
+  },
+  {
+    "idea_id": "mini_bank_branch",
+    "description": "Allow fintech company to open micro-bank desks in store atrium.",
+    "core_mechanism": "Fintech covers staffing and rent; mutual marketing raises both customer bases."
+  },
+  {
+    "idea_id": "green_delivery_coop",
+    "description": "Form delivery co-op with nearby retailers sharing electric vans and drivers.",
+    "core_mechanism": "Shared asset reduces last-mile cost 40%, enabling free same-day delivery promise."
+  },
+  {
+    "idea_id": "employee_creator_program",
+    "description": "Train staff to become brand ambassadors on social media, earning sales-based bonuses.",
+    "core_mechanism": "Low cost content generation drives authentic reach; bonuses aligned with revenue."
+  },
+  {
+    "idea_id": "subscription_kids_play",
+    "description": "Create supervised kids play zone memberships so parents shop stress-free.",
+    "core_mechanism": "Membership fees + increased parent dwell time raises basket size."
+  },
+  {
+    "idea_id": "unused_wall_adwrap",
+    "description": "Sell interior and exterior wall space for rotating art murals sponsored by brands.",
+    "core_mechanism": "Brands pay installation and fee; fresh visuals attract social media sharing."
+  },
+  {
+    "idea_id": "insurance_claim_center",
+    "description": "Partner with auto insurers to open claim photo and quick-assessment kiosks in parking lots.",
+    "core_mechanism": "Insurer funds build; store gains rental income and waiting customer purchases."
+  },
+  {
+    "idea_id": "flash_classroom_series",
+    "description": "Offer evening classes (coding, language) via edu-tech provider in community room.",
+    "core_mechanism": "Edu partner rents space; students shop before/after class."
+  },
+  {
+    "idea_id": "private_label_local",
+    "description": "Co-develop private-label lines with local farms and makers, sharing production costs.",
+    "core_mechanism": "Higher margins on exclusive goods, shared marketing spend, and unique positioning vs. e-commerce."
+  },
+  {
+    "idea_id": "scrap_material_market",
+    "description": "Sell leftover packaging and pallets to upcycling artists through monthly flea market.",
+    "core_mechanism": "Turns waste into revenue while fostering eco credentials."
+  },
+  {
+    "idea_id": "atm_bitcoin_kiosk",
+    "description": "Host crypto ATM operator; receive per-transaction commission.",
+    "core_mechanism": "Attracts tech-savvy visitors and generates passive income without capex."
+  },
+  {
+    "idea_id": "seasonal_costume_rental",
+    "description": "Partner with costume rental firm for pop-up during holidays.",
+    "core_mechanism": "Revenue split, zero inventory carrying post-season, drives festive traffic."
+  },
+  {
+    "idea_id": "smart_lockers_for_others",
+    "description": "Rent excess smart-locker capacity to third-party couriers.",
+    "core_mechanism": "Monetizes underused asset and boosts visit frequency from parcel pickups."
+  },
+  {
+    "idea_id": "reusable_container_loop",
+    "description": "Pilot reusable container exchange with CPG brands; deposit refunded upon return.",
+    "core_mechanism": "Brands supply containers; sustainability incentive draws eco-customers and repeat visits."
+  },
+  {
+    "idea_id": "elderly_ride_share",
+    "description": "Team with senior ride service offering discounted trips to our stores.",
+    "core_mechanism": "We subsidize rides partially; incremental spend outweighs subsidy, filling off-peak hours."
+  },
+  {
+    "idea_id": "microbrewery_collab",
+    "description": "Install small craft beer brewery run by local brewer inside flagship store.",
+    "core_mechanism": "Brewer invests; tasting area drives evening traffic and product differentiation."
+  },
+  {
+    "idea_id": "flex_payroll_advance",
+    "description": "Offer instant earned-wage access through fintech kiosk; users receive store coupons.",
+    "core_mechanism": "Fintech funds, we gain traffic from financially stressed but active consumers."
+  },
+  {
+    "idea_id": "ai_demand_planner_share",
+    "description": "Co-subscribe with non-competing retailers to AI inventory planning SaaS, splitting fees.",
+    "core_mechanism": "Cuts stockouts and overstocks jointly, lowering carrying costs across partners."
+  },
+  {
+    "idea_id": "crowdsourced_design_line",
+    "description": "Let customers submit and vote on T-shirt designs; winners produced locally.",
+    "core_mechanism": "Pre-sales finance production; community marketing cuts acquisition costs."
+  },
+  {
+    "idea_id": "event_ticket_booth",
+    "description": "Sell local event tickets via partnership with ticketing platform.",
+    "core_mechanism": "Earn commissions and bundle event-related product discounts to raise basket size."
+  },
+  {
+    "idea_id": "charter_bus_daytrips",
+    "description": "Offer weekend shopping + sightseeing bus packages for suburban seniors.",
+    "core_mechanism": "Ticket revenue plus guaranteed store spend; bus operator paid per seat."
+  },
+  {
+    "idea_id": "abandoned_mall_takeover",
+    "description": "Temporarily occupy vacant mall spaces at deep discounts for clearance megastore.",
+    "core_mechanism": "Short-term leases move excess inventory quickly, freeing core stores."
+  },
+  {
+    "idea_id": "tax_service_desk",
+    "description": "Seasonal in-store tax prep desks run by accounting chain.",
+    "core_mechanism": "Desk pays rent; tax season drives financially minded shoppers to other departments."
+  },
+  {
+    "idea_id": "pop-culture_exhibit",
+    "description": "Host traveling pop-culture memorabilia exhibits with ticketed entry.",
+    "core_mechanism": "Exhibit company sets up; ticket split and souvenir sales boost profits."
+  },
+  {
+    "idea_id": "gaming_pass_subsell",
+    "description": "Bundle console gaming subscription cards with hardware at discount through publisher partnership.",
+    "core_mechanism": "Publisher subsidizes discount; we sell high-margin accessories alongside."
+  },
+  {
+    "idea_id": "refill_station_row",
+    "description": "Install liquid bulk refill stations (detergent, shampoo) run by sustainability startup.",
+    "core_mechanism": "Startup funds units; we collect sales margin and foot traffic from eco-shoppers."
+  },
+  {
+    "idea_id": "AI_price_match_bot",
+    "description": "Deploy chatbot that guarantees price match plus instant coupon if shown cheaper online.",
+    "core_mechanism": "Automated verification lowers manual labor; preserves sales that would shift to e-commerce."
+  },
+  {
+    "idea_id": "contactless_drive_thru",
+    "description": "Convert backside loading bays into drive-thru pickup lanes with RFID order detection.",
+    "core_mechanism": "Faster pickup increases online conversion and reduces parking congestion."
+  },
+  {
+    "idea_id": "factory_outlet_online",
+    "description": "Open online-only clearance section shipping from store backrooms.",
+    "core_mechanism": "Moves slow SKUs without floor space, increases cash flow, lowers markdown loss."
+  },
+  {
+    "idea_id": "local_sports_team_zone",
+    "description": "Dedicate small area to sell official merch on consignment with minor league teams.",
+    "core_mechanism": "Team promotes location; consignment removes inventory risk while capturing passionate fans."
+  },
+  {
+    "idea_id": "shared_photo_booth",
+    "description": "Rent AR photo booths for influencer shots; brands sponsor themed backdrops.",
+    "core_mechanism": "Sponsor fees cover booth; social shares give free marketing to store."
+  },
+  {
+    "idea_id": "chef_takeover_cafe",
+    "description": "Rotate local chefs operating in-store café monthly.",
+    "core_mechanism": "Chefs bring followers and cover kitchen staff; we earn revenue share and beverage sales."
+  },
+  {
+    "idea_id": "lab_sample_pickup",
+    "description": "Provide medical lab test kit pickup/drop shelf for healthtech firm.",
+    "core_mechanism": "Handling fees and health-oriented shopper increase."
+  },
+  {
+    "idea_id": "late_night_student_shift",
+    "description": "Extend hours till midnight staffed by part-time students seeking flexible work.",
+    "core_mechanism": "Captures late-night convenience market with lower labor cost structure."
+  },
+  {
+    "idea_id": "circular_fashion_swap",
+    "description": "Host clothing swap events powered by resale app; charge entry fee.",
+    "core_mechanism": "Zero inventory; fee revenue plus upsell of new accessories."
+  },
+  {
+    "idea_id": "smart_energy_management",
+    "description": "Partner with ESCO for IoT energy retrofits at no upfront cost, splitting savings.",
+    "core_mechanism": "Cuts utility expense, boosting EBITDA with shared-savings model."
+  },
+  {
+    "idea_id": "qr_in-aisle_education",
+    "description": "Attach QR codes linking to 30-sec product videos made by suppliers.",
+    "core_mechanism": "Suppliers pay placement fee; richer info lifts conversion without added staff."
+  },
+  {
+    "idea_id": "mobile_blood_donor_day",
+    "description": "Coordinate with Red Cross for donor drives in parking lot; donors get store coupons.",
+    "core_mechanism": "Charity handles setup; coupon redemption drives incremental sales."
+  },
+  {
+    "idea_id": "nano_warehouse_robotics",
+    "description": "Lease compact robotics from automation startup for backroom picking as a service.",
+    "core_mechanism": "Subscription replaces capex, speeds e-commerce fulfillment, lowers labor per pick."
+  },
+  {
+    "idea_id": "used_books_buyback",
+    "description": "Set up used-book buyback counter with online reseller partner.",
+    "core_mechanism": "Partner buys books; we earn commission and traffic from bargain hunters."
+  },
+  {
+    "idea_id": "holiday_light_drive",
+    "description": "Turn parking lot into ticketed holiday light show evenings.",
+    "core_mechanism": "Lighting company funds build; ticket share and concession sales add revenue while stores closed."
+  },
+  {
+    "idea_id": "AI_shop_map_app",
+    "description": "Co-develop app that guides shoppers to items fastest using indoor positioning.",
+    "core_mechanism": "Sponsored search slots for brands create new ad revenue stream."
+  },
+  {
+    "idea_id": "micro-loan_point",
+    "description": "Fintech offers instant micro-loans for large purchases in store.",
+    "core_mechanism": "We get immediate payment, increased AOV; fintech earns interest, no recourse to us."
+  },
+  {
+    "idea_id": "craft_class_liquor",
+    "description": "Offer craft cocktail classes in partnership with local distiller after hours.",
+    "core_mechanism": "Distiller provides booze, ticket sales split; participants buy barware onsite."
+  },
+  {
+    "idea_id": "reverse_vending_machines",
+    "description": "Install bottle/can return machines giving store credit funded by beverage companies.",
+    "core_mechanism": "Drives repeat visits; recycling fees offset machine rental."
+  },
+  {
+    "idea_id": "shared_staff_pool",
+    "description": "Create labor-sharing consortium with nearby retailers using gig platform to smooth peak hours.",
+    "core_mechanism": "Reduces overtime and understaffing; platform fee cheaper than agency temps."
+  },
+  {
+    "idea_id": "atm_cashback_games",
+    "description": "Gamify cash back at POS—random bonus coupons funded by CPG sponsors.",
+    "core_mechanism": "Sponsors pay for prizes; surprise element encourages card usage at checkout."
+  },
+  {
+    "idea_id": "flex_fitting_room",
+    "description": "Offer rentable private styling suites for personal shoppers and influencers.",
+    "core_mechanism": "Rental fees plus sales from featured outfits, leveraging unused storage areas."
+  },
+  {
+    "idea_id": "second_fridge_program",
+    "description": "Lend energy-efficient mini-fridge to loyal customers stocked monthly via subscription.",
+    "core_mechanism": "Locks in recurring consumable sales; appliance cost shared with manufacturer rebates."
+  },
+  {
+    "idea_id": "digital_recipe_wall",
+    "description": "Interactive screen suggests recipes; add ingredients to cart with one tap.",
+    "core_mechanism": "CPG brands sponsor placement; increases basket size through guided shopping."
+  },
+  {
+    "idea_id": "garden_center_seedlings",
+    "description": "Partner with local nurseries for in-season live plant pop-ups in parking lot tents.",
+    "core_mechanism": "Nurseries handle stock; rental earnings and cross-sales of gardening tools follow."
+  },
+  {
+    "idea_id": "rapid_photo_print",
+    "description": "In-store instant photo printing kiosks run by imaging company.",
+    "core_mechanism": "Company bears capex; we profit from revenue share and related frame sales."
+  },
+  {
+    "idea_id": "AI_voice_shelf_stock",
+    "description": "Voice-activated system for staff to report low stock quickly; SaaS firm shares savings.",
+    "core_mechanism": "Cuts stockouts reducing lost sales, SaaS fee tied to uplift, lowering risk."
+  },
+  {
+    "idea_id": "festival_shuttle_stop",
+    "description": "Serve as official shuttle pickup for city festivals, offering locker storage for attendees.",
+    "core_mechanism": "Transit authority funds signage; pre/post-festival sales increase."
+  },
+  {
+    "idea_id": "carbon_offset_at_checkout",
+    "description": "Allow customers to buy carbon offsets for their purchase; offsets sourced wholesale.",
+    "core_mechanism": "Small margin on offsets and positive brand differentiation at negligible cost."
+  },
+  {
+    "idea_id": "language_exchange_cafe",
+    "description": "Weekly free language meetups in café sponsored by language app.",
+    "core_mechanism": "App funds refreshments; we gain café sales and new regular shoppers."
+  },
+  {
+    "idea_id": "emerging_food_truck_inc",
+    "description": "Incubate new food trucks by leasing parking lot spots with power hookups.",
+    "core_mechanism": "Monthly fees, diverse cuisine draws lunchtime crowds, minimal investment."
+  },
+  {
+    "idea_id": "perfume_mixing_bar",
+    "description": "Set up custom fragrance bar operated by niche perfume brand.",
+    "core_mechanism": "Brand funds bar; we share revenue and capture gift shoppers seeking uniqueness."
+  },
+  {
+    "idea_id": "women_in_business_market",
+    "description": "Quarterly marketplace for women-owned startups, co-hosted with bank sponsor.",
+    "core_mechanism": "Sponsor covers event cost; vendor fees and publicity drive profits and CSR points."
+  },
+  {
+    "idea_id": "interactive_storytime",
+    "description": "AR-enhanced children story sessions co-created with publishing house.",
+    "core_mechanism": "Publisher supplies tech/book bundles; parents buy books and toys onsite."
+  },
+  {
+    "idea_id": "home_service_bundles",
+    "description": "Package products with local handyman services at checkout (e.g., mount TV).",
+    "core_mechanism": "Handyman network pays lead fee; we differentiate against online price war."
+  },
+  {
+    "idea_id": "plant_care_subscription",
+    "description": "Monthly plant-care kit auto-delivered with in-store expert Q&A events.",
+    "core_mechanism": "Subscription revenue + event upsells; supplier consignment reduces capital."
+  },
+  {
+    "idea_id": "parking_space_rental_app",
+    "description": "Rent unused parking spaces on weekday nights via parking app.",
+    "core_mechanism": "Generates passive income; app handles enforcement and payments."
+  },
+  {
+    "idea_id": "artifical_intel_tryhire",
+    "description": "‘Try before buy’ tech gadget loans backed by insuretech partner.",
+    "core_mechanism": "Insurance covers loss; try-hire lifts conversion without tying up inventory cash longer term."
+  },
+  {
+    "idea_id": "bulk_buy_corporate_portal",
+    "description": "Offer discounted bulk consumables to small businesses with scheduled delivery.",
+    "core_mechanism": "Fills truck capacity, increases inventory turns, customer acquisition via local chambers."
+  },
+  {
+    "idea_id": "loyalty_points_sweep",
+    "description": "Convert unused loyalty points from multiple brands into store gift cards via fintech exchange.",
+    "core_mechanism": "Exchange takes small cut; we accept points at face value driving incremental spend."
+  },
+  {
+    "idea_id": "remote_work_hardware_demo",
+    "description": "Hands-on zone for remote-work gadgets co-sponsored by tech brands.",
+    "core_mechanism": "Brands provide demos; higher attachment sales of accessories follow."
+  },
+  {
+    "idea_id": "wedding_registry_studio",
+    "description": "Partner with wedding planner app to host registry creation experiences.",
+    "core_mechanism": "App guides couples; we capture multi-category purchases with low CAC."
+  },
+  {
+    "idea_id": "urban_beehive_rooftop",
+    "description": "Install sponsor-funded beehives; sell store-branded honey.",
+    "core_mechanism": "Sponsor covers upkeep; exclusive product with story commands premium price."
+  },
+  {
+    "idea_id": "express_repair_station",
+    "description": "Gadget repair startup runs 30-min fix booth.",
+    "core_mechanism": "Startup pays revenue share; customers shop during waiting time."
+  },
+  {
+    "idea_id": "silent_disco_shopping",
+    "description": "Monthly after-hours silent disco events where headphones offer product scavenger hunt clues.",
+    "core_mechanism": "Ticket sales, sponsor funding, and gamified product discovery uplift sales."
+  },
+  {
+    "idea_id": "AI_driven_outfit_box",
+    "description": "Online style quiz curates in-store pick-up outfit boxes; unsold items restocked instantly.",
+    "core_mechanism": "Reduces fitting room time, increases conversion; algorithm fee tied to sales."
+  },
+  {
+    "idea_id": "charity_storage_lease",
+    "description": "Lease basement space at nominal fee to nonprofits for supply storage.",
+    "core_mechanism": "Improves community ties and qualifies for tax incentives reducing net rent costs."
+  },
+  {
+    "idea_id": "telecom_5G_demo",
+    "description": "Allow telecom to showcase 5G gadgets in front aisle kiosk.",
+    "core_mechanism": "Telecom funds build; foot traffic and rent for us, plus accessory cross-sales."
+  },
+  {
+    "idea_id": "smart_recipe_subscription",
+    "description": "Customers subscribe to weekly SMS of recipes with one-click cart add and curbside pickup.",
+    "core_mechanism": "Facilitates repeat grocery sales; SMS platform shares subscription fee."
+  },
+  {
+    "idea_id": "indoor_pickleball_court",
+    "description": "Convert part of warehouse space to bookable pickleball courts.",
+    "core_mechanism": "Hourly court fees, sporting goods sales, and health brand sponsorships."
+  },
+  {
+    "idea_id": "fashion_rental_section",
+    "description": "Dedicated section for renting occasion wear powered by rental platform.",
+    "core_mechanism": "Platform owns inventory; we earn commission and foot traffic of trendsetters."
+  },
+  {
+    "idea_id": "AI_queue_prediction",
+    "description": "Share POS data with logistics firm for predictive staffing; firm pays for data.",
+    "core_mechanism": "Monetizes anonymized data, improving our operations via free analytics feedback."
+  },
+  {
+    "idea_id": "battery_swap_station",
+    "description": "Host e-bike battery swap lockers funded by mobility startup.",
+    "core_mechanism": "Startup pays rent; riders become customers while swapping."
+  },
+  {
+    "idea_id": "voice_shopping_speaker",
+    "description": "Sell co-branded smart speaker preloaded with our one-command reorder skill.",
+    "core_mechanism": "Speaker subsidized by OEM; boosts frictionless reorders at near zero CAC."
+  },
+  {
+    "idea_id": "digital_nap_pods",
+    "description": "Install short-stay nap pods operated by wellness startup in unused mezzanine.",
+    "core_mechanism": "Startup invests; we take revenue share and restful shoppers spend afterward."
+  },
+  {
+    "idea_id": "flexible_space_subscription",
+    "description": "Offer subscription for local entrepreneurs to host pop-ups 5 days/year each.",
+    "core_mechanism": "Predictable rental income, constant novelty draws repeat shoppers."
+  },
+  {
+    "idea_id": "AI_zero_waste_pricing",
+    "description": "Dynamic markdown engine works with food suppliers to discount nearing-expiry items via app alerts.",
+    "core_mechanism": "Cuts wastage cost; suppliers agree to share saved spoilage margin."
+  },
+  {
+    "idea_id": "live_stream_flash_sale",
+    "description": "Weekly live-streamed shopping from store floor with influencer partner.",
+    "core_mechanism": "Influencer paid commission only; live viewers convert online and pick up in store, boosting blended margin."
+  },
+  {
+    "idea_id": "medicine_vending_wall",
+    "description": "24/7 OTC medicine vending machines outside store, stocked by pharma partner.",
+    "core_mechanism": "Partner handles stocking; we earn royalty and attract late-night footfall."
+  },
+  {
+    "idea_id": "travel_locker_concierge",
+    "description": "For airport shuttle riders, provide secure luggage lockers and travel accessory pre-orders.",
+    "core_mechanism": "Locker fees and upsells turn stores into trip prep hubs with minimal capex."
+  },
+  {
+    "idea_id": "multibrand_loyalty_exchange",
+    "description": "Exchange loyalty points with airline and gas chains at dynamic rates.",
+    "core_mechanism": "Cross-promotion lowers mutual acquisition costs; platform takes spread."
+  },
+  {
+    "idea_id": "cold_brew_subscription_tap",
+    "description": "Install self-serve cold brew taps with RFID mugs for subscribers.",
+    "core_mechanism": "Upfront cost shared with coffee roaster; recurring beverage revenue and daily visits."
+  },
+  {
+    "idea_id": "kids_STEM_lab",
+    "description": "Weekend STEM workshops run by edtech firm inside store classroom.",
+    "core_mechanism": "Edtech rents space; parents shop during class, driving incremental sales."
+  },
+  {
+    "idea_id": "hyperlocal_social_ads",
+    "description": "Share social ad inventory with neighboring small businesses; they pay per click.",
+    "core_mechanism": "Monetizes unused ad space in our channels, funds broader brand advertising."
+  },
+  {
+    "idea_id": "AI_virtual_shelf_extension",
+    "description": "Offer endless-aisle tablets showing long-tail items shipped direct from suppliers.",
+    "core_mechanism": "No inventory carrying cost; drop-ship margin captured on wider assortment."
+  },
+  {
+    "idea_id": "POP_car_maintenance",
+    "description": "Pop-up oil-change tents run by quick-lube brand in lot.",
+    "core_mechanism": "Brand pays rent; waiting customers spend in store."
+  },
+  {
+    "idea_id": "sewing_machine_tryzone",
+    "description": "Partner with sewing machine maker for hands-on demo zone and classes.",
+    "core_mechanism": "Maker funds area; class fees and fabric sales grow."
+  },
+  {
+    "idea_id": "digital_tipping_point",
+    "description": "Round-up coins discontinued; encourage digital payments with instant micro-savings deposit feature via fintech.",
+    "core_mechanism": "Fintech rewards shoppers; store saves on cash handling and speeds checkout."
+  },
+  {
+    "idea_id": "community_radio_booth",
+    "description": "Host live community radio in store lobby; airtime sold to local advertisers.",
+    "core_mechanism": "Radio operator covers cost; store receives ad credit and draws curious listeners inside."
+  },
+  {
+    "idea_id": "AI_health_label_scanner",
+    "description": "Handheld scanners rate food health score; sponsored by health NGO.",
+    "core_mechanism": "NGO funds devices; healthier basket upsell and CSR image boost."
+  },
+  {
+    "idea_id": "courier_rest_stop",
+    "description": "Provide micro-hubs with free coffee for bicycle couriers of all apps.",
+    "core_mechanism": "Creates goodwill and incremental snack sales; couriers pick our store first for deliveries."
+  },
+  {
+    "idea_id": "mini_greenhouse_sale",
+    "description": "Sell self-watering mini greenhouse kits drop-shipped by agri-tech startup.",
+    "core_mechanism": "Startup handles fulfillment; we collect commission without inventory risk."
+  },
+  {
+    "idea_id": "used_toy_trade_credit",
+    "description": "Kids bring old toys for store credit assessed via app with toy-reuse partner.",
+    "core_mechanism": "Partner resells toys; we drive repeat visits and sustainable image."
+  },
+  {
+    "idea_id": "nano_degree_counter",
+    "description": "Micro-credential platform sets up enrollment kiosk; sign-ups receive store discount.",
+    "core_mechanism": "Platform pays CPL; discount redeemed increases sales above subsidy."
+  },
+  {
+    "idea_id": "crowdfunded_bulk_buy",
+    "description": "Customers pledge to bulk-buy seasonal items ahead; orders placed only if target met.",
+    "core_mechanism": "Guarantees sell-through before inventory purchase, slashing risk."
+  },
+  {
+    "idea_id": "AI_staff_schedule_swap",
+    "description": "App lets employees swap shifts autonomously; developed with HR-tech startup.",
+    "core_mechanism": "Cuts overtime and turnover; startup offers freemium in exchange for case study."
+  },
+  {
+    "idea_id": "portable_solar_lamps",
+    "description": "Stock pay-as-you-go solar lamps targeting humanitarian NGOs; NGOs pick up in bulk.",
+    "core_mechanism": "Opens B2B altruistic channel at retail margins, leveraging existing supply chain."
+  },
+  {
+    "idea_id": "virtual_try-home_brand",
+    "description": "Create digital replica of customer living room via AR for furniture fit; powered by software partner.",
+    "core_mechanism": "Software partner shares subscription; reduces costly returns and encourages large-ticket sales."
+  },
+  {
+    "idea_id": "in-store_podcast_stage",
+    "description": "Weekly live podcast recordings with local influencers.",
+    "core_mechanism": "Sponsorship revenue and live audience shopping spike with negligible setup cost."
+  },
+  {
+    "idea_id": "emergency_preparedness_kit_sub",
+    "description": "Subscription emergency kits annually updated and picked up in store.",
+    "core_mechanism": "Predictable recurring revenue; suppliers provide consigned kit components."
+  },
+  {
+    "idea_id": "elderly_tech_help_bar",
+    "description": "Offer free weekly tech help sessions sponsored by device makers.",
+    "core_mechanism": "Sponsors supply staff; goodwill builds loyalty and drives accessory purchases."
+  }
+]
+
+Return JSON array with original fields plus business_case object.
+
+IMPORTANT: Return ONLY the raw JSON array. Do not wrap the output in markdown code blocks, do not add any explanations or text before/after the JSON. The response must start with [ and end with ]

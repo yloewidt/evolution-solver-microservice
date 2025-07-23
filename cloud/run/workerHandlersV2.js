@@ -3,7 +3,7 @@ import EvolutionarySolver from '../../src/core/evolutionarySolver.js';
 import SingleIdeaEnricher from '../../src/services/singleIdeaEnricher.js';
 import EnricherCacheStore from '../../src/services/enricherCacheStore.js';
 import { LLMClient } from '../../src/services/llmClient.js';
-import ResponseParser from '../../src/utils/responseParser.js';
+import { ResponseParser } from '../../src/utils/responseParser.js';
 
 export async function handleVariator({ jobId, generation, problemContext, topPerformers, evolutionConfig, resultStore }) {
   try {

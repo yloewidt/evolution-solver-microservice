@@ -1,0 +1,42 @@
+[
+  {
+    "jobId": "1dd973ba-1aa9-4a58-a050-ff4ca9a55e59",
+    "name": "10gen x 10ideas",
+    "generations": 10,
+    "populationSize": 10,
+    "startTime": "2025-07-22T14:45:17.701Z",
+    "analyticsUrl": "https://evolution-solver-production-pfm22omnda-uc.a.run.app/api/evolution/jobs/1dd973ba-1aa9-4a58-a050-ff4ca9a55e59/analytics"
+  },
+  {
+    "jobId": "c3e88c2d-b3b9-477e-a417-a79d1e3647ca",
+    "name": "5gen x 20ideas",
+    "generations": 5,
+    "populationSize": 20,
+    "startTime": "2025-07-22T14:45:17.646Z",
+    "analyticsUrl": "https://evolution-solver-production-pfm22omnda-uc.a.run.app/api/evolution/jobs/c3e88c2d-b3b9-477e-a417-a79d1e3647ca/analytics"
+  },
+  {
+    "jobId": "9b07b55c-3b1a-49c6-b325-4126fc31d952",
+    "name": "4gen x 25ideas",
+    "generations": 4,
+    "populationSize": 25,
+    "startTime": "2025-07-22T14:45:17.644Z",
+    "analyticsUrl": "https://evolution-solver-production-pfm22omnda-uc.a.run.app/api/evolution/jobs/9b07b55c-3b1a-49c6-b325-4126fc31d952/analytics"
+  },
+  {
+    "jobId": "f2260e21-beff-4f14-bbf5-a5b6f3de7964",
+    "name": "3gen x 33ideas",
+    "generations": 3,
+    "populationSize": 33,
+    "startTime": "2025-07-22T14:45:17.691Z",
+    "analyticsUrl": "https://evolution-solver-production-pfm22omnda-uc.a.run.app/api/evolution/jobs/f2260e21-beff-4f14-bbf5-a5b6f3de7964/analytics"
+  },
+  {
+    "jobId": "19cbbd72-6c58-4ed4-9a34-701987dbbebf",
+    "name": "2gen x 50ideas",
+    "generations": 2,
+    "populationSize": 50,
+    "startTime": "2025-07-22T14:45:17.700Z",
+    "analyticsUrl": "https://evolution-solver-production-pfm22omnda-uc.a.run.app/api/evolution/jobs/19cbbd72-6c58-4ed4-9a34-701987dbbebf/analytics"
+  }
+]

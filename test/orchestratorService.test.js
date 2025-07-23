@@ -44,9 +44,18 @@ describe('OrchestratorService', () => {
   describe('orchestrateJob', () => {
     it('should handle job not found', async () => {
       mockResultStore.getJobStatus.mockResolvedValueOnce(null);
+      mockTaskHandler.createOrchestratorTask.mockResolvedValueOnce({});
 
-      await expect(orchestrator.orchestrateJob({ jobId: 'test-job' }))
-        .rejects.toThrow('Job test-job not found');
+      // The new implementation catches errors and re-queues
+      await orchestrator.orchestrateJob({ jobId: 'test-job' });
+      
+      // Should re-queue orchestrator due to error
+      expect(mockTaskHandler.createOrchestratorTask).toHaveBeenCalledWith(
+        expect.objectContaining({
+          jobId: 'test-job',
+          checkAttempt: 1
+        })
+      );
     });
 
     it('should process pending job', async () => {
@@ -61,10 +70,11 @@ describe('OrchestratorService', () => {
       await orchestrator.orchestrateJob({ jobId: 'test-job' });
 
       expect(mockTaskHandler.createWorkerTask).toHaveBeenCalledWith(
-        'variator',
         expect.objectContaining({
           jobId: 'test-job',
-          generation: 1
+          type: 'variator',
+          generation: 1,
+          evolutionConfig: { generations: 10 }
         })
       );
     });
@@ -83,7 +93,8 @@ describe('OrchestratorService', () => {
 
     it('should handle max check attempts', async () => {
       const job = { jobId: 'test-job', status: 'processing' };
-      mockResultStore.getJobStatus.mockResolvedValueOnce(job);
+      mockResultStore.getJobStatus.mockRejectedValueOnce(new Error('Test error'));
+      mockResultStore.updateJobStatus.mockResolvedValueOnce({});
 
       await orchestrator.orchestrateJob({ 
         jobId: 'test-job', 
@@ -260,6 +271,7 @@ describe('OrchestratorService', () => {
           jobId: 'test-job',
           type: 'variator',
           generation: 1,
+          evolutionConfig: { generations: 10, populationSize: 20 },
           problemContext: 'Test problem'
         })
       );
@@ -373,10 +385,16 @@ describe('OrchestratorService', () => {
         evolutionConfig: { generations: 2 },
         generations: {
           generation_1: {
-            rankedSolutions: [{ idea_id: '1', score: 10 }]
+            solutions: [{ idea_id: '1', score: 10 }],
+            topScore: 10,
+            avgScore: 10,
+            completedAt: new Date()
           },
           generation_2: {
-            rankedSolutions: [{ idea_id: '2', score: 12 }]
+            solutions: [{ idea_id: '2', score: 12 }],
+            topScore: 12,
+            avgScore: 12,
+            completedAt: new Date()
           }
         }
       };
@@ -389,7 +407,10 @@ describe('OrchestratorService', () => {
         'test-job',
         expect.objectContaining({
           topSolutions: expect.any(Array),
-          allSolutions: expect.any(Array)
+          allSolutions: expect.any(Array),
+          generationHistory: expect.any(Array),
+          totalEvaluations: expect.any(Number),
+          totalSolutions: expect.any(Number)
         })
       );
     });
@@ -407,33 +428,7 @@ describe('OrchestratorService', () => {
     });
   });
 
-  describe('requeueOrchestrator', () => {
-    it('should create orchestrator task with delay', async () => {
-      await orchestrator.requeueOrchestrator('test-job', 5);
-
-      expect(mockTaskHandler.createTask).toHaveBeenCalledWith(
-        '/orchestrate',
-        {
-          jobId: 'test-job',
-          checkAttempt: 5
-        },
-        { inSeconds: 25 } // 5 * 5
-      );
-    });
-
-    it('should cap delay at 300 seconds', async () => {
-      await orchestrator.requeueOrchestrator('test-job', 100);
-
-      expect(mockTaskHandler.createTask).toHaveBeenCalledWith(
-        '/orchestrate',
-        {
-          jobId: 'test-job',
-          checkAttempt: 100
-        },
-        { inSeconds: 300 }
-      );
-    });
-  });
+  // Remove duplicate requeueOrchestrator test section
 
   describe('determineNextAction - additional cases', () => {
     it('should return WAIT when variator started but not complete', () => {

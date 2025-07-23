@@ -60,6 +60,7 @@ export default function createRoutes(evolutionService, taskHandler) {
       }
       if (evolutionParams?.model !== undefined) {
         evolutionConfig.model = evolutionParams.model;
+        logger.info(`Model set in evolutionConfig: ${evolutionConfig.model}`);
       }
       if (evolutionParams?.fallbackModel !== undefined) {
         evolutionConfig.fallbackModel = evolutionParams.fallbackModel;
@@ -94,6 +95,7 @@ export default function createRoutes(evolutionService, taskHandler) {
       }
 
       // Create document FIRST
+      logger.info(`Saving job with evolutionConfig:`, JSON.stringify(jobData.evolutionConfig));
       await evolutionService.resultStore.saveResult({
         jobId: jobId,
         userId: jobData.userId,

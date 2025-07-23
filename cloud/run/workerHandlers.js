@@ -30,6 +30,12 @@ export async function processVariator(taskData, resultStore) {
     solver.config = { ...solver.config, ...evolutionConfig };
     solver.currentGeneration = generation;
     
+    logger.info(`Solver config after merge:`, {
+      model: solver.config.model,
+      fallbackModel: solver.config.fallbackModel,
+      apiKey: solver.config.apiKey ? 'configured' : 'missing'
+    });
+    
     // Set up progress tracker for telemetry
     solver.progressTracker = { resultStore, jobId };
     
@@ -73,7 +79,7 @@ export async function processVariator(taskData, resultStore) {
  * Process enricher phase
  */
 export async function processEnricher(taskData, resultStore) {
-  const { jobId, generation, evolutionConfig, ideas } = taskData;
+  const { jobId, generation, evolutionConfig, ideas, problemContext } = taskData;
   
   logger.info(`Processing enricher for job ${jobId}, generation ${generation}`);
   
@@ -106,6 +112,12 @@ export async function processEnricher(taskData, resultStore) {
     const solver = new EvolutionarySolver();
     solver.config = { ...solver.config, ...evolutionConfig };
     solver.currentGeneration = generation;
+    
+    logger.info(`Solver config after merge:`, {
+      model: solver.config.model,
+      fallbackModel: solver.config.fallbackModel,
+      apiKey: solver.config.apiKey ? 'configured' : 'missing'
+    });
     
     // Set up progress tracker for telemetry
     solver.progressTracker = { resultStore, jobId };
@@ -197,6 +209,12 @@ export async function processRanker(taskData, resultStore) {
     const solver = new EvolutionarySolver();
     solver.config = { ...solver.config, ...evolutionConfig };
     solver.currentGeneration = generation;
+    
+    logger.info(`Solver config after merge:`, {
+      model: solver.config.model,
+      fallbackModel: solver.config.fallbackModel,
+      apiKey: solver.config.apiKey ? 'configured' : 'missing'
+    });
     
     // Rank ideas
     const { rankedIdeas, filteredIdeas } = await solver.ranker(enrichedIdeas);

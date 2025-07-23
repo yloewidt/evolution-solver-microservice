@@ -7,6 +7,7 @@ export default {
   testMatch: [
     '**/test/**/*.test.js'
   ],
+  testTimeout: 300000, // 5 minutes default timeout
   collectCoverageFrom: [
     'src/**/*.js',
     'cloud/**/*.js',

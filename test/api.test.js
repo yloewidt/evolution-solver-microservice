@@ -1,9 +1,17 @@
 import { jest } from '@jest/globals';
 import request from 'supertest';
 
-// We'll import the server directly, but won't mock the dependencies
-// Instead, we'll test the actual behavior
-import app from '../src/server.js';
+// Mock logger first to prevent console output during tests
+const mockLogger = {
+  info: jest.fn(),
+  error: jest.fn(),
+  warn: jest.fn(),
+  debug: jest.fn()
+};
+
+jest.unstable_mockModule('../src/utils/logger.js', () => ({
+  default: mockLogger
+}));
 
 // Mock only the external services that would make real API calls
 jest.unstable_mockModule('openai', () => ({
@@ -19,36 +27,63 @@ jest.unstable_mockModule('openai', () => ({
   }))
 }));
 
-// For tests that need to avoid real Cloud Tasks calls
-const mockCloudTasks = {
-  createEvolutionTask: jest.fn().mockResolvedValue({
-    taskName: 'test-task',
-    status: 'queued'
-  }),
-  listTasks: jest.fn().mockResolvedValue([]),
-  getQueueStats: jest.fn().mockResolvedValue({
-    name: 'test-queue',
-    tasksCount: 0
-  }),
-  pauseQueue: jest.fn().mockResolvedValue(true),
-  resumeQueue: jest.fn().mockResolvedValue(true),
-  purgeQueue: jest.fn().mockResolvedValue(true)
-};
+// Mock Firestore before importing server
+jest.unstable_mockModule('../cloud/firestore/resultStore.js', () => ({
+  default: jest.fn().mockImplementation(() => ({
+    getCollection: jest.fn().mockReturnValue({
+      limit: jest.fn().mockReturnValue({
+        get: jest.fn().mockResolvedValue({ empty: true })
+      })
+    }),
+    saveResult: jest.fn().mockResolvedValue(),
+    getResult: jest.fn().mockResolvedValue(null),
+    getJobStatus: jest.fn().mockResolvedValue(null),
+    getAllResults: jest.fn().mockResolvedValue([]),
+    getRecentJobs: jest.fn().mockResolvedValue([]),
+    getJobsByStatus: jest.fn().mockResolvedValue([])
+  }))
+}));
 
-// For tests that need to avoid real Firestore calls
-const mockResultStore = {
-  getCollection: jest.fn().mockReturnValue({
-    limit: jest.fn().mockReturnValue({
-      get: jest.fn().mockResolvedValue({ empty: true })
+// Mock Cloud Tasks before importing server
+jest.unstable_mockModule('../cloud/tasks/taskHandler.js', () => ({
+  default: jest.fn().mockImplementation(() => ({
+    createEvolutionTask: jest.fn().mockResolvedValue({
+      taskName: 'test-task',
+      status: 'queued'
+    }),
+    listTasks: jest.fn().mockResolvedValue([]),
+    getQueueStats: jest.fn().mockResolvedValue({
+      name: 'test-queue',
+      tasksCount: 0
+    }),
+    pauseQueue: jest.fn().mockResolvedValue(true),
+    resumeQueue: jest.fn().mockResolvedValue(true),
+    purgeQueue: jest.fn().mockResolvedValue(true)
+  }))
+}));
+
+// Mock Google Cloud clients
+jest.unstable_mockModule('@google-cloud/firestore', () => ({
+  Firestore: jest.fn().mockImplementation(() => ({
+    collection: jest.fn().mockReturnValue({
+      doc: jest.fn().mockReturnValue({
+        get: jest.fn().mockResolvedValue({ exists: false }),
+        set: jest.fn().mockResolvedValue(),
+        update: jest.fn().mockResolvedValue()
+      })
     })
-  }),
-  saveResult: jest.fn().mockResolvedValue(),
-  getResult: jest.fn().mockResolvedValue(null),
-  getJobStatus: jest.fn().mockResolvedValue(null),
-  getAllResults: jest.fn().mockResolvedValue([]),
-  getRecentJobs: jest.fn().mockResolvedValue([]),
-  getJobsByStatus: jest.fn().mockResolvedValue([])
-};
+  }))
+}));
+
+jest.unstable_mockModule('@google-cloud/tasks', () => ({
+  CloudTasksClient: jest.fn().mockImplementation(() => ({
+    createTask: jest.fn().mockResolvedValue([{ name: 'test-task' }]),
+    listTasks: jest.fn().mockResolvedValue([[]])
+  }))
+}));
+
+// Import the server after mocking
+const app = (await import('../src/server.js')).default;
 
 describe('Evolution API', () => {
   let server;
@@ -60,6 +95,19 @@ describe('Evolution API', () => {
 
   afterAll((done) => {
     server.close(done);
+  });
+
+  afterEach(() => {
+    // Check for any errors logged during the test
+    if (mockLogger.error.mock.calls.length > 0) {
+      console.log('=== Errors logged during test ===');
+      mockLogger.error.mock.calls.forEach(call => {
+        console.log('Error:', ...call);
+      });
+    }
+    
+    // Clear all mock calls for next test
+    jest.clearAllMocks();
   });
 
   describe('GET /', () => {

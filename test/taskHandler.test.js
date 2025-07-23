@@ -251,7 +251,8 @@ describe('CloudTaskHandler', () => {
 
       const createTaskCall = mockCreateTask.mock.calls[0][0];
       expect(createTaskCall.task.httpRequest.oidcToken).toEqual({
-        serviceAccountEmail: 'test-sa@project.iam.gserviceaccount.com'
+        serviceAccountEmail: 'test-sa@project.iam.gserviceaccount.com',
+        audience: 'https://secure-worker.run.app'
       });
     });
 

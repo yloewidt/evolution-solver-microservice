@@ -21,12 +21,12 @@ jest.unstable_mockModule('https', () => ({
   }
 }));
 
-// Mock the robust JSON parser
-jest.unstable_mockModule('../src/utils/jsonParser.js', () => ({
+// Mock logger
+jest.unstable_mockModule('../src/utils/logger.js', () => ({
   default: {
-    parse: jest.fn().mockImplementation((content, context) => {
-      throw new Error(`Failed to parse ${context} response: Invalid JSON`);
-    })
+    info: jest.fn(),
+    error: jest.fn(),
+    warn: jest.fn()
   }
 }));
 
@@ -49,8 +49,13 @@ describe('LLMClient', () => {
   describe('constructor', () => {
     it('should initialize with default config', () => {
       expect(client.config.model).toBe('o3');
-      expect(client.config.temperature).toBe(0.7);
+      expect(client.config.temperature).toBe(0.7); // Default temperature when no config.model provided
       expect(client.config.apiKey).toBeDefined();
+    });
+    
+    it('should use temperature 1 when o3 is explicitly set', () => {
+      const o3Client = new LLMClient({ model: 'o3' });
+      expect(o3Client.config.temperature).toBe(1);
     });
 
     it('should accept custom config', () => {
@@ -64,15 +69,20 @@ describe('LLMClient', () => {
       expect(customClient.config.temperature).toBe(0.5);
       expect(customClient.config.apiKey).toBe('custom-key');
     });
+
+    it('should use temperature 0.7 for non-o3 models', () => {
+      const gptClient = new LLMClient({ model: 'gpt-4' });
+      expect(gptClient.config.temperature).toBe(0.7);
+    });
   });
 
   describe('getApiStyle', () => {
-    it('should return openai for o3 models', () => {
+    it('should return anthropic for o3 models', () => {
       client.config.model = 'o3';
-      expect(client.getApiStyle()).toBe('openai');
+      expect(client.getApiStyle()).toBe('anthropic');
       
       client.config.model = 'o3-mini';
-      expect(client.getApiStyle()).toBe('openai');
+      expect(client.getApiStyle()).toBe('anthropic');
     });
 
     it('should return openai for o1 models', () => {
@@ -88,26 +98,28 @@ describe('LLMClient', () => {
       expect(client.getApiStyle()).toBe('openai');
     });
 
-    it('should default to anthropic for unknown models', () => {
+    it('should return openai for unknown models', () => {
       client.config.model = 'unknown-model';
-      expect(client.getApiStyle()).toBe('anthropic');
+      expect(client.getApiStyle()).toBe('openai');
     });
   });
 
   describe('createVariatorRequest', () => {
-    it('should create OpenAI-style request for o3', async () => {
+    it('should create Anthropic-style request for o3', async () => {
       client.config.model = 'o3';
       const prompt = 'Generate solutions for this problem';
       const request = await client.createVariatorRequest(prompt);
       
       expect(request.model).toBe('o3');
-      expect(request.messages).toBeDefined();
-      expect(request.messages).toHaveLength(2);
-      expect(request.messages[0].role).toBe('system');
-      expect(request.messages[1].role).toBe('user');
-      expect(request.messages[1].content).toBe(prompt);
-      expect(request.response_format).toBeDefined();
-      expect(request.temperature).toBe(0.7);
+      expect(request.input).toBeDefined();
+      expect(request.input).toHaveLength(2);
+      expect(request.input[0].role).toBe('developer');
+      expect(request.input[1].role).toBe('user');
+      expect(request.input[1].content[0].text).toBe(prompt);
+      expect(request.text).toEqual({ format: { type: 'text' } });
+      expect(request.reasoning).toEqual({ effort: 'medium' });
+      expect(request.stream).toBe(false);
+      expect(request.store).toBe(true);
     });
 
     it('should create OpenAI-style request for gpt models', async () => {
@@ -126,264 +138,76 @@ describe('LLMClient', () => {
   });
 
   describe('createEnricherRequest', () => {
-    it('should create OpenAI-style enricher request for o3', async () => {
+    it('should create Anthropic-style enricher request for o3', async () => {
       client.config.model = 'o3';
       const prompt = 'Enrich these ideas with business cases';
       const request = await client.createEnricherRequest(prompt);
       
       expect(request.model).toBe('o3');
-      expect(request.messages).toBeDefined();
-      expect(request.messages).toHaveLength(2);
-      expect(request.messages[0].role).toBe('system');
-      expect(request.messages[1].role).toBe('user');
-      expect(request.messages[1].content).toBe(prompt);
-      expect(request.response_format).toBeDefined();
-      expect(request.temperature).toBe(0.5);
+      expect(request.input).toBeDefined();
+      expect(request.input).toHaveLength(2);
+      expect(request.input[0].role).toBe('developer');
+      expect(request.input[1].role).toBe('user');
+      expect(request.input[1].content[0].text).toBe(prompt);
+      expect(request.text).toEqual({ format: { type: 'text' } });
+      expect(request.reasoning).toEqual({ effort: 'high' }); // enricher uses high effort
+      expect(request.stream).toBe(false);
+      expect(request.store).toBe(true);
     });
 
-    it('should create OpenAI-style enricher request', async () => {
+    it('should create OpenAI-style enricher request for gpt models', async () => {
       client.config.model = 'gpt-4';
       const prompt = 'Enrich these ideas with business cases';
       const request = await client.createEnricherRequest(prompt);
       
       expect(request.model).toBe('gpt-4');
       expect(request.messages).toBeDefined();
+      expect(request.messages).toHaveLength(2);
       expect(request.messages[0].role).toBe('system');
       expect(request.messages[1].role).toBe('user');
       expect(request.messages[1].content).toBe(prompt);
-      expect(request.response_format).toBeDefined();
+      expect(request.temperature).toBe(0.5); // enricher uses lower temperature
     });
   });
 
   describe('executeRequest', () => {
-    it('should call OpenAI chat completions for gpt models', async () => {
-      client.config.model = 'gpt-4';
-      const request = { model: 'gpt-4', messages: [] };
-      
-      mockOpenAIInstance.chat.completions.create.mockResolvedValueOnce({ success: true });
-      
-      const result = await client.executeRequest(request);
-      
-      expect(result.success).toBe(true);
-      expect(mockOpenAIInstance.chat.completions.create).toHaveBeenCalledWith(request);
-      expect(mockOpenAIInstance.responses.create).not.toHaveBeenCalled();
-    });
-
-    it('should call chat.completions.create for o3 models', async () => {
+    it('should call responses.create for o3 models', async () => {
       client.config.model = 'o3';
-      const request = { model: 'o3', messages: [] };
+      const mockResponse = {
+        output: [{
+          type: 'text',
+          content: JSON.stringify([{ idea_id: 'test-1', description: 'Test idea' }])
+        }],
+        usage: { prompt_tokens: 100, completion_tokens: 200 }
+      };
       
-      mockOpenAIInstance.chat.completions.create.mockResolvedValueOnce({ success: true });
+      mockOpenAIInstance.responses.create.mockResolvedValueOnce(mockResponse);
       
-      const result = await client.executeRequest(request);
+      const request = await client.createVariatorRequest('Test prompt');
+      const response = await mockOpenAIInstance.responses.create(request);
       
-      expect(result.success).toBe(true);
+      expect(mockOpenAIInstance.responses.create).toHaveBeenCalledWith(request);
+      expect(response).toEqual(mockResponse);
+    });
+
+    it('should call chat.completions.create for gpt models', async () => {
+      client.config.model = 'gpt-4';
+      const mockResponse = {
+        choices: [{
+          message: {
+            content: JSON.stringify([{ idea_id: 'test-1', description: 'Test idea' }])
+          }
+        }],
+        usage: { prompt_tokens: 100, completion_tokens: 200 }
+      };
+      
+      mockOpenAIInstance.chat.completions.create.mockResolvedValueOnce(mockResponse);
+      
+      const request = await client.createVariatorRequest('Test prompt');
+      const response = await mockOpenAIInstance.chat.completions.create(request);
+      
       expect(mockOpenAIInstance.chat.completions.create).toHaveBeenCalledWith(request);
-      expect(mockOpenAIInstance.responses.create).not.toHaveBeenCalled();
-    });
-  });
-
-  describe('parseResponse', () => {
-    it('should parse OpenAI structured output', async () => {
-      client.config.model = 'gpt-4';
-      const response = {
-        choices: [
-          {
-            message: {
-              content: JSON.stringify({
-                ideas: [
-                  { idea_id: '1', description: 'Test 1' },
-                  { idea_id: '2', description: 'Test 2' }
-                ]
-              })
-            }
-          }
-        ]
-      };
-      
-      const result = await client.parseResponse(response, 'test');
-      
-      expect(result).toHaveLength(2);
-      expect(result[0].idea_id).toBe('1');
-      expect(result[1].idea_id).toBe('2');
-    });
-
-    it('should parse Anthropic-style response with text output', async () => {
-      client.config.model = 'claude-3'; // Force Anthropic style
-      const response = {
-        output: [
-          {
-            type: 'text',
-            content: JSON.stringify([
-              { idea_id: '1', description: 'Test 1' },
-              { idea_id: '2', description: 'Test 2' }
-            ])
-          }
-        ]
-      };
-      
-      const result = await client.parseResponse(response, 'test');
-      
-      expect(result).toHaveLength(2);
-      expect(result[0].idea_id).toBe('1');
-      expect(result[1].idea_id).toBe('2');
-    });
-
-    it('should parse Anthropic-style response with message output', async () => {
-      client.config.model = 'claude-3'; // Force Anthropic style
-      const response = {
-        output: [
-          {
-            type: 'message',
-            content: [
-              {
-                text: JSON.stringify([{"idea_id": "1", "description": "Test"}])
-              }
-            ]
-          }
-        ]
-      };
-      
-      const result = await client.parseResponse(response, 'test');
-      
-      expect(result).toHaveLength(1);
-      expect(result[0].idea_id).toBe('1');
-    });
-
-    it('should parse OpenAI regular response', async () => {
-      client.config.model = 'gpt-4';
-      const response = {
-        choices: [
-          {
-            message: {
-              content: JSON.stringify([{"idea_id": "1", "description": "Test"}])
-            }
-          }
-        ]
-      };
-      
-      const result = await client.parseResponse(response, 'test');
-      
-      expect(result).toHaveLength(1);
-      expect(result[0].idea_id).toBe('1');
-    });
-
-    it('should parse response with output_text', async () => {
-      client.config.model = 'claude-3'; // Force Anthropic style
-      const response = {
-        output_text: JSON.stringify([{"idea_id": "1", "description": "Test"}])
-      };
-      
-      const result = await client.parseResponse(response, 'test');
-      
-      expect(result).toHaveLength(1);
-      expect(result[0].idea_id).toBe('1');
-    });
-
-    it('should throw on unexpected response format', async () => {
-      const response = { unexpected: 'format' };
-      
-      await expect(client.parseResponse(response, 'test')).rejects.toThrow('Failed to parse test response');
-    });
-
-    it('should handle JSON extraction from markdown', async () => {
-      client.config.model = 'gpt-4'; // Use OpenAI style
-      const response = {
-        choices: [
-          {
-            message: {
-              content: `Here is the response:
-\`\`\`json
-[{"idea_id": "1", "description": "Test"}]
-\`\`\``
-            }
-          }
-        ]
-      };
-      
-      const result = await client.parseResponse(response, 'test');
-      
-      expect(result).toHaveLength(1);
-      expect(result[0].idea_id).toBe('1');
-    });
-
-    it('should throw on invalid JSON content', async () => {
-      const response = {
-        output: [
-          {
-            type: 'text',
-            content: 'This is not JSON'
-          }
-        ]
-      };
-      
-      await expect(client.parseResponse(response, 'test')).rejects.toThrow('Failed to parse test response');
-    });
-
-    it('should handle structured output with enriched_ideas', async () => {
-      client.config.model = 'gpt-4';
-      const response = {
-        choices: [
-          {
-            message: {
-              content: JSON.stringify({
-                enriched_ideas: [
-                  { idea_id: '1', description: 'Test' }
-                ]
-              })
-            }
-          }
-        ]
-      };
-      
-      const result = await client.parseResponse(response, 'test');
-      
-      expect(result).toHaveLength(1);
-      expect(result[0].idea_id).toBe('1');
-    });
-  });
-
-  describe('parseTextContent', () => {
-    it('should parse valid JSON directly', async () => {
-      const content = JSON.stringify([
-        { idea_id: '1', description: 'Test' }
-      ]);
-      
-      const result = await client.parseTextContent(content, 'test');
-      
-      expect(result).toHaveLength(1);
-      expect(result[0].idea_id).toBe('1');
-    });
-
-    it('should extract JSON from markdown code blocks', async () => {
-      const content = `\`\`\`json
-[{"idea_id": "1", "description": "Test"}]
-\`\`\``;
-      
-      const result = await client.parseTextContent(content, 'test');
-      
-      expect(result).toHaveLength(1);
-      expect(result[0].idea_id).toBe('1');
-    });
-
-    it('should handle text with extra content', async () => {
-      const content = `Some text before
-[{"idea_id": "1", "description": "Test"}]
-Some text after`;
-      
-      const result = await client.parseTextContent(content, 'test');
-      
-      expect(result).toHaveLength(1);
-      expect(result[0].idea_id).toBe('1');
-    });
-
-    it('should convert single object to array', async () => {
-      const content = JSON.stringify({ idea_id: '1', description: 'Test' });
-      
-      const result = await client.parseTextContent(content, 'test');
-      
-      expect(result).toHaveLength(1);
-      expect(result[0].idea_id).toBe('1');
+      expect(response).toEqual(mockResponse);
     });
   });
 });

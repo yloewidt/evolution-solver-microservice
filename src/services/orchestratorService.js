@@ -75,9 +75,26 @@ class OrchestratorService {
     const currentGen = job.currentGeneration || 1;
     const genData = job.generations?.[`generation_${currentGen}`] || {};
 
-    // Determine current phase state
+    // Determine current phase state with timeout detection
     if (!genData.variatorComplete) {
       if (genData.variatorStarted) {
+        // Check for timeout (5 minutes)
+        const startTime = genData.variatorStartedAt?._seconds 
+          ? new Date(genData.variatorStartedAt._seconds * 1000)
+          : new Date(genData.variatorStartedAt);
+        const elapsed = Date.now() - startTime.getTime();
+        
+        if (elapsed > 300000) { // 5 minutes
+          logger.warn(`Variator timeout detected for job ${job.jobId}, generation ${currentGen}`);
+          return {
+            type: 'RETRY_TASK',
+            task: {
+              type: 'variator',
+              generation: currentGen,
+              reason: 'timeout'
+            }
+          };
+        }
         return { type: 'WAIT', reason: 'Variator in progress' };
       }
       return {
@@ -91,6 +108,23 @@ class OrchestratorService {
 
     if (!genData.enricherComplete) {
       if (genData.enricherStarted) {
+        // Check for timeout (5 minutes)
+        const startTime = genData.enricherStartedAt?._seconds 
+          ? new Date(genData.enricherStartedAt._seconds * 1000)
+          : new Date(genData.enricherStartedAt);
+        const elapsed = Date.now() - startTime.getTime();
+        
+        if (elapsed > 300000) { // 5 minutes
+          logger.warn(`Enricher timeout detected for job ${job.jobId}, generation ${currentGen}`);
+          return {
+            type: 'RETRY_TASK',
+            task: {
+              type: 'enricher',
+              generation: currentGen,
+              reason: 'timeout'
+            }
+          };
+        }
         return { type: 'WAIT', reason: 'Enricher in progress' };
       }
       return {
@@ -104,6 +138,23 @@ class OrchestratorService {
 
     if (!genData.rankerComplete) {
       if (genData.rankerStarted) {
+        // Check for timeout (5 minutes)
+        const startTime = genData.rankerStartedAt?._seconds 
+          ? new Date(genData.rankerStartedAt._seconds * 1000)
+          : new Date(genData.rankerStartedAt);
+        const elapsed = Date.now() - startTime.getTime();
+        
+        if (elapsed > 300000) { // 5 minutes
+          logger.warn(`Ranker timeout detected for job ${job.jobId}, generation ${currentGen}`);
+          return {
+            type: 'RETRY_TASK',
+            task: {
+              type: 'ranker',
+              generation: currentGen,
+              reason: 'timeout'
+            }
+          };
+        }
         return { type: 'WAIT', reason: 'Ranker in progress' };
       }
       return {
@@ -156,6 +207,20 @@ class OrchestratorService {
 
     case 'ALREADY_COMPLETE':
       logger.info(`Job ${jobId} already in terminal state: ${job.status}`);
+      break;
+      
+    case 'RETRY_TASK':
+      logger.info(`Retrying ${action.task.type} task for job ${jobId} due to ${action.task.reason}`);
+      // Reset the phase status to allow retry
+      await this.resultStore.updatePhaseStatus(
+        jobId,
+        action.task.generation,
+        action.task.type,
+        'reset'
+      );
+      // Create new task
+      await this.createWorkerTask(jobId, job, action.task);
+      await this.requeueOrchestrator(jobId, taskData.checkAttempt + 1);
       break;
 
     default:

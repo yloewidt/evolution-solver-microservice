@@ -355,18 +355,53 @@ class EvolutionResultStore {
   
   async updatePhaseStatus(jobId, generation, phase, status) {
     try {
-      const updates = {
-        [`generations.generation_${generation}.${phase}Started`]: status === 'started',
-        [`generations.generation_${generation}.${phase}StartedAt`]: Firestore.FieldValue.serverTimestamp(),
-        currentGeneration: generation,
-        currentPhase: phase,
-        updatedAt: Firestore.FieldValue.serverTimestamp()
-      };
+      const docRef = this.getCollection().doc(jobId);
       
-      await this.getCollection().doc(jobId).update(updates);
+      // Use transaction for atomic update
+      const result = await this.firestore.runTransaction(async (transaction) => {
+        const doc = await transaction.get(docRef);
+        
+        if (!doc.exists) {
+          throw new Error(`Job ${jobId} not found`);
+        }
+        
+        const data = doc.data();
+        const genKey = `generation_${generation}`;
+        const phaseStartedKey = `${phase}Started`;
+        
+        // Check if phase already started (prevent race condition)
+        if (status === 'started' && data.generations?.[genKey]?.[phaseStartedKey]) {
+          logger.warn(`Phase ${phase} already started for job ${jobId}, gen ${generation}`);
+          return { alreadyStarted: true };
+        }
+        
+        // Reset phase if requested
+        if (status === 'reset') {
+          const updates = {
+            [`generations.${genKey}.${phaseStartedKey}`]: false,
+            [`generations.${genKey}.${phase}Complete`]: false,
+            [`generations.${genKey}.${phase}StartedAt`]: Firestore.FieldValue.delete(),
+            updatedAt: Firestore.FieldValue.serverTimestamp()
+          };
+          transaction.update(docRef, updates);
+          return { reset: true };
+        }
+        
+        // Normal status update
+        const updates = {
+          [`generations.${genKey}.${phaseStartedKey}`]: status === 'started',
+          [`generations.${genKey}.${phase}StartedAt`]: Firestore.FieldValue.serverTimestamp(),
+          currentGeneration: generation,
+          currentPhase: phase,
+          updatedAt: Firestore.FieldValue.serverTimestamp()
+        };
+        
+        transaction.update(docRef, updates);
+        return { updated: true };
+      });
       
-      logger.info(`Updated phase status for job ${jobId}: gen ${generation}, ${phase} ${status}`);
-      return true;
+      logger.info(`Updated phase status for job ${jobId}: gen ${generation}, ${phase} ${status}`, result);
+      return result;
     } catch (error) {
       logger.error('Error updating phase status:', error);
       throw error;

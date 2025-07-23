@@ -3,7 +3,9 @@ import { jest } from '@jest/globals';
 // Mock Firestore
 const mockServerTimestamp = { _seconds: 1234567890 };
 const mockFieldValue = {
-  serverTimestamp: jest.fn().mockReturnValue(mockServerTimestamp)
+  serverTimestamp: jest.fn().mockReturnValue(mockServerTimestamp),
+  delete: jest.fn().mockReturnValue('DELETE_FIELD'),
+  arrayUnion: jest.fn((value) => ({ _op: 'arrayUnion', value }))
 };
 
 const mockDoc = {
@@ -33,9 +35,17 @@ const mockBatch = {
   commit: jest.fn()
 };
 
+const mockTransaction = {
+  get: jest.fn(),
+  update: jest.fn()
+};
+
 const mockFirestore = {
   collection: jest.fn().mockReturnValue(mockCollection),
-  batch: jest.fn().mockReturnValue(mockBatch)
+  batch: jest.fn().mockReturnValue(mockBatch),
+  runTransaction: jest.fn(async (callback) => {
+    return await callback(mockTransaction);
+  })
 };
 
 // Create mock Firestore class
@@ -43,6 +53,7 @@ class MockFirestore {
   constructor() {
     this.collection = mockFirestore.collection;
     this.batch = mockFirestore.batch;
+    this.runTransaction = mockFirestore.runTransaction;
   }
 }
 
@@ -347,29 +358,70 @@ describe('EvolutionResultStore', () => {
 
   describe('updatePhaseStatus', () => {
     it('should update phase status to started', async () => {
-      await store.updatePhaseStatus('test-job', 1, 'variator', 'started');
-
-      expect(mockDoc.update).toHaveBeenCalledWith({
-        'generations.generation_1.variatorStarted': true,
-        'generations.generation_1.variatorStartedAt': mockServerTimestamp,
-        currentGeneration: 1,
-        currentPhase: 'variator',
-        updatedAt: mockServerTimestamp
+      mockTransaction.get.mockResolvedValueOnce({
+        exists: true,
+        data: () => ({ generations: {} })
       });
+
+      const result = await store.updatePhaseStatus('test-job', 1, 'variator', 'started');
+
+      expect(result).toEqual({ updated: true });
+      expect(mockTransaction.update).toHaveBeenCalledWith(
+        mockDoc,
+        {
+          'generations.generation_1.variatorStarted': true,
+          'generations.generation_1.variatorStartedAt': mockServerTimestamp,
+          currentGeneration: 1,
+          currentPhase: 'variator',
+          updatedAt: mockServerTimestamp
+        }
+      );
     });
 
-    it('should update phase status to failed', async () => {
-      // The actual method doesn't handle 'failed' status differently
-      // It just sets started to false for any non-'started' status
-      await store.updatePhaseStatus('test-job', 2, 'enricher', 'failed');
-
-      expect(mockDoc.update).toHaveBeenCalledWith({
-        'generations.generation_2.enricherStarted': false,
-        'generations.generation_2.enricherStartedAt': mockServerTimestamp,
-        currentGeneration: 2,
-        currentPhase: 'enricher',
-        updatedAt: mockServerTimestamp
+    it('should handle reset status', async () => {
+      mockTransaction.get.mockResolvedValueOnce({
+        exists: true,
+        data: () => ({ generations: {} })
       });
+
+      const result = await store.updatePhaseStatus('test-job', 2, 'enricher', 'reset');
+
+      expect(result).toEqual({ reset: true });
+      expect(mockTransaction.update).toHaveBeenCalledWith(
+        mockDoc,
+        expect.objectContaining({
+          'generations.generation_2.enricherStarted': false,
+          'generations.generation_2.enricherComplete': false,
+          updatedAt: mockServerTimestamp
+        })
+      );
+    });
+
+    it('should prevent duplicate phase starts', async () => {
+      mockTransaction.get.mockResolvedValueOnce({
+        exists: true,
+        data: () => ({
+          generations: {
+            generation_1: {
+              variatorStarted: true,
+              variatorStartedAt: new Date()
+            }
+          }
+        })
+      });
+
+      const result = await store.updatePhaseStatus('test-job', 1, 'variator', 'started');
+
+      expect(result).toEqual({ alreadyStarted: true });
+      expect(mockTransaction.update).not.toHaveBeenCalled();
+    });
+
+    it('should handle transaction errors', async () => {
+      mockFirestore.runTransaction.mockRejectedValueOnce(new Error('Transaction failed'));
+
+      await expect(
+        store.updatePhaseStatus('test-job', 1, 'variator', 'started')
+      ).rejects.toThrow('Transaction failed');
     });
   });
 

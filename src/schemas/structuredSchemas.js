@@ -21,6 +21,10 @@ export const VariatorResponseSchema = {
                 type: "string",
                 description: "Unique identifier for the idea (e.g., VAR_GEN1_001)"
               },
+              title: {
+                type: "string",
+                description: "Short, catchy title for the idea"
+              },
               description: { 
                 type: "string",
                 description: "2-3 sentence description of the business idea"
@@ -44,11 +48,10 @@ export const VariatorResponseSchema = {
                 description: "Whether this idea is based on an existing top performer"
               }
             },
-            required: ["idea_id", "description", "core_mechanism", "expected_gain", "confidence", "is_offspring"],
+            required: ["idea_id", "title", "description", "core_mechanism", "expected_gain", "confidence", "is_offspring"],
             additionalProperties: false
           },
-          minItems: 144,
-          maxItems: 144
+          // Dynamic size based on request
         }
       },
       required: ["ideas"],
@@ -73,6 +76,10 @@ export const EnricherResponseSchema = {
               idea_id: { 
                 type: "string",
                 description: "Must match the input idea_id"
+              },
+              title: {
+                type: "string", 
+                description: "Must match the input title"
               },
               description: { 
                 type: "string",
@@ -119,7 +126,7 @@ export const EnricherResponseSchema = {
                 additionalProperties: false
               }
             },
-            required: ["idea_id", "description", "business_case"],
+            required: ["idea_id", "title", "description", "business_case"],
             additionalProperties: false
           }
         }

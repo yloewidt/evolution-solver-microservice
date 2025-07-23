@@ -4,7 +4,10 @@ import { jest } from '@jest/globals';
 process.env.NODE_ENV = 'test';
 process.env.PORT = '0'; // Use random port for tests
 process.env.LOG_LEVEL = 'error'; // Reduce log noise in tests
-process.env.OPENAI_API_KEY = 'test-api-key';
+// Only set test API key if not already set
+if (!process.env.OPENAI_API_KEY) {
+  process.env.OPENAI_API_KEY = 'test-api-key';
+}
 process.env.GCP_PROJECT_ID = 'test-project';
 process.env.FIRESTORE_DATABASE = 'test-db';
 process.env.FIRESTORE_COLLECTION = 'test-collection';

@@ -3,7 +3,7 @@ import { ResponseParser } from '../utils/responseParser.js';
 import { LLMClient } from '../services/llmClient.js';
 
 class EvolutionarySolver {
-  constructor() {
+  constructor(apiDebugger = null, resultStore = null, config = {}) {
     // API call tracking - ensure exactly 1 call per operation
     this.apiCallCounts = {
       variator: 0,
@@ -12,6 +12,10 @@ class EvolutionarySolver {
     };
     // Initialize LLM client - it will handle API style detection
     this.llmClient = null; // Will be initialized with model config
+    
+    // Store dependencies
+    this.apiDebugger = apiDebugger;
+    this.resultStore = resultStore;
 
     this.config = {
       generations: process.env.EVOLUTION_GENERATIONS ? parseInt(process.env.EVOLUTION_GENERATIONS) : 10,
@@ -23,8 +27,56 @@ class EvolutionarySolver {
       model: 'o3',
       fallbackModel: 'gpt-4o',
       offspringRatio: 0.7,
-      dealTypes: 'creative partnerships and business models'
+      dealTypes: 'creative partnerships and business models',
+      maxRetries: process.env.EVOLUTION_MAX_RETRIES ? parseInt(process.env.EVOLUTION_MAX_RETRIES) : 3,
+      retryDelay: 1000,
+      enableRetries: process.env.EVOLUTION_ENABLE_RETRIES === 'true' || false,
+      enableGracefulDegradation: process.env.EVOLUTION_GRACEFUL_DEGRADATION === 'true' || false,
+      ...config  // Override with passed config
     };
+  }
+
+  /**
+   * Retry wrapper for LLM calls
+   */
+  async retryLLMCall(operation, phase, generation, jobId) {
+    if (!this.config.enableRetries) {
+      // Original behavior - no retries
+      return await operation();
+    }
+    
+    const maxRetries = this.config.maxRetries || 3;
+    let lastError;
+    
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        logger.info(`${phase} API call - attempt ${attempt}/${maxRetries}`);
+        return await operation();
+      } catch (error) {
+        lastError = error;
+        
+        // Check if error is retryable
+        const isRetryable = error.status === 429 || // Rate limit
+                          error.status === 500 || // Server error
+                          error.status === 502 || // Bad gateway
+                          error.status === 503 || // Service unavailable
+                          error.status === 504 || // Gateway timeout
+                          error.code === 'ECONNRESET' ||
+                          error.code === 'ETIMEDOUT';
+        
+        if (!isRetryable || attempt === maxRetries) {
+          logger.error(`${phase} failed after ${attempt} attempts:`, error);
+          throw error;
+        }
+        
+        // Exponential backoff
+        const delay = this.config.retryDelay * Math.pow(2, attempt - 1);
+        logger.warn(`${phase} attempt ${attempt} failed, retrying in ${delay}ms...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
+    
+    throw lastError;
   }
 
   async variator(currentSolutions = [], targetCount = 5, problemContext = '', generation = 1, jobId = null, attempt = 1) {
@@ -83,7 +135,8 @@ IMPORTANT: Return ONLY the raw JSON array. Do not wrap the output in markdown co
       if (!this.llmClient) {
         this.llmClient = new LLMClient({
           model: this.config.model,
-          fallbackModel: this.config.fallbackModel
+          fallbackModel: this.config.fallbackModel,
+          apiKey: this.config.apiKey
         });
       }
 
@@ -113,7 +166,12 @@ IMPORTANT: Return ONLY the raw JSON array. Do not wrap the output in markdown co
       this.apiCallCounts.total++;
       logger.info(`VARIATOR API CALL #${this.apiCallCounts.variator} (Total: ${this.apiCallCounts.total})`);
 
-      const response = await this.llmClient.client.chat.completions.create(apiCall);
+      const response = await this.retryLLMCall(
+        () => this.llmClient.client.chat.completions.create(apiCall),
+        'variator',
+        generation,
+        jobId
+      );
 
       logger.info('Variator response received');
 
@@ -239,11 +297,19 @@ IMPORTANT: Return ONLY the raw JSON array. Do not wrap the output in markdown co
     }
   }
 
-  async enricher(ideas, generation = 1, jobId = null, resultStore = null, attempt = 1) {
+  async enricher(ideas, problemContext, generation = 1, config = {}, jobId = null, attempt = 1) {
+    // Handle empty ideas array
+    if (!ideas || ideas.length === 0) {
+      logger.info('Enricher: No ideas to enrich');
+      return [];
+    }
+    
     logger.info('Enricher received ideas:', {
       count: ideas.length,
       firstIdea: ideas[0],
-      allIds: ideas.map(i => i?.idea_id || 'NO_ID')
+      allIds: Array.isArray(ideas) ? ideas.map(i => i?.idea_id || 'NO_ID') : 'NOT_AN_ARRAY',
+      ideasType: typeof ideas,
+      isArray: Array.isArray(ideas)
     });
 
     let startTime = Date.now(); // Define at method level for error handling
@@ -261,7 +327,9 @@ IMPORTANT: Return ONLY the raw JSON array. Do not wrap the output in markdown co
       preferenceGuidance += `\nTARGET RETURNS: Solutions should ideally achieve 5-year NPV above $${minProfits}M. Look for high-impact, scalable opportunities.`;
     }
 
-    const enrichPrompt = `Analyze each business idea and calculate key metrics:
+    const enrichPrompt = `Problem context: ${problemContext}
+
+Analyze each business idea and calculate key metrics:
 
 Required fields in business_case object (ALL monetary values in millions USD):
 - "npv_success": 5-year NPV if successful in $M (discounted at 10% annually)
@@ -299,7 +367,8 @@ IMPORTANT: Return ONLY the raw JSON array. Do not wrap the output in markdown co
       if (!this.llmClient) {
         this.llmClient = new LLMClient({
           model: this.config.model,
-          fallbackModel: this.config.fallbackModel
+          fallbackModel: this.config.fallbackModel,
+          apiKey: this.config.apiKey
         });
       }
 
@@ -329,7 +398,12 @@ IMPORTANT: Return ONLY the raw JSON array. Do not wrap the output in markdown co
       this.apiCallCounts.total++;
       logger.info(`ENRICHER API CALL #${this.apiCallCounts.enricher} (Total: ${this.apiCallCounts.total})`);
 
-      const response = await this.llmClient.client.chat.completions.create(apiCall);
+      const response = await this.retryLLMCall(
+        () => this.llmClient.client.chat.completions.create(apiCall),
+        'enricher',
+        generation,
+        jobId
+      );
 
       logger.info('Enricher response received');
 
@@ -387,6 +461,24 @@ IMPORTANT: Return ONLY the raw JSON array. Do not wrap the output in markdown co
 
       return enrichedIdeas;
     } catch (error) {
+      // Graceful degradation - return ideas with default business case
+      if (this.config.enableGracefulDegradation) {
+        logger.warn('Enricher failed, using default values for business case:', error.message);
+        
+        return ideas.map(idea => ({
+          ...idea,
+          business_case: {
+            npv_success: 5.0, // Default $5M NPV
+            capex_est: 1.0,   // Default $1M CAPEX
+            timeline_months: 12,
+            likelihood: 0.5,  // 50% default probability
+            risk_factors: ['Unable to analyze - using defaults'],
+            yearly_cashflows: [-1.0, 0.5, 1.5, 2.0, 2.5]
+          },
+          enrichment_note: 'Default values used due to enrichment failure'
+        }));
+      }
+      
       logger.error('Enricher failed - NO RETRIES:', error.message);
 
       // Check if it's a retriable error (timeouts or server errors)
@@ -413,7 +505,7 @@ IMPORTANT: Return ONLY the raw JSON array. Do not wrap the output in markdown co
           if (isServerError) {
             await new Promise(resolve => setTimeout(resolve, 2000)); // 2 second delay
           }
-          return this.enricher(ideas, generation, jobId, resultStore, currentAttempt + 1);
+          return this.enricher(ideas, problemContext, generation, config, jobId, currentAttempt + 1);
         }
       }
 
@@ -572,7 +664,12 @@ IMPORTANT: Return ONLY the raw JSON array. Do not wrap the output in markdown co
       }
 
       if (currentGen.length < config.populationSize) {
-        currentGen = await this.variator(currentGen, config.populationSize, problemContext, gen, jobId);
+        const newGen = await this.variator(currentGen, config.populationSize, problemContext, gen, jobId);
+        if (!Array.isArray(newGen)) {
+          logger.error('Variator did not return an array:', { type: typeof newGen, value: newGen });
+          throw new Error('Variator must return an array');
+        }
+        currentGen = newGen;
       }
 
       if (progressTracker?.resultStore && progressTracker?.jobId) {
@@ -581,7 +678,7 @@ IMPORTANT: Return ONLY the raw JSON array. Do not wrap the output in markdown co
         );
       }
 
-      const enriched = await this.enricher(currentGen, gen, jobId, progressTracker?.resultStore);
+      const enriched = await this.enricher(currentGen, problemContext, gen, config, jobId);
 
       // NO FORMATTING - avoid extra API calls
       const formatted = enriched;
@@ -658,7 +755,13 @@ IMPORTANT: Return ONLY the raw JSON array. Do not wrap the output in markdown co
           generationHistory,
           totalEvaluations: gen * config.populationSize,
           totalSolutions: allGenerationSolutions.length,
-          apiCallCounts: this.apiCallCounts
+          apiCallCounts: this.apiCallCounts,
+          metadata: {
+            totalGenerations: gen,
+            finalPopulationSize: rankedIdeas.length,
+            config: config,
+            problemContext: problemContext
+          }
         };
       }
 

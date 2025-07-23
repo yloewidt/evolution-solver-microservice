@@ -76,6 +76,7 @@ class CloudTaskHandler {
       if (process.env.SERVICE_ACCOUNT_EMAIL && this.workerUrl.startsWith('https://')) {
         task.httpRequest.oidcToken = {
           serviceAccountEmail: process.env.SERVICE_ACCOUNT_EMAIL,
+          audience: this.workerUrl,
         };
       }
 
@@ -123,6 +124,7 @@ class CloudTaskHandler {
       if (process.env.SERVICE_ACCOUNT_EMAIL && this.workerUrl.startsWith('https://')) {
         task.httpRequest.oidcToken = {
           serviceAccountEmail: process.env.SERVICE_ACCOUNT_EMAIL,
+          audience: this.workerUrl,
         };
       }
 

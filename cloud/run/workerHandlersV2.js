@@ -105,9 +105,8 @@ export async function handleEnricher({ jobId, generation, ideas, problemContext,
       );
     }
     
-    // Parse and validate the enriched ideas
-    const parser = new ResponseParser();
-    const validatedIdeas = parser.parseEnricherResponse(enrichedIdeas);
+    // Enriched ideas are already validated by singleIdeaEnricher
+    const validatedIdeas = enrichedIdeas;
     
     // Save results
     await resultStore.savePhaseResults(jobId, generation, 'enricher', {

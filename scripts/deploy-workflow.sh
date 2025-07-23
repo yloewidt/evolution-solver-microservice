@@ -25,7 +25,7 @@ echo "Location: ${LOCATION}"
 echo "Workflow: ${WORKFLOW_NAME}-${ENVIRONMENT}"
 
 # Get worker URL
-WORKER_URL=$(gcloud run services describe evolution-solver-worker-${ENVIRONMENT} \
+WORKER_URL=$(PATH="/Users/yonatanloewidt/google-cloud-sdk/bin:$PATH" PATH="/Users/yonatanloewidt/google-cloud-sdk/bin:$PATH" gcloud run services describe evolution-solver-worker-production \
     --platform managed \
     --region ${LOCATION} \
     --project ${PROJECT_ID} \
@@ -40,7 +40,7 @@ echo "Worker URL: ${WORKER_URL}"
 
 # Deploy workflow
 echo -e "${YELLOW}Deploying workflow...${NC}"
-gcloud workflows deploy ${WORKFLOW_NAME}-${ENVIRONMENT} \
+PATH="/Users/yonatanloewidt/google-cloud-sdk/bin:$PATH" gcloud workflows deploy ${WORKFLOW_NAME}-${ENVIRONMENT} \
     --source=workflows/evolution-job-v2.yaml \
     --location=${LOCATION} \
     --project=${PROJECT_ID} \
@@ -48,7 +48,7 @@ gcloud workflows deploy ${WORKFLOW_NAME}-${ENVIRONMENT} \
     --set-env-vars=WORKER_URL=${WORKER_URL}
 
 # Get workflow details
-WORKFLOW_ID=$(gcloud workflows describe ${WORKFLOW_NAME}-${ENVIRONMENT} \
+WORKFLOW_ID=$(PATH="/Users/yonatanloewidt/google-cloud-sdk/bin:$PATH" gcloud workflows describe ${WORKFLOW_NAME}-${ENVIRONMENT} \
     --location=${LOCATION} \
     --project=${PROJECT_ID} \
     --format='value(name)')
@@ -58,7 +58,7 @@ echo "Workflow ID: ${WORKFLOW_ID}"
 
 # Grant permissions for API service to execute workflow
 echo -e "${YELLOW}Granting permissions...${NC}"
-gcloud workflows add-iam-policy-binding ${WORKFLOW_NAME}-${ENVIRONMENT} \
+PATH="/Users/yonatanloewidt/google-cloud-sdk/bin:$PATH" gcloud workflows add-iam-policy-binding ${WORKFLOW_NAME}-${ENVIRONMENT} \
     --location=${LOCATION} \
     --project=${PROJECT_ID} \
     --member="serviceAccount:${SERVICE_ACCOUNT}" \

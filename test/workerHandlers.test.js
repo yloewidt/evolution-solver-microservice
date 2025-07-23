@@ -206,7 +206,13 @@ describe('Worker Handlers', () => {
 
       const result = await processEnricher(baseTaskData, mockResultStore);
 
-      expect(mockEnricher).toHaveBeenCalledWith(baseTaskData.ideas);
+      expect(mockEnricher).toHaveBeenCalledWith(
+        baseTaskData.ideas,
+        baseTaskData.problemContext,
+        baseTaskData.generation,
+        baseTaskData.evolutionConfig,
+        baseTaskData.jobId
+      );
       
       expect(mockResultStore.savePhaseResults).toHaveBeenCalledWith(
         'test-job',

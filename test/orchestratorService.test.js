@@ -5,12 +5,14 @@ const mockResultStore = {
   getJobStatus: jest.fn(),
   updateJobStatus: jest.fn(),
   savePhaseResults: jest.fn(),
-  completeJob: jest.fn()
+  completeJob: jest.fn(),
+  updatePhaseStatus: jest.fn()
 };
 
 const mockTaskHandler = {
   createWorkerTask: jest.fn(),
-  createTask: jest.fn()
+  createTask: jest.fn(),
+  createOrchestratorTask: jest.fn()
 };
 
 // Mock modules

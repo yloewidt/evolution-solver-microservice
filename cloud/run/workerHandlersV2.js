@@ -185,10 +185,14 @@ export async function handleRanker({ jobId, generation, enrichedIdeas, evolution
     
     logger.info(`Ranker complete for job ${jobId}, generation ${generation}. Ranked ${rankedIdeas.length} ideas`);
     
+    // Get top performers for next generation
+    const topPerformers = rankedIdeas.slice(0, evolutionConfig.topSelectCount || 3);
+    
     return { 
       success: true, 
       message: `Ranked ${rankedIdeas.length} ideas`,
       rankedIdeas,
+      topPerformers,
       topScore,
       avgScore
     };

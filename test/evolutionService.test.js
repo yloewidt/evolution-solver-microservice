@@ -255,7 +255,7 @@ describe('EvolutionService', () => {
       ];
 
       const formatted = service.formatSolutionsForDisplay(solutionsNoScore);
-      expect(formatted[0].score).toBe('undefined');
+      expect(formatted[0].score).toBeUndefined();
     });
 
     it('should handle empty solutions array', () => {

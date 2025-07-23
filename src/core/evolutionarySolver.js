@@ -1,6 +1,3 @@
-import OpenAI from 'openai';
-import https from 'https';
-import http from 'http';
 import logger from '../utils/logger.js';
 import { ResponseParser } from '../utils/responseParser.js';
 import { LLMClient } from '../services/llmClient.js';
@@ -11,7 +8,6 @@ class EvolutionarySolver {
     this.apiCallCounts = {
       variator: 0,
       enricher: 0,
-      reformatter: 0,
       total: 0
     };
     // Initialize LLM client - it will handle API style detection
@@ -64,7 +60,7 @@ ${JSON.stringify(currentSolutions, null, 2)}
 Generate ${numNeeded} new solutions as JSON array:
 - ${offspringCount} OFFSPRING: Combine and evolve the top performers' best features. Mix their approaches, enhance strengths, fix weaknesses. Create true hybrids that build on what works.
 - ${wildcardCount} WILDCARDS: Completely fresh approaches unrelated to previous solutions. Explore new angles, industries, or mechanisms.
-` : `Generate ${numNeeded} new creative business solutions as JSON array.`}
+` : `Generate EXACTLY ${numNeeded} new creative business solutions as JSON array. IMPORTANT: Return exactly ${numNeeded} ideas, no more, no less.`}
 
 Each solution must have:
 - "idea_id": unique identifier (e.g., "he3_fusion_swap_v2")
@@ -180,6 +176,14 @@ IMPORTANT: Return ONLY the raw JSON array. Do not wrap the output in markdown co
       });
 
       const ideasArray = Array.isArray(newIdeas) ? newIdeas : [newIdeas];
+
+      // Validate count and trim if necessary
+      if (ideasArray.length > numNeeded) {
+        logger.warn(`Variator returned ${ideasArray.length} ideas but only ${numNeeded} were requested. Trimming to requested count.`);
+        ideasArray.splice(numNeeded);
+      } else if (ideasArray.length < numNeeded) {
+        logger.warn(`Variator returned only ${ideasArray.length} ideas but ${numNeeded} were requested.`);
+      }
 
       logger.info(`Working with ${ideasArray.length} new ideas`);
       return [...currentSolutions, ...ideasArray];
@@ -531,71 +535,6 @@ IMPORTANT: Return ONLY the raw JSON array. Do not wrap the output in markdown co
   }
 
 
-  async formatEnrichedData(enrichedIdeas) {
-    try {
-      logger.info('Formatting enriched data for consistency');
-
-      const formatPrompt = `Ensure the following business ideas have correctly formatted metrics.
-      
-For each idea, validate and reformat the business_case object to have (ALL monetary values in millions USD):
-- npv_success: number in millions (e.g., 125.5 = $125.5M)
-- capex_est: number in millions with MINIMUM 0.05 ($50K validation cost)
-- timeline_months: number
-- likelihood: number between 0 and 1
-- risk_factors: array of strings
-- yearly_cashflows: array of 5 numbers in millions
-
-CRITICAL RULES:
-1. If capex_est is less than 0.05, set it to 0.05 (minimum $50K to validate any idea)
-2. If capex_est is negative or zero, set it to 0.05
-3. If capex_est is not a valid number, set it to 0.05
-4. Always ensure capex_est >= 0.05
-
-Examples: $50K = 0.05, $100K = 0.1, $1M = 1.0, $50M = 50.0
-
-Return ONLY the JSON array with corrected data. Do not wrap the output in markdown code blocks, do not add any explanations or text before/after the JSON. The response must start with [ and end with ].
-
-Data to format:
-${JSON.stringify(enrichedIdeas, null, 2)}`;
-
-      const response = await this.client.chat.completions.create({
-        model: this.config.fallbackModel,
-        messages: [
-          {
-            role: 'system',
-            content: 'You are a data formatting assistant. Return only valid JSON with properly typed numeric fields.'
-          },
-          {
-            role: 'user',
-            content: formatPrompt
-          }
-        ],
-        temperature: 0,
-        max_tokens: 4000
-      });
-
-      let formattedContent = response.choices[0].message.content.trim();
-
-      // Remove markdown code blocks if present
-      formattedContent = formattedContent.replace(/```json\n?/g, '').replace(/```\n?/g, '');
-
-      // Try to extract JSON array if still having issues
-      const jsonMatch = formattedContent.match(/\[[\s\S]*\]/);
-      if (jsonMatch) {
-        formattedContent = jsonMatch[0];
-      }
-
-      const formattedData = JSON.parse(formattedContent);
-
-      logger.info('Successfully formatted enriched data');
-      return formattedData;
-
-    } catch (error) {
-      logger.error('Data formatting failed:', error);
-      // Return original data if formatting fails
-      return enrichedIdeas;
-    }
-  }
 
   async evolve(problemContext, initialSolutions = [], customConfig = {}, progressTracker = null) {
     // Store custom config in this instance for use by other methods

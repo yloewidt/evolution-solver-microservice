@@ -10,9 +10,10 @@ import { ResponseParser } from '../utils/responseParser.js';
  */
 export class LLMClient {
   constructor(config = {}) {
+    const model = config.model || 'o3';
     this.config = {
-      model: config.model || 'o3',
-      temperature: config.temperature || (config.model === 'o3' ? 1 : 0.7),
+      model: model,
+      temperature: config.temperature || (model === 'o3' ? 1 : 0.7),
       apiKey: config.apiKey || process.env.OPENAI_API_KEY
     };
 
@@ -40,110 +41,66 @@ export class LLMClient {
    */
   getApiStyle() {
     const model = this.config.model.toLowerCase();
-    // o3 models use Anthropic-style API
-    if (model === 'o3' || model === 'o3-mini') {
-      return 'anthropic';
-    }
-    // All other OpenAI models use OpenAI API style
+    // All OpenAI models use OpenAI API style (including o3)
     return 'openai';
   }
 
   /**
    * Create a variator request
    */
-  async createVariatorRequest(prompt) {
+  async createVariatorRequest(prompt, systemPrompt = null, userPrompt = null) {
     const apiStyle = this.getApiStyle();
 
-    if (apiStyle === 'openai') {
-      // OpenAI style with structured output
-      return {
-        model: this.config.model,
-        messages: [
-          {
-            role: 'system',
-            content: 'You are an expert in creative business deal-making and solution generation. Generate innovative, low-risk, high-return solutions.'
-          },
-          {
-            role: 'user',
-            content: prompt
-          }
-        ],
-        response_format: VariatorResponseSchema,
-        temperature: this.config.temperature,
-        store: true
-      };
-    } else {
-      // Anthropic style for o3
-      return {
-        model: this.config.model,
-        input: [
-          {
-            role: 'developer',
-            content: [{
-              type: 'input_text',
-              text: 'You are an expert in creative business deal-making and solution generation. Generate innovative, low-risk, high-return solutions.'
-            }]
-          },
-          {
-            role: 'user',
-            content: [{ type: 'input_text', text: prompt }]
-          }
-        ],
-        text: { format: { type: 'text' } },
-        reasoning: { effort: 'medium' },
-        stream: false,
-        store: true
-      };
-    }
+    // Use provided prompts or defaults
+    const finalSystemPrompt = systemPrompt || 'You are an expert in creative business deal-making and solution generation. Generate innovative, low-risk, high-return solutions.';
+    const finalUserPrompt = userPrompt || prompt;
+
+    // OpenAI style with structured output
+    return {
+      model: this.config.model,
+      messages: [
+        {
+          role: 'system',
+          content: finalSystemPrompt
+        },
+        {
+          role: 'user',
+          content: finalUserPrompt
+        }
+      ],
+      response_format: VariatorResponseSchema,
+      temperature: this.config.temperature,
+      store: true
+    };
   }
 
   /**
    * Create an enricher request
    */
-  async createEnricherRequest(prompt) {
+  async createEnricherRequest(prompt, systemPrompt = null, userPrompt = null) {
     const apiStyle = this.getApiStyle();
 
-    if (apiStyle === 'openai') {
-      // OpenAI style with structured output
-      return {
-        model: this.config.model,
-        messages: [
-          {
-            role: 'system',
-            content: 'You are a business strategist expert in financial modeling and deal structuring. Provide realistic, data-driven business cases.'
-          },
-          {
-            role: 'user',
-            content: prompt
-          }
-        ],
-        response_format: EnricherResponseSchema,
-        temperature: this.config.model === 'o3' ? 1 : 0.5, // o3 only supports temperature=1
-        store: true
-      };
-    } else {
-      // Anthropic style for o3
-      return {
-        model: this.config.model,
-        input: [
-          {
-            role: 'developer',
-            content: [{
-              type: 'input_text',
-              text: 'You are a business strategist expert in financial modeling and deal structuring. Provide realistic, data-driven business cases.'
-            }]
-          },
-          {
-            role: 'user',
-            content: [{ type: 'input_text', text: prompt }]
-          }
-        ],
-        text: { format: { type: 'text' } },
-        reasoning: { effort: 'high' },
-        stream: false,
-        store: true
-      };
-    }
+    // Use provided prompts or defaults
+    const finalSystemPrompt = systemPrompt || 'You are a business strategist expert in financial modeling and deal structuring. Provide realistic, data-driven business cases.';
+    const finalUserPrompt = userPrompt || prompt;
+
+    // OpenAI style with structured output
+    return {
+      model: this.config.model,
+      messages: [
+        {
+          role: 'system',
+          content: finalSystemPrompt
+        },
+        {
+          role: 'user',
+          content: finalUserPrompt
+        }
+      ],
+      response_format: EnricherResponseSchema,
+      temperature: this.config.model === 'o3' ? 1 : 0.5, // o3 only supports temperature=1
+      store: true
+    };
   }
 
   /**
@@ -167,35 +124,8 @@ export class LLMClient {
         // OpenAI doesn't support signal in the request, use client-level timeout
         response = await this.client.chat.completions.create(request);
       } else {
-        // For o3, we need to use the beta.chat.completions API with a different format
-        // Convert the Anthropic-style request to OpenAI's format
-        const messages = [];
-        
-        // Add system message from developer role
-        const developerContent = request.input.find(i => i.role === 'developer');
-        if (developerContent) {
-          messages.push({
-            role: 'system',
-            content: developerContent.content[0].text
-          });
-        }
-        
-        // Add user message
-        const userContent = request.input.find(i => i.role === 'user');
-        if (userContent) {
-          messages.push({
-            role: 'user',
-            content: userContent.content[0].text
-          });
-        }
-        
-        // Make the request using OpenAI client but with o3 model
-        response = await this.client.chat.completions.create({
-          model: request.model,
-          messages: messages,
-          temperature: 1, // o3 requires temperature=1
-          store: request.store || true
-        });
+        // This branch should never be reached now
+        throw new Error('Unexpected API style');
       }
       
       clearTimeout(timeoutId);
@@ -248,11 +178,8 @@ export class LLMClient {
           return await this.parseTextContent(content, context);
         }
       } else {
-        // o3 returns in OpenAI format even though we use Anthropic-style request format
-        const content = response.choices?.[0]?.message?.content;
-        if (!content) throw new Error('No content in o3 response');
-
-        return await this.parseTextContent(content, context);
+        // This branch should never be reached now
+        throw new Error('Unexpected API style in response parsing');
       }
     } catch (error) {
       logger.error(`${context}: Failed to parse response:`, error);

@@ -129,7 +129,7 @@ Now analyze the following idea:
               content: prompt
             }
           ],
-          temperature: 0.7,
+          temperature: this.llmClient.config.model === 'o3' ? 1 : 0.7,
           response_format: { type: "json_object" } // Ensure JSON response
         });
       } else {

@@ -12,7 +12,7 @@ export class LLMClient {
   constructor(config = {}) {
     this.config = {
       model: config.model || 'o3',
-      temperature: config.temperature || 0.7,
+      temperature: config.temperature || (config.model === 'o3' ? 1 : 0.7),
       apiKey: config.apiKey || process.env.OPENAI_API_KEY
     };
 
@@ -117,7 +117,7 @@ export class LLMClient {
           }
         ],
         response_format: EnricherResponseSchema,
-        temperature: 0.5, // Lower temperature for more consistent financial analysis
+        temperature: this.config.model === 'o3' ? 1 : 0.5, // o3 only supports temperature=1
         store: true
       };
     } else {

@@ -79,6 +79,9 @@ export async function processVariator(taskData, resultStore) {
  * Process enricher phase
  */
 export async function processEnricher(taskData, resultStore) {
+  logger.info(`Enricher taskData keys:`, Object.keys(taskData));
+  logger.info(`Full taskData:`, JSON.stringify(taskData));
+  
   const { jobId, generation, evolutionConfig, ideas, problemContext } = taskData;
   
   logger.info(`Processing enricher for job ${jobId}, generation ${generation}`);

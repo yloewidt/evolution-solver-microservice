@@ -167,12 +167,35 @@ export class LLMClient {
         // OpenAI doesn't support signal in the request, use client-level timeout
         response = await this.client.chat.completions.create(request);
       } else {
-        // Add signal to request options for Anthropic-style
-        const requestWithSignal = {
-          ...request,
-          signal: controller.signal
-        };
-        response = await this.client.responses.create(requestWithSignal);
+        // For o3, we need to use the beta.chat.completions API with a different format
+        // Convert the Anthropic-style request to OpenAI's format
+        const messages = [];
+        
+        // Add system message from developer role
+        const developerContent = request.input.find(i => i.role === 'developer');
+        if (developerContent) {
+          messages.push({
+            role: 'system',
+            content: developerContent.content[0].text
+          });
+        }
+        
+        // Add user message
+        const userContent = request.input.find(i => i.role === 'user');
+        if (userContent) {
+          messages.push({
+            role: 'user',
+            content: userContent.content[0].text
+          });
+        }
+        
+        // Make the request using OpenAI client but with o3 model
+        response = await this.client.chat.completions.create({
+          model: request.model,
+          messages: messages,
+          temperature: 1, // o3 requires temperature=1
+          store: request.store || true
+        });
       }
       
       clearTimeout(timeoutId);
@@ -225,25 +248,9 @@ export class LLMClient {
           return await this.parseTextContent(content, context);
         }
       } else {
-        // Anthropic style (o3) - no structured outputs yet
-        let content = '';
-
-        if (response.output && Array.isArray(response.output)) {
-          const textOutput = response.output.find(item => item.type === 'text');
-          const messageOutput = response.output.find(item => item.type === 'message');
-
-          if (textOutput?.content) {
-            content = textOutput.content;
-          } else if (messageOutput?.content?.[0]?.text) {
-            content = messageOutput.content[0].text;
-          } else {
-            throw new Error('No text content found in Anthropic-style response');
-          }
-        } else if (response.output_text) {
-          content = response.output_text;
-        } else {
-          throw new Error('Unexpected response format');
-        }
+        // o3 returns in OpenAI format even though we use Anthropic-style request format
+        const content = response.choices?.[0]?.message?.content;
+        if (!content) throw new Error('No content in o3 response');
 
         return await this.parseTextContent(content, context);
       }

@@ -25,7 +25,7 @@ export function getWorkerHandlers(config = {}) {
  */
 export async function processVariator(payload, resultStore) {
   const handlers = getWorkerHandlers(payload.evolutionConfig);
-  return handlers.handleVariator({ ...payload, resultStore });
+  return handlers.processVariator({ ...payload, resultStore });
 }
 
 /**
@@ -33,7 +33,7 @@ export async function processVariator(payload, resultStore) {
  */
 export async function processEnricher(payload, resultStore) {
   const handlers = getWorkerHandlers(payload.evolutionConfig);
-  return handlers.handleEnricher({ ...payload, resultStore });
+  return handlers.processEnricher({ ...payload, resultStore });
 }
 
 /**
@@ -41,5 +41,5 @@ export async function processEnricher(payload, resultStore) {
  */
 export async function processRanker(payload, resultStore) {
   const handlers = getWorkerHandlers(payload.evolutionConfig);
-  return handlers.handleRanker({ ...payload, resultStore });
+  return handlers.processRanker({ ...payload, resultStore });
 }

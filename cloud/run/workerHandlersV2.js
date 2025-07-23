@@ -84,7 +84,7 @@ export async function handleEnricher({ jobId, generation, ideas, problemContext,
     const enricher = new SingleIdeaEnricher(llmClient, cacheStore);
     
     // Process ideas in parallel with max concurrency
-    const maxConcurrency = evolutionConfig.enricherConcurrency || 5;
+    const maxConcurrency = evolutionConfig.enricherConcurrency || 25;
     const { enrichedIdeas, failedIdeas } = await enricher.enrichIdeasParallel(
       ideas,
       problemContext,

@@ -115,20 +115,15 @@ export async function processEnricher(taskData, resultStore) {
     let formattedIdeas;
     
     try {
-      enrichedIdeas = await solver.enricher(validIdeas);
+      enrichedIdeas = await solver.enricher(validIdeas, problemContext, generation, evolutionConfig, jobId);
       
       // Validate we got valid enriched ideas
       if (!enrichedIdeas || enrichedIdeas.length === 0) {
         throw new Error('Enricher returned no valid ideas');
       }
       
-      // Format enriched data
-      formattedIdeas = await solver.formatEnrichedData(enrichedIdeas);
-      
-      // Double check we have valid formatted ideas
-      if (!formattedIdeas || formattedIdeas.length === 0) {
-        throw new Error('Formatting returned no valid ideas');
-      }
+      // enrichedIdeas are already formatted correctly
+      formattedIdeas = enrichedIdeas;
       
     } catch (parseError) {
       logger.error(`Enricher parsing/formatting error for job ${jobId}, generation ${generation}:`, parseError);

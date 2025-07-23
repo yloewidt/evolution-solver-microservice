@@ -3,6 +3,7 @@ import https from 'https';
 import http from 'http';
 import logger from '../utils/logger.js';
 import { ResponseParser } from '../utils/responseParser.js';
+import { LLMClient } from '../services/llmClient.js';
 
 class EvolutionarySolver {
   constructor() {
@@ -13,29 +14,8 @@ class EvolutionarySolver {
       reformatter: 0,
       total: 0
     };
-    // Create custom HTTP agent that forces HTTP/1.1
-    // This is needed because Cloud Run's gVisor sandbox has issues with HTTP/2
-    const httpAgent = new http.Agent({
-      keepAlive: true,
-      keepAliveMsecs: 60000, // Keep connection alive for 1 minute
-      timeout: 900000 // 15 minute timeout
-    });
-
-    const httpsAgent = new https.Agent({
-      keepAlive: true,
-      keepAliveMsecs: 60000, // Keep connection alive for 1 minute
-      timeout: 900000, // 15 minute timeout
-      // Disable HTTP/2 by not including 'h2' in ALPN protocols
-      ALPNProtocols: ['http/1.1']
-    });
-
-    this.client = new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY,
-      httpAgent: httpAgent,
-      httpsAgent: httpsAgent,
-      timeout: 900000, // 15 minute timeout for o3 model operations
-      maxRetries: 0  // NO RETRIES - ensure exactly 1 API call per operation
-    });
+    // Initialize LLM client - it will handle API style detection
+    this.llmClient = null; // Will be initialized with model config
 
     this.config = {
       generations: process.env.EVOLUTION_GENERATIONS ? parseInt(process.env.EVOLUTION_GENERATIONS) : 10,
@@ -103,24 +83,16 @@ IMPORTANT: Return ONLY the raw JSON array. Do not wrap the output in markdown co
     try {
       logger.info('Variator API call - NO RETRIES ALLOWED');
 
-      // Prepare API call for logging
-      const apiCall = {
-        model: this.config.model,
-        input: [
-          {
-            role: 'developer',
-            content: [{ type: 'input_text', text: 'You are an expert in creative business deal-making and solution generation. Generate innovative, low-risk, high-return solutions.' }]
-          },
-          {
-            role: 'user',
-            content: [{ type: 'input_text', text: prompt }]
-          }
-        ],
-        text: { format: { type: 'text' } },
-        reasoning: { effort: 'medium' },
-        stream: false, // Avoid long SSE streams in Cloud Run
-        store: true
-      };
+      // Initialize LLM client if not already done
+      if (!this.llmClient) {
+        this.llmClient = new LLMClient({
+          model: this.config.model,
+          fallbackModel: this.config.fallbackModel
+        });
+      }
+
+      // Prepare API call using LLM client
+      const apiCall = await this.llmClient.createVariatorRequest(prompt);
 
       // Log the full API call for replay
       const callId = `${this.progressTracker?.jobId || 'unknown'}_gen${this.currentGeneration || 0}_variator_${Date.now()}`;
@@ -145,7 +117,7 @@ IMPORTANT: Return ONLY the raw JSON array. Do not wrap the output in markdown co
       this.apiCallCounts.total++;
       logger.info(`VARIATOR API CALL #${this.apiCallCounts.variator} (Total: ${this.apiCallCounts.total})`);
 
-      const response = await this.client.responses.create(apiCall);
+      const response = await this.llmClient.client.chat.completions.create(apiCall);
 
       logger.info('Variator response received');
 
@@ -164,7 +136,10 @@ IMPORTANT: Return ONLY the raw JSON array. Do not wrap the output in markdown co
         fullResponse: JSON.stringify(response)  // Full response for replay
       });
 
-      const newIdeas = ResponseParser.parseVariatorResponse(response);
+      // Parse response based on API style
+      const newIdeas = this.llmClient.getApiStyle() === 'openai' 
+        ? ResponseParser.parseOpenAIResponse(response, 'variator')
+        : ResponseParser.parseVariatorResponse(response);
 
       // Track API call telemetry
       if (this.progressTracker?.resultStore && this.progressTracker?.jobId && response) {
@@ -316,24 +291,16 @@ IMPORTANT: Return ONLY the raw JSON array. Do not wrap the output in markdown co
     try {
       logger.info('Enricher API call - NO RETRIES ALLOWED');
 
-      // Prepare API call for logging
-      const apiCall = {
-        model: this.config.model,
-        input: [
-          {
-            role: 'developer',
-            content: [{ type: 'input_text', text: 'You are a business strategist expert in financial modeling and deal structuring. Provide realistic, data-driven business cases.' }]
-          },
-          {
-            role: 'user',
-            content: [{ type: 'input_text', text: enrichPrompt }]
-          }
-        ],
-        text: { format: { type: 'text' } },
-        reasoning: { effort: 'high' },
-        stream: false, // Avoid long SSE streams in Cloud Run
-        store: true
-      };
+      // Initialize LLM client if not already done
+      if (!this.llmClient) {
+        this.llmClient = new LLMClient({
+          model: this.config.model,
+          fallbackModel: this.config.fallbackModel
+        });
+      }
+
+      // Prepare API call using LLM client
+      const apiCall = await this.llmClient.createEnricherRequest(enrichPrompt);
 
       // Log the full API call for replay
       const callId = `${this.progressTracker?.jobId || 'unknown'}_gen${this.currentGeneration || 0}_enricher_${Date.now()}`;
@@ -358,7 +325,7 @@ IMPORTANT: Return ONLY the raw JSON array. Do not wrap the output in markdown co
       this.apiCallCounts.total++;
       logger.info(`ENRICHER API CALL #${this.apiCallCounts.enricher} (Total: ${this.apiCallCounts.total})`);
 
-      const response = await this.client.responses.create(apiCall);
+      const response = await this.llmClient.client.chat.completions.create(apiCall);
 
       logger.info('Enricher response received');
 
@@ -377,7 +344,10 @@ IMPORTANT: Return ONLY the raw JSON array. Do not wrap the output in markdown co
         fullResponse: JSON.stringify(response)  // Full response for replay
       });
 
-      const enrichedIdeas = ResponseParser.parseEnricherResponse(response);
+      // Parse response based on API style
+      const enrichedIdeas = this.llmClient.getApiStyle() === 'openai'
+        ? ResponseParser.parseOpenAIResponse(response, 'enricher')
+        : ResponseParser.parseEnricherResponse(response);
 
       // Track API call telemetry
       if (this.progressTracker?.resultStore && this.progressTracker?.jobId && response) {

@@ -144,4 +144,17 @@ export class ResponseParser {
     logger.info(`Enricher: Parsed ${validIdeas.length} valid ideas`);
     return validIdeas;
   }
+
+  /**
+   * Parse OpenAI response format (for both variator and enricher)
+   */
+  static parseOpenAIResponse(response, phase) {
+    if (phase === 'variator') {
+      return this.parseVariatorResponse(response);
+    } else if (phase === 'enricher') {
+      return this.parseEnricherResponse(response);
+    } else {
+      throw new Error(`Unknown phase: ${phase}`);
+    }
+  }
 }

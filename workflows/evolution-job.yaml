@@ -89,6 +89,7 @@ main:
                             generation: ${generation}
                             evolutionConfig: ${evolutionConfig}
                             ideas: ${variatorResult.body.ideas}
+                            problemContext: ${problemContext}
                           auth:
                             type: OIDC
                           timeout: 300
@@ -125,6 +126,7 @@ main:
                             generation: ${generation}
                             evolutionConfig: ${evolutionConfig}
                             enrichedIdeas: ${enricherResult.body.enrichedIdeas}
+                            problemContext: ${problemContext}
                           auth:
                             type: OIDC
                           timeout: 300

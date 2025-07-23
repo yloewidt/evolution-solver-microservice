@@ -4,7 +4,7 @@ import EvolutionService from '../../src/services/evolutionService.js';
 import EvolutionResultStore from '../firestore/resultStore.js';
 import CloudTaskHandler from '../tasks/taskHandler.js';
 import OrchestratorService from '../../src/services/orchestratorService.js';
-import { processVariator, processEnricher, processRanker } from './workerHandlers.js';
+import { processVariator, processEnricher, processRanker } from './workerHandlersSelector.js';
 import logger from '../../src/utils/logger.js';
 import os from 'os';
 

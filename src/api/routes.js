@@ -64,6 +64,12 @@ export default function createRoutes(evolutionService, taskHandler) {
       if (evolutionParams?.fallbackModel !== undefined) {
         evolutionConfig.fallbackModel = evolutionParams.fallbackModel;
       }
+      if (evolutionParams?.useSingleIdeaEnricher !== undefined) {
+        evolutionConfig.useSingleIdeaEnricher = evolutionParams.useSingleIdeaEnricher;
+      }
+      if (evolutionParams?.enricherConcurrency !== undefined) {
+        evolutionConfig.enricherConcurrency = evolutionParams.enricherConcurrency;
+      }
 
       const jobId = uuidv4();
       const jobData = {

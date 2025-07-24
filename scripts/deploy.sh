@@ -56,7 +56,7 @@ gcloud run deploy ${SERVICE_NAME}-${ENVIRONMENT} \
     --max-instances 10 \
     --min-instances 0 \
     --port 8080 \
-    --set-env-vars "ENVIRONMENT=${ENVIRONMENT},NODE_ENV=production" \
+    --set-env-vars "ENVIRONMENT=${ENVIRONMENT},NODE_ENV=production,USE_WORKFLOWS=true" \
     --set-secrets "OPENAI_API_KEY=openai-api-key:latest" \
     --service-account "${SERVICE_NAME}@${PROJECT_ID}.iam.gserviceaccount.com"
 

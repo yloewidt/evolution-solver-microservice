@@ -5,7 +5,7 @@ import EnricherCacheStore from '../../src/services/enricherCacheStore.js';
 import { LLMClient } from '../../src/services/llmClient.js';
 import { ResponseParser } from '../../src/utils/responseParser.js';
 
-export async function handleVariator({ jobId, generation, problemContext, topPerformers, evolutionConfig, resultStore }) {
+export async function processVariator({ jobId, generation, problemContext, topPerformers, evolutionConfig }, resultStore) {
   try {
     logger.info(`Starting variator for job ${jobId}, generation ${generation}`);
     
@@ -60,7 +60,7 @@ export async function handleVariator({ jobId, generation, problemContext, topPer
   }
 }
 
-export async function handleEnricher({ jobId, generation, ideas, problemContext, evolutionConfig, resultStore }) {
+export async function processEnricher({ jobId, generation, ideas, problemContext, evolutionConfig }, resultStore) {
   try {
     logger.info(`Starting enricher for job ${jobId}, generation ${generation} with ${ideas.length} ideas`);
     
@@ -143,7 +143,7 @@ export async function handleEnricher({ jobId, generation, ideas, problemContext,
   }
 }
 
-export async function handleRanker({ jobId, generation, enrichedIdeas, evolutionConfig, resultStore }) {
+export async function processRanker({ jobId, generation, enrichedIdeas, evolutionConfig }, resultStore) {
   try {
     logger.info(`Starting ranker for job ${jobId}, generation ${generation} with ${enrichedIdeas.length} ideas`);
     

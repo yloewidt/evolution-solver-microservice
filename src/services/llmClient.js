@@ -41,7 +41,12 @@ export class LLMClient {
    */
   getApiStyle() {
     const model = this.config.model.toLowerCase();
-    // All OpenAI models use OpenAI API style (including o3)
+    logger.info(`Getting API style for model: ${model}`);
+    if (model.startsWith('o3')) {
+      logger.info('Using anthropic API style for o3 model');
+      return 'anthropic';
+    }
+    logger.info('Using openai API style');
     return 'openai';
   }
 

@@ -58,9 +58,7 @@ echo "Workflow ID: ${WORKFLOW_ID}"
 
 # Grant permissions for API service to execute workflow
 echo -e "${YELLOW}Granting permissions...${NC}"
-PATH="/Users/yonatanloewidt/google-cloud-sdk/bin:$PATH" gcloud workflows add-iam-policy-binding ${WORKFLOW_NAME}-${ENVIRONMENT} \
-    --location=${LOCATION} \
-    --project=${PROJECT_ID} \
+PATH="/Users/yonatanloewidt/google-cloud-sdk/bin:$PATH" gcloud projects add-iam-policy-binding ${PROJECT_ID} \
     --member="serviceAccount:${SERVICE_ACCOUNT}" \
     --role="roles/workflows.invoker"
 

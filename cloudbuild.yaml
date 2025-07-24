@@ -25,7 +25,7 @@ steps:
       - '--min-instances=0'
       - '--max-instances=10'
       - '--service-account=evolution-solver-sa@$PROJECT_ID.iam.gserviceaccount.com'
-      - '--set-env-vars=NODE_ENV=production,GCP_PROJECT_ID=$PROJECT_ID,CLOUD_TASKS_QUEUE=evolution-jobs,CLOUD_TASKS_LOCATION=us-central1,EVOLUTION_WORKER_URL=https://evolution-solver-worker-$PROJECT_ID.us-central1.run.app,PORT=8080,USE_WORKFLOWS=false'
+      - '--set-env-vars=NODE_ENV=production,GCP_PROJECT_ID=$PROJECT_ID,CLOUD_TASKS_QUEUE=evolution-jobs,CLOUD_TASKS_LOCATION=us-central1,EVOLUTION_WORKER_URL=https://evolution-solver-worker-$PROJECT_ID.us-central1.run.app,PORT=8080,USE_WORKFLOWS=true'
       - '--set-secrets=OPENAI_API_KEY=openai-api-key:latest'
       - '--allow-unauthenticated'
 

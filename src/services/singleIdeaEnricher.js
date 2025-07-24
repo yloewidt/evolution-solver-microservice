@@ -117,7 +117,7 @@ Now analyze the following idea:
       
       if (apiStyle === 'openai') {
         // OpenAI style call
-        response = await this.llmClient.executeRequest({
+        response = await this.llmClient.client.chat.completions.create({
           model: this.llmClient.config.model,
           messages: [
             {
@@ -134,7 +134,7 @@ Now analyze the following idea:
         });
       } else {
         // Anthropic style call (for o3)
-        response = await this.llmClient.executeRequest({
+        response = await this.llmClient.client.chat.completions.create({
           model: this.llmClient.config.model,
           input: [
             {

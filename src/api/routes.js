@@ -6,7 +6,7 @@ import logger from '../utils/logger.js';
 
 const router = express.Router();
 
-export default function createRoutes(evolutionService, taskHandler) {
+export default function createRoutes(evolutionService) {
   const analyticsService = new AnalyticsService(evolutionService.resultStore);
   const workflowHandler = new WorkflowHandler();
   // Submit new evolution job
@@ -117,17 +117,7 @@ export default function createRoutes(evolutionService, taskHandler) {
           status: 'queued',
           message: 'Evolution job queued for processing (workflow)'
         });
-      } else {
-        // Legacy task-based approach
-        const result = await taskHandler.createEvolutionTask(jobData);
-
-        res.json({
-          jobId: jobId,
-          taskName: result.taskName,
-          status: 'queued',
-          message: 'Evolution job queued for processing'
-        });
-      }
+      
     } catch (error) {
       logger.error('Submit evolution job error:', error);
       res.status(500).json({ error: error.message });
@@ -175,47 +165,12 @@ export default function createRoutes(evolutionService, taskHandler) {
     try {
       const { status, limit = 50 } = req.query;
 
-      let jobs;
-      if (status) {
-        jobs = await evolutionService.resultStore.getJobsByStatus(status, parseInt(limit));
-      } else {
-        jobs = await evolutionService.getRecentJobs(parseInt(limit));
-      }
-
-      const pendingTasks = await taskHandler.listTasks();
-
-      const pendingJobs = pendingTasks.map(task => {
-        let jobId = 'pending';
-        let problemContext = 'Pending in Cloud Tasks';
-
-        try {
-          if (task.httpRequest?.body) {
-            const decodedBody = JSON.parse(Buffer.from(task.httpRequest.body, 'base64').toString());
-            jobId = decodedBody.jobId || jobId;
-            problemContext = decodedBody.problemContext || problemContext;
-          }
-        } catch (e) {
-          // Ignore parsing errors
-        }
-
-        return {
-          jobId,
-          status: 'pending',
-          createdAt: task.createTime,
-          scheduledAt: task.scheduleTime,
-          problemContext,
-          isPendingTask: true
-        };
-      });
-
-      const allJobs = [...pendingJobs, ...jobs];
+      const jobs = await evolutionService.getRecentJobs(parseInt(limit));
 
       res.json({
-        jobs: allJobs.sort((a, b) =>
-          new Date(b.createdAt) - new Date(a.createdAt)
-        ).slice(0, limit),
-        total: allJobs.length,
-        hasMore: allJobs.length > limit
+        jobs: jobs,
+        total: jobs.length,
+        hasMore: jobs.length >= limit
       });
     } catch (error) {
       logger.error('List jobs error:', error);
@@ -344,36 +299,7 @@ export default function createRoutes(evolutionService, taskHandler) {
     }
   });
 
-  // Queue management endpoints (admin only)
-  router.post('/queue/pause', async (req, res) => {
-    try {
-      const success = await taskHandler.pauseQueue();
-      res.json({ success, message: success ? 'Queue paused' : 'Failed to pause queue' });
-    } catch (error) {
-      logger.error('Pause queue error:', error);
-      res.status(500).json({ error: error.message });
-    }
-  });
-
-  router.post('/queue/resume', async (req, res) => {
-    try {
-      const success = await taskHandler.resumeQueue();
-      res.json({ success, message: success ? 'Queue resumed' : 'Failed to resume queue' });
-    } catch (error) {
-      logger.error('Resume queue error:', error);
-      res.status(500).json({ error: error.message });
-    }
-  });
-
-  router.delete('/queue/purge', async (req, res) => {
-    try {
-      const success = await taskHandler.purgeQueue();
-      res.json({ success, message: success ? 'Queue purged' : 'Failed to purge queue' });
-    } catch (error) {
-      logger.error('Purge queue error:', error);
-      res.status(500).json({ error: error.message });
-    }
-  });
+  
 
   return router;
 }

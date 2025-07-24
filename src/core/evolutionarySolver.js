@@ -1,9 +1,29 @@
 import logger from '../utils/logger.js';
 import { ResponseParser } from '../utils/responseParser.js';
 import { LLMClient } from '../services/llmClient.js';
+import Joi from 'joi';
+
+const solutionSchema = Joi.object({
+  idea_id: Joi.string(),
+  description: Joi.string(),
+  core_mechanism: Joi.string(),
+  title: Joi.string(),
+  business_case: Joi.object(),
+  score: Joi.number(),
+  rank: Joi.number(),
+  filtered: Joi.boolean(),
+  filterReason: Joi.string().allow(null),
+  violatesPreferences: Joi.boolean(),
+  preferenceNote: Joi.string().allow(null),
+  metrics: Joi.object(),
+}).unknown(true);
+
+const ideasSchema = Joi.array().items(solutionSchema);
+
+import config from '../config.js';
 
 class EvolutionarySolver {
-  constructor(apiDebugger = null, resultStore = null, config = {}) {
+  constructor(resultStore = null, config = {}) {
     // API call tracking - ensure exactly 1 call per operation
     this.apiCallCounts = {
       variator: 0,
@@ -13,25 +33,10 @@ class EvolutionarySolver {
     // Initialize LLM client - it will handle API style detection
     this.llmClient = null; // Will be initialized with model config
     
-    // Store dependencies
-    this.apiDebugger = apiDebugger;
     this.resultStore = resultStore;
 
     this.config = {
-      generations: process.env.EVOLUTION_GENERATIONS ? parseInt(process.env.EVOLUTION_GENERATIONS) : 10,
-      populationSize: 5,
-      topSelectCount: 3,
-      maxCapex: 100000,  // $100B in millions (effectively no limit)
-      minProfits: 0,     // No minimum NPV filter
-      diversificationUnit: 0.05,  // $50K in millions
-      model: 'o3',
-      fallbackModel: 'gpt-4o',
-      offspringRatio: 0.7,
-      dealTypes: 'creative partnerships and business models',
-      maxRetries: process.env.EVOLUTION_MAX_RETRIES ? parseInt(process.env.EVOLUTION_MAX_RETRIES) : 3,
-      retryDelay: 1000,
-      enableRetries: process.env.EVOLUTION_ENABLE_RETRIES === 'true' || false,
-      enableGracefulDegradation: process.env.EVOLUTION_GRACEFUL_DEGRADATION === 'true' || false,
+      ...config.evolution,
       ...config  // Override with passed config
     };
   }
@@ -80,6 +85,10 @@ class EvolutionarySolver {
   }
 
   async variator(currentSolutions = [], targetCount = 5, problemContext = '', generation = 1, jobId = null, attempt = 1) {
+    const { error } = ideasSchema.validate(currentSolutions);
+    if (error) {
+      throw new Error(`Invalid currentSolutions: ${error.message}`);
+    }
     const numNeeded = targetCount - currentSolutions.length;
     if (numNeeded <= 0) return currentSolutions;
 
@@ -298,6 +307,10 @@ IMPORTANT: Return ONLY the raw JSON array. Do not wrap the output in markdown co
   }
 
   async enricher(ideas, problemContext, generation = 1, config = {}, jobId = null, attempt = 1) {
+    const { error } = ideasSchema.validate(ideas);
+    if (error) {
+      throw new Error(`Invalid ideas: ${error.message}`);
+    }
     // Handle empty ideas array
     if (!ideas || ideas.length === 0) {
       logger.info('Enricher: No ideas to enrich');

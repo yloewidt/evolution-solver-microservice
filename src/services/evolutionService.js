@@ -1,6 +1,8 @@
 import EvolutionarySolver from '../core/evolutionarySolver.js';
 import logger from '../utils/logger.js';
 
+import config from '../config.js';
+
 class EvolutionService {
   constructor(resultStore) {
     this.solver = new EvolutionarySolver();
@@ -20,9 +22,9 @@ class EvolutionService {
       await this.resultStore.updateJobStatus(jobId, 'processing');
 
       // Set a timeout slightly less than Cloud Run's timeout (15 minutes)
-      const timeoutMs = 14 * 60 * 1000; // 14 minutes
+      const timeoutMs = config.timeout.evolve;
       const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error('Evolution job timed out after 14 minutes')), timeoutMs);
+        setTimeout(() => reject(new Error(`Evolution job timed out after ${timeoutMs / 60 / 1000} minutes`)), timeoutMs);
       });
 
       const resultPromise = this.solver.evolve(problemContext, initialSolutions, evolutionConfig, {

@@ -3,7 +3,7 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import EvolutionService from './services/evolutionService.js';
 import EvolutionResultStore from '../cloud/firestore/resultStore.js';
-import CloudTaskHandler from '../cloud/tasks/taskHandler.js';
+
 import createRoutes from './api/routes.js';
 import logger from './utils/logger.js';
 
@@ -68,7 +68,6 @@ app.use((req, res, next) => {
 // Initialize services
 const resultStore = new EvolutionResultStore();
 const evolutionService = new EvolutionService(resultStore);
-const taskHandler = new CloudTaskHandler();
 
 // Health check endpoints
 app.get('/', (req, res) => {
@@ -117,7 +116,7 @@ app.get('/ready', async (req, res) => {
 });
 
 // API routes
-const apiRouter = createRoutes(evolutionService, taskHandler);
+const apiRouter = createRoutes(evolutionService);
 app.use('/api/evolution', apiRouter);
 
 // Error handling

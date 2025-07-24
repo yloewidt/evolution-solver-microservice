@@ -3,7 +3,6 @@ import dotenv from 'dotenv';
 import EvolutionService from '../../src/services/evolutionService.js';
 import EvolutionResultStore from '../firestore/resultStore.js';
 import CloudTaskHandler from '../tasks/taskHandler.js';
-import OrchestratorService from '../../src/services/orchestratorService.js';
 import { processVariator, processEnricher, processRanker } from './workerHandlersSelector.js';
 import logger from '../../src/utils/logger.js';
 import os from 'os';
@@ -51,8 +50,6 @@ app.use(express.json({ limit: '50mb' }));
 // Initialize services
 const resultStore = new EvolutionResultStore();
 const evolutionService = new EvolutionService(resultStore);
-const taskHandler = new CloudTaskHandler();
-const orchestratorService = new OrchestratorService(resultStore, taskHandler);
 
 const ENVIRONMENT = process.env.ENVIRONMENT || 'development';
 const SERVICE_VERSION = process.env.K_REVISION || 'unknown';
@@ -165,46 +162,6 @@ app.post('/complete-job', async (req, res) => {
   } catch (error) {
     logger.error('Complete job error:', error);
     res.status(500).json({ error: error.message });
-  }
-});
-
-// DEPRECATED: Orchestrator endpoint (kept for backward compatibility)
-app.post('/orchestrate', async (req, res) => {
-  const startTime = Date.now();
-  const retryCount = req.headers['x-cloudtasks-taskretrycount'] || '0';
-  
-  logger.info('Processing orchestrator task', {
-    jobId: req.body.jobId,
-    checkAttempt: req.body.checkAttempt,
-    retryCount
-  });
-  
-  try {
-    await orchestratorService.orchestrateJob(req.body);
-    
-    const duration = Date.now() - startTime;
-    logger.info(`Orchestrator task completed in ${duration}ms`, {
-      jobId: req.body.jobId,
-      duration
-    });
-    
-    res.json({ 
-      success: true, 
-      jobId: req.body.jobId,
-      duration
-    });
-    
-  } catch (error) {
-    logger.error('Orchestrator task failed', {
-      jobId: req.body.jobId,
-      error: error.message
-    });
-    
-    // Return 500 to trigger retry if needed
-    res.status(500).json({ 
-      error: error.message,
-      jobId: req.body.jobId
-    });
   }
 });
 

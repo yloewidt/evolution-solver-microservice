@@ -2,12 +2,14 @@ export default {
   testEnvironment: 'node',
   transform: {},
   moduleNameMapper: {
-    '^(\\.{1,2}/.*)\\.js$': '$1'
+    '^src/(.*)': '<rootDir>/src/$1',
+    '^cloud/(.*)': '<rootDir>/cloud/$1'
   },
   testMatch: [
     '**/test/**/*.test.js'
   ],
-  testTimeout: 300000, // 5 minutes default timeout
+  testTimeout: 30000,
+  setupFilesAfterEnv: ['./test/setup.js'],
   collectCoverageFrom: [
     'src/**/*.js',
     'cloud/**/*.js',
@@ -21,6 +23,5 @@ export default {
       lines: 80,
       statements: 80
     }
-  },
-  setupFilesAfterEnv: ['./test/setup.js']
+  }
 };

@@ -18,7 +18,11 @@ export async function processVariator({ jobId, generation, problemContext, topPe
     
     // Create solver instance
     const solver = new EvolutionarySolver();
-    solver.config = { ...solver.config, ...evolutionConfig };
+    solver.config = { 
+      ...solver.config, 
+      ...evolutionConfig,
+      model: evolutionConfig.model || 'o3'  // Ensure model is always set
+    };
     solver.currentGeneration = generation;
     
     // Set up progress tracker for telemetry

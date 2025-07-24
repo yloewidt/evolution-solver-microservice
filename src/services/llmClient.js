@@ -42,10 +42,7 @@ export class LLMClient {
   getApiStyle() {
     const model = this.config.model.toLowerCase();
     logger.info(`Getting API style for model: ${model}`);
-    if (model.startsWith('o3')) {
-      logger.info('Using anthropic API style for o3 model');
-      return 'anthropic';
-    }
+    // All models use OpenAI API style since we're using the OpenAI SDK
     logger.info('Using openai API style');
     return 'openai';
   }
@@ -79,34 +76,7 @@ export class LLMClient {
     };
   }
 
-  /**
-   * Create an enricher request
-   */
-  async createEnricherRequest(prompt, systemPrompt = null, userPrompt = null) {
-    const apiStyle = this.getApiStyle();
-
-    // Use provided prompts or defaults
-    const finalSystemPrompt = systemPrompt || 'You are a business strategist expert in financial modeling and deal structuring. Provide realistic, data-driven business cases.';
-    const finalUserPrompt = userPrompt || prompt;
-
-    // OpenAI style with structured output
-    return {
-      model: this.config.model,
-      messages: [
-        {
-          role: 'system',
-          content: finalSystemPrompt
-        },
-        {
-          role: 'user',
-          content: finalUserPrompt
-        }
-      ],
-      response_format: EnricherResponseSchema,
-      temperature: this.config.model === 'o3' ? 1 : 0.5, // o3 only supports temperature=1
-      store: true
-    };
-  }
+  // createEnricherRequest removed - enrichment now handled by singleIdeaEnricher
 
   /**
    * Execute the request with timeout protection

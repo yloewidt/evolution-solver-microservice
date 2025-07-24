@@ -113,28 +113,34 @@ class EvolutionarySolver {
       guidanceText += `\nTARGET OUTCOME: Aim for solutions with 5-year NPV potential above $${minProfits}M.`;
     }
 
-    const prompt = `Problem to solve: ${problemContext}${guidanceText}
+    // System prompt includes problem context and requirements
+    const systemPrompt = `You are an expert in creative business solution generation.
 
-${currentSolutions.length > 0 ? `Top ${currentSolutions.length} performing solutions from previous generation:
-${JSON.stringify(currentSolutions, null, 2)}
+Problem to solve: ${problemContext}${guidanceText}
 
-Generate ${numNeeded} new solutions as JSON array:
-- ${offspringCount} OFFSPRING: Combine and evolve the top performers' best features. Mix their approaches, enhance strengths, fix weaknesses. Create true hybrids that build on what works.
-- ${wildcardCount} WILDCARDS: Completely fresh approaches unrelated to previous solutions. Explore new angles, industries, or mechanisms.
-` : `Generate EXACTLY ${numNeeded} new creative business solutions as JSON array. IMPORTANT: Return exactly ${numNeeded} ideas, no more, no less.`}
+Focus on ${dealTypes}
+
+Generate ${numNeeded} new solutions:
+${currentSolutions.length > 0 ? `- ${offspringCount} OFFSPRING: Combine and evolve the top performers' best features
+- ${wildcardCount} WILDCARDS: Completely fresh approaches` : `- ${numNeeded} WILDCARDS: All new creative solutions`}
 
 Each solution must have:
-- "idea_id": unique identifier (e.g., "he3_fusion_swap_v2")
-- "description": Business model in plain terms. Focus on ${dealTypes}
+- "idea_id": unique identifier
+- "title": Short, catchy title
+- "description": Business model in plain terms
 - "core_mechanism": How value is created and captured
+- "is_offspring": true for offspring, false for wildcards
 
 Requirements:
 - Business models must be realistic and implementable
 - Explain complex ideas simply (avoid jargon)
 - Focus on partnerships that reduce capital requirements
-- Consider timing advantages (why now?)
+- Consider timing advantages (why now?)`;
 
-IMPORTANT: Return ONLY the raw JSON array. Do not wrap the output in markdown code blocks, do not add any explanations or text before/after the JSON. The response must start with [ and end with ]`;
+    // User prompt contains previous solutions if any
+    const userPrompt = currentSolutions.length > 0 
+      ? `Previous top performers:\n${JSON.stringify(currentSolutions, null, 2)}`
+      : 'Generate new creative business solutions.';
 
     // NO RETRIES - exactly 1 API call
     try {
@@ -150,7 +156,7 @@ IMPORTANT: Return ONLY the raw JSON array. Do not wrap the output in markdown co
       }
 
       // Prepare API call using LLM client
-      const apiCall = await this.llmClient.createVariatorRequest(prompt);
+      const apiCall = await this.llmClient.createVariatorRequest(null, systemPrompt, userPrompt);
 
       // Log the full API call for replay
       const callId = `${this.progressTracker?.jobId || 'unknown'}_gen${this.currentGeneration || 0}_variator_${Date.now()}`;
@@ -162,9 +168,9 @@ IMPORTANT: Return ONLY the raw JSON array. Do not wrap the output in markdown co
         timestamp: new Date().toISOString(),
         request: {
           model: apiCall.model,
-          promptLength: prompt.length,
-          promptPreview: prompt.substring(0, 200) + '...',
-          fullPrompt: prompt  // Full prompt for replay
+          promptLength: systemPrompt.length + userPrompt.length,
+          promptPreview: systemPrompt.substring(0, 200) + '...',
+          fullPrompt: { systemPrompt, userPrompt }  // Full prompts for replay
         }
       });
 
@@ -306,230 +312,12 @@ IMPORTANT: Return ONLY the raw JSON array. Do not wrap the output in markdown co
     }
   }
 
-  async enricher(ideas, problemContext, generation = 1, config = {}, jobId = null, attempt = 1) {
-    const { error } = ideasSchema.validate(ideas);
-    if (error) {
-      throw new Error(`Invalid ideas: ${error.message}`);
-    }
-    // Handle empty ideas array
-    if (!ideas || ideas.length === 0) {
-      logger.info('Enricher: No ideas to enrich');
-      return [];
-    }
-    
-    logger.info('Enricher received ideas:', {
-      count: ideas.length,
-      firstIdea: ideas[0],
-      allIds: Array.isArray(ideas) ? ideas.map(i => i?.idea_id || 'NO_ID') : 'NOT_AN_ARRAY',
-      ideasType: typeof ideas,
-      isArray: Array.isArray(ideas)
-    });
-
-    let startTime = Date.now(); // Define at method level for error handling
-
-    // Get configuration for preferences
-    const maxCapex = this.config.maxCapex || 100000;
-    const minProfits = this.config.minProfits || 0;
-
-    // Build preference guidance
-    let preferenceGuidance = '';
-    if (maxCapex < 100) {
-      preferenceGuidance += `\n\nPREFERRED APPROACH: When analyzing these ideas, note that capital-efficient solutions under $${maxCapex}M initial investment are preferred. Consider creative ways to reduce upfront costs through partnerships, phased rollouts, or asset-light models.`;
-    }
-    if (minProfits > 0) {
-      preferenceGuidance += `\nTARGET RETURNS: Solutions should ideally achieve 5-year NPV above $${minProfits}M. Look for high-impact, scalable opportunities.`;
-    }
-
-    const enrichPrompt = `Problem context: ${problemContext}
-
-Analyze each business idea and calculate key metrics:
-
-Required fields in business_case object (ALL monetary values in millions USD):
-- "npv_success": 5-year NPV if successful in $M (discounted at 10% annually)
-- "capex_est": Initial capital required in $M (e.g., 0.075 = $75K)
-- "timeline_months": Time to first revenue
-- "likelihood": Success probability (0-1)
-- "risk_factors": Array of key risks (technical, market, regulatory, execution)
-- "yearly_cashflows": Array of 5 yearly cash flows in $M
-
-IMPORTANT: All monetary values must be in millions. Examples:
-- $50K = 0.05
-- $100K = 0.1
-- $1M = 1.0
-- $50M = 50.0${preferenceGuidance}
-
-Analysis steps:
-1. Market size and growth potential
-2. Revenue projections by year (in $M)
-3. Cost structure and capital requirements (in $M)
-4. Risk assessment across all dimensions
-5. NPV calculation using 10% discount rate
-
-Ideas to analyze:
-${JSON.stringify(ideas, null, 2)}
-
-Return JSON array with original fields plus business_case object.
-
-IMPORTANT: Return ONLY the raw JSON array. Do not wrap the output in markdown code blocks, do not add any explanations or text before/after the JSON. The response must start with [ and end with ]`;
-
-    // NO RETRIES - exactly 1 API call
-    try {
-      logger.info('Enricher API call - NO RETRIES ALLOWED');
-
-      // Initialize LLM client if not already done
-      if (!this.llmClient) {
-        this.llmClient = new LLMClient({
-          model: this.config.model,
-          fallbackModel: this.config.fallbackModel,
-          apiKey: this.config.apiKey
-        });
-      }
-
-      // Prepare API call using LLM client
-      const apiCall = await this.llmClient.createEnricherRequest(enrichPrompt);
-
-      // Log the full API call for replay
-      const callId = `${this.progressTracker?.jobId || 'unknown'}_gen${this.currentGeneration || 0}_enricher_${Date.now()}`;
-      logger.info('API_CALL_REPLAY:', {
-        callId,
-        phase: 'enricher',
-        generation: this.currentGeneration || 0,
-        attempt: 1,  // Always 1 - no retries
-        timestamp: new Date().toISOString(),
-        request: {
-          model: apiCall.model,
-          promptLength: enrichPrompt.length,
-          promptPreview: enrichPrompt.substring(0, 200) + '...',
-          fullPrompt: enrichPrompt  // Full prompt for replay
-        }
-      });
-
-      startTime = Date.now();
-
-      // Track API call BEFORE making it
-      this.apiCallCounts.enricher++;
-      this.apiCallCounts.total++;
-      logger.info(`ENRICHER API CALL #${this.apiCallCounts.enricher} (Total: ${this.apiCallCounts.total})`);
-
-      const response = await this.retryLLMCall(
-        () => this.llmClient.client.chat.completions.create(apiCall),
-        'enricher',
-        generation,
-        jobId
-      );
-
-      logger.info('Enricher response received');
-
-      // Log the full response for replay
-      logger.info('API_RESPONSE_REPLAY:', {
-        callId,
-        phase: 'enricher',
-        generation: this.currentGeneration || 0,
-        latencyMs: Date.now() - startTime,
-        usage: response.usage,
-        responseStructure: {
-          hasOutput: !!response.output,
-          outputTypes: response.output?.map(o => o.type),
-          outputCount: response.output?.length
-        },
-        fullResponse: JSON.stringify(response)  // Full response for replay
-      });
-
-      // Parse response based on API style
-      const enrichedIdeas = this.llmClient.getApiStyle() === 'openai'
-        ? ResponseParser.parseOpenAIResponse(response, 'enricher')
-        : ResponseParser.parseEnricherResponse(response);
-
-      // Track API call telemetry
-      if (this.progressTracker?.resultStore && this.progressTracker?.jobId && response) {
-        const telemetry = {
-          timestamp: new Date().toISOString(),
-          phase: 'enricher',
-          generation: this.currentGeneration || 1,
-          model: this.config.model,
-          attempt: 1,  // Always 1 - no retries
-          latencyMs: Date.now() - startTime,
-          tokens: response.usage || { prompt_tokens: 0, completion_tokens: 0 },
-          success: true
-        };
-        await this.progressTracker.resultStore.addApiCallTelemetry(this.progressTracker.jobId, telemetry);
-
-        // Save full debug data
-        await this.progressTracker.resultStore.saveApiCallDebug(
-          this.progressTracker.jobId,
-          callId,
-          {
-            phase: 'enricher',
-            generation: this.currentGeneration || 0,
-            attempt: 1,  // Always 1 - no retries
-            prompt: enrichPrompt,
-            inputIdeas: ideas,
-            fullResponse: response,
-            parsedResponse: enrichedIdeas,
-            usage: response.usage,
-            latencyMs: Date.now() - startTime
-          }
-        );
-      }
-
-      return enrichedIdeas;
-    } catch (error) {
-      // Graceful degradation - return ideas with default business case
-      if (this.config.enableGracefulDegradation) {
-        logger.warn('Enricher failed, using default values for business case:', error.message);
-        
-        return ideas.map(idea => ({
-          ...idea,
-          business_case: {
-            npv_success: 5.0, // Default $5M NPV
-            capex_est: 1.0,   // Default $1M CAPEX
-            timeline_months: 12,
-            likelihood: 0.5,  // 50% default probability
-            risk_factors: ['Unable to analyze - using defaults'],
-            yearly_cashflows: [-1.0, 0.5, 1.5, 2.0, 2.5]
-          },
-          enrichment_note: 'Default values used due to enrichment failure'
-        }));
-      }
-      
-      logger.error('Enricher failed - NO RETRIES:', error.message);
-
-      // Check if it's a retriable error (timeouts or server errors)
-      const isTimeout = error.message && error.message.includes('timed out');
-      const isServerError = error.message && (
-        error.message.includes('502') ||
-          error.message.includes('503') ||
-          error.message.includes('504') ||
-          error.message.includes('Bad gateway') ||
-          error.message.includes('Service unavailable') ||
-          error.message.includes('Gateway timeout')
-      );
-
-      if (isTimeout || isServerError) {
-        const errorType = isTimeout ? 'timeout' : 'server error';
-        logger.warn(`Retriable ${errorType} detected - allowing retry`);
-        // For retriable errors, we allow up to 3 attempts total
-        const currentAttempt = attempt || 1;
-        if (currentAttempt < 3) {
-          logger.info(`Retrying enricher due to ${errorType} (attempt ${currentAttempt + 1}/3)`);
-          this.apiCallCounts.enricher++; // Count the retry
-          this.apiCallCounts.total++;
-          // Add a small delay before retry for server errors
-          if (isServerError) {
-            await new Promise(resolve => setTimeout(resolve, 2000)); // 2 second delay
-          }
-          return this.enricher(ideas, problemContext, generation, config, jobId, currentAttempt + 1);
-        }
-      }
-
-      // NO FALLBACK - let it fail to ensure exactly 1 API call
-      throw error;
-    }
-  }
+  // Enricher method removed - now handled by distributed processing in workerHandlersV2.js
 
   async ranker(enrichedIdeas) {
     // Get config parameters (all in millions USD)
-    const C0 = this.config.diversificationUnit || 0.05; // Default $50K in millions
+    const C0 = this.config.diversificationFactor || 0.05; // Default $50K in millions
+    const topPerformerRatio = this.config.topPerformerRatio || 0.3; // Default 30%
     const maxCapex = this.config.maxCapex || Infinity;
     const minProfits = this.config.minProfits || 0;
 
@@ -633,156 +421,20 @@ IMPORTANT: Return ONLY the raw JSON array. Do not wrap the output in markdown co
       );
     }
 
+    // Select top performers for next generation
+    const topPerformerCount = Math.ceil(rankedIdeas.length * topPerformerRatio);
+    const topPerformers = rankedIdeas.slice(0, topPerformerCount);
+
     return {
       rankedIdeas: rankedIdeas,
-      filteredIdeas: []  // No ideas are filtered anymore
+      filteredIdeas: [],  // No ideas are filtered anymore
+      topPerformers: topPerformers
     };
   }
 
 
 
-  async evolve(problemContext, initialSolutions = [], customConfig = {}, progressTracker = null) {
-    // Store custom config in this instance for use by other methods
-    this.config = {
-      ...this.config,
-      ...customConfig
-    };
-    const config = this.config;
-    const jobId = progressTracker?.jobId || null;
-
-    logger.info('Starting evolution with:', {
-      problemContext: problemContext.substring(0, 100) + '...',
-      initialSolutionCount: initialSolutions.length,
-      generations: config.generations,
-      customConfig
-    });
-
-    // Store progressTracker for use in methods
-    this.progressTracker = progressTracker;
-
-    let currentGen = initialSolutions;
-    let generationHistory = [];
-    let allGenerationSolutions = [];
-
-    for (let gen = 1; gen <= config.generations; gen++) {
-      logger.info(`Generation ${gen}/${config.generations}`);
-
-      // Store current generation for telemetry
-      this.currentGeneration = gen;
-
-      if (progressTracker?.resultStore && progressTracker?.jobId) {
-        await progressTracker.resultStore.updateGenerationProgress(
-          progressTracker.jobId, gen, config.generations, 'variator'
-        );
-      }
-
-      if (currentGen.length < config.populationSize) {
-        const newGen = await this.variator(currentGen, config.populationSize, problemContext, gen, jobId);
-        if (!Array.isArray(newGen)) {
-          logger.error('Variator did not return an array:', { type: typeof newGen, value: newGen });
-          throw new Error('Variator must return an array');
-        }
-        currentGen = newGen;
-      }
-
-      if (progressTracker?.resultStore && progressTracker?.jobId) {
-        await progressTracker.resultStore.updateGenerationProgress(
-          progressTracker.jobId, gen, config.generations, 'enricher'
-        );
-      }
-
-      const enriched = await this.enricher(currentGen, problemContext, gen, config, jobId);
-
-      // NO FORMATTING - avoid extra API calls
-      const formatted = enriched;
-
-      if (progressTracker?.resultStore && progressTracker?.jobId) {
-        await progressTracker.resultStore.updateGenerationProgress(
-          progressTracker.jobId, gen, config.generations, 'ranker'
-        );
-      }
-
-      const { rankedIdeas, filteredIdeas } = await this.ranker(formatted);
-
-      // Log filtered ideas for visibility
-      if (filteredIdeas && filteredIdeas.length > 0) {
-        logger.info(`Generation ${gen}: Filtered ${filteredIdeas.length} ideas`,
-          filteredIdeas.map(i => ({ id: i.idea_id, reason: i.filterReason }))
-        );
-      }
-
-      // Save ALL ideas (both ranked and filtered) to generation history
-      const allIdeasThisGen = [...rankedIdeas, ...filteredIdeas];
-      allIdeasThisGen.forEach(solution => {
-        allGenerationSolutions.push({
-          ...solution,
-          generation: gen,
-          last_generation: gen,
-          total_generations: config.generations,
-          passed_filter: !solution.filtered
-        });
-      });
-
-      const generationData = {
-        generation: gen,
-        topScore: rankedIdeas[0]?.score || 0,
-        avgScore: rankedIdeas.length > 0 ? rankedIdeas.reduce((sum, idea) => sum + idea.score, 0) / rankedIdeas.length : 0,
-        solutionCount: allIdeasThisGen.length,
-        filteredCount: filteredIdeas.length,
-        solutions: allIdeasThisGen  // Include all ideas, not just ranked ones
-      };
-
-      generationHistory.push(generationData);
-
-      // Log API call counts after each generation
-      logger.info(`Generation ${gen} API calls:`, {
-        variator: this.apiCallCounts.variator,
-        enricher: this.apiCallCounts.enricher,
-        reformatter: this.apiCallCounts.reformatter,
-        total: this.apiCallCounts.total,
-        expectedTotal: gen * 2  // Should be exactly 2 calls per generation (variator + enricher)
-      });
-
-      if (progressTracker?.resultStore && progressTracker?.jobId) {
-        await progressTracker.resultStore.savePartialResult(
-          progressTracker.jobId, gen, generationData
-        );
-      }
-
-      if (gen === config.generations) {
-        // Final API call summary
-        logger.info('FINAL API CALL SUMMARY:', {
-          variator: this.apiCallCounts.variator,
-          enricher: this.apiCallCounts.enricher,
-          reformatter: this.apiCallCounts.reformatter,
-          total: this.apiCallCounts.total,
-          generations: config.generations,
-          expectedCallsPerGeneration: 2,
-          expectedTotal: config.generations * 2,
-          efficiency: this.apiCallCounts.total === (config.generations * 2) ? 'PERFECT' : 'WASTED CALLS!'
-        });
-
-        return {
-          topSolutions: rankedIdeas.slice(0, 5),
-          allSolutions: allGenerationSolutions,
-          generationHistory,
-          totalEvaluations: gen * config.populationSize,
-          totalSolutions: allGenerationSolutions.length,
-          apiCallCounts: this.apiCallCounts,
-          metadata: {
-            totalGenerations: gen,
-            finalPopulationSize: rankedIdeas.length,
-            config: config,
-            problemContext: problemContext
-          }
-        };
-      }
-
-      // Select top performers for next generation
-      const topPerformers = rankedIdeas.slice(0, config.topSelectCount);
-      currentGen = topPerformers;
-    }
-  }
+  // Evolve method removed - evolution is now orchestrated through Cloud Workflows and distributed workers
 
   // reformatWithGPT4o method removed - no longer needed with ResponseParser
 }

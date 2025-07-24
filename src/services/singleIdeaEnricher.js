@@ -1,5 +1,6 @@
 import logger from '../utils/logger.js';
 import crypto from 'crypto';
+import { EnricherResponseSchema } from '../schemas/structuredSchemas.js';
 
 class SingleIdeaEnricher {
   constructor(llmClient, cacheStore = null) {
@@ -61,12 +62,7 @@ Analysis steps:
 4. Risk assessment across all dimensions
 5. NPV calculation using 10% discount rate
 
-Return a JSON object with the original idea fields plus the business_case object.
-
-IMPORTANT: Return ONLY the raw JSON object. Do not wrap the output in markdown code blocks, do not add any explanations or text before/after the JSON. The response must start with { and end with }
-
-Now analyze the following idea:
-`;
+You will return a JSON object with an "enriched_ideas" array containing exactly one enriched idea.`;
 
     // Cache the prefix for reuse
     this.cachedPrefixes.set(prefixKey, prefix);
@@ -102,11 +98,11 @@ Now analyze the following idea:
       }
     }
 
-    // Create the enricher prefix (will be cached by OpenAI)
-    const prefix = this.createEnricherPrefix(problemContext);
+    // Create the enricher prefix (will be cached by OpenAI) as system prompt
+    const systemPrompt = this.createEnricherPrefix(problemContext);
     
-    // Build the complete prompt
-    const prompt = prefix + JSON.stringify(idea, null, 2);
+    // User prompt is just the idea to analyze
+    const userPrompt = `Analyze this idea:\n${JSON.stringify(idea, null, 2)}`;
 
     try {
       logger.info(`Enriching single idea: ${idea.idea_id}`);
@@ -116,21 +112,21 @@ Now analyze the following idea:
       let response;
       
       if (apiStyle === 'openai') {
-        // OpenAI style call
+        // OpenAI style call with structured output
         response = await this.llmClient.client.chat.completions.create({
           model: this.llmClient.config.model,
           messages: [
             {
               role: 'system',
-              content: 'You are a business strategist expert in financial modeling and deal structuring.'
+              content: systemPrompt
             },
             {
               role: 'user',
-              content: prompt
+              content: userPrompt
             }
           ],
           temperature: this.llmClient.config.model === 'o3' ? 1 : 0.7,
-          response_format: { type: "json_object" } // Ensure JSON response
+          response_format: EnricherResponseSchema // Use structured output
         });
       } else {
         // Anthropic style call (for o3)
@@ -187,27 +183,34 @@ Now analyze the following idea:
    */
   parseEnricherResponse(response, originalIdea) {
     try {
-      let enrichedIdea;
+      let parsedResponse;
       
       // Extract content based on response structure
       if (response.choices?.[0]?.message?.content) {
         // OpenAI style response
-        enrichedIdea = JSON.parse(response.choices[0].message.content);
+        parsedResponse = JSON.parse(response.choices[0].message.content);
       } else if (response.output?.[0]?.content?.[0]?.text) {
         // Anthropic style response (o3)
-        enrichedIdea = JSON.parse(response.output[0].content[0].text);
+        parsedResponse = JSON.parse(response.output[0].content[0].text);
       } else if (response.content?.[0]?.text) {
         // Alternative response structure
-        enrichedIdea = JSON.parse(response.content[0].text);
+        parsedResponse = JSON.parse(response.content[0].text);
       } else {
         throw new Error('Unexpected response structure');
       }
 
-      // Merge with original idea to ensure all fields are present
-      enrichedIdea = {
-        ...originalIdea,
-        ...enrichedIdea
-      };
+      // Handle structured output format (enriched_ideas array)
+      let enrichedIdea;
+      if (parsedResponse.enriched_ideas && Array.isArray(parsedResponse.enriched_ideas)) {
+        enrichedIdea = parsedResponse.enriched_ideas[0];
+      } else {
+        enrichedIdea = parsedResponse;
+      }
+
+      // Ensure we have the title field from original idea if not in response
+      if (!enrichedIdea.title && originalIdea.title) {
+        enrichedIdea.title = originalIdea.title;
+      }
 
       // Validate required fields
       if (!enrichedIdea.business_case) {

@@ -78,14 +78,18 @@ export class ResponseParser {
     const content = this.extractContent(response);
     const parsed = this.parseJSON(content, 'variator');
 
-    // Ensure it's an array
+    // Handle structured output format (object with ideas array)
     const ideas = Array.isArray(parsed) ? parsed : (parsed.ideas || [parsed]);
 
-    // Validate required fields
+    // Validate required fields (now including title and is_offspring)
     const validIdeas = ideas.filter(idea => {
       if (!idea || typeof idea !== 'object') return false;
-      if (!idea.idea_id || !idea.description || !idea.core_mechanism) {
+      if (!idea.idea_id || !idea.title || !idea.description || !idea.core_mechanism) {
         logger.warn('Variator: Invalid idea structure', idea);
+        return false;
+      }
+      if (typeof idea.is_offspring !== 'boolean') {
+        logger.warn('Variator: Missing is_offspring field', idea);
         return false;
       }
       return true;

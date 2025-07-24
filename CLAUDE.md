@@ -17,6 +17,12 @@ npm test                    # Run all tests
 npm run test:watch         # Run tests in watch mode
 npm run test:coverage      # Run tests with coverage report
 npm test -- path/to/test   # Run a specific test file
+npm test -- --testNamePattern="pattern"  # Run tests matching pattern
+```
+
+### Linting
+```bash
+npm run lint                # Run ESLint on src/ and test/ directories
 ```
 
 ### Deployment
@@ -58,6 +64,12 @@ Required environment variables (see `.env.example`):
 - `GCP_PROJECT_ID`: Google Cloud project
 - `EVOLUTION_WORKER_URL`: Worker service URL for Cloud Tasks
 - `FIRESTORE_DATABASE`: Firestore database ID (default: "(default)")
+- `FIRESTORE_COLLECTION`: Collection name for results (default: "evolution-results")
+- `CLOUD_TASKS_QUEUE`: Queue name for job processing (default: "evolution-jobs")
+- `SERVICE_ACCOUNT_EMAIL`: Service account for Cloud Tasks
+- `EVOLUTION_GENERATIONS`: Number of evolution generations (default: 10)
+- `PORT`: Server port (default: 8080)
+- `ALLOWED_ORIGINS`: CORS allowed origins (comma-separated)
 
 ### Test Configuration
 - Jest is configured with 80% coverage threshold
@@ -73,7 +85,7 @@ Required environment variables (see `.env.example`):
 ## Key Integration Points
 
 1. **OpenAI o3 Model**: The service uses the o3 model via OpenAI SDK. Model calls are made in `src/services/llmClient.js`
-2. **Cloud Tasks**: Jobs are enqueued with specific URL patterns handled by `cloud/run/workerHandlersSelector.js`
+2. **Cloud Tasks**: Jobs are enqueued with specific URL patterns handled by `cloud/run/workerHandlersV2.js`
 3. **Firestore**: Results are stored in the collection specified by `FIRESTORE_COLLECTION` env var
 4. **Cloud Workflows**: Optional integration for orchestrating complex evolution pipelines
 
@@ -83,3 +95,40 @@ Required environment variables (see `.env.example`):
 - Integration tests verify API endpoints and service interactions
 - E2E tests validate full job processing flow
 - Use `npm test -- --testNamePattern="pattern"` to run specific tests
+- Tests use mock implementations from `test/mocks/` for external dependencies
+- Test timeout is configured to 30 seconds per test
+
+## API Endpoints
+
+- `POST /api/evolution/jobs` - Submit a new evolution job
+- `GET /api/evolution/jobs/:jobId` - Get job status
+- `GET /api/evolution/results/:jobId` - Get job results
+- `GET /api/evolution/jobs` - List all jobs (with optional filters)
+- `GET /health` - Health check endpoint
+- `GET /ready` - Readiness check endpoint
+
+## Development Workflow
+
+1. **Local Setup**:
+   ```bash
+   npm install
+   cp .env.example .env
+   # Edit .env with your configuration
+   ```
+
+2. **Running Locally**:
+   - Start API: `npm start`
+   - Start Worker: `npm run worker` (in separate terminal)
+   - Both services needed for full functionality
+
+3. **Making Changes**:
+   - Core algorithm changes: `src/core/evolutionarySolver.js`
+   - API changes: `src/api/routes.js`
+   - Worker logic: `cloud/run/workerHandlers.js` or `cloud/run/workerHandlersV2.js`
+   - Always run tests after changes: `npm test`
+
+4. **Adding New Features**:
+   - Follow existing patterns in services layer
+   - Add unit tests in `test/unit/`
+   - Add integration tests if touching API or worker
+   - Update environment variables in `.env.example` if needed

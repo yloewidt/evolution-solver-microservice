@@ -33,22 +33,12 @@ export const VariatorResponseSchema = {
                 type: "string",
                 description: "1-2 sentence explanation of how the idea works"
               },
-              expected_gain: { 
-                type: "number",
-                description: "Expected financial gain in millions USD"
-              },
-              confidence: { 
-                type: "number", 
-                minimum: 0, 
-                maximum: 1,
-                description: "Confidence level in the idea's success"
-              },
               is_offspring: { 
                 type: "boolean",
                 description: "Whether this idea is based on an existing top performer"
               }
             },
-            required: ["idea_id", "title", "description", "core_mechanism", "expected_gain", "confidence", "is_offspring"],
+            required: ["idea_id", "title", "description", "core_mechanism", "is_offspring"],
             additionalProperties: false
           },
           // Dynamic size based on request
@@ -138,36 +128,3 @@ export const EnricherResponseSchema = {
   }
 };
 
-// Schema for testing with smaller batches
-export const VariatorTestSchema = {
-  type: "json_schema",
-  json_schema: {
-    name: "variator_test",
-    schema: {
-      type: "object",
-      properties: {
-        ideas: {
-          type: "array",
-          items: {
-            type: "object",
-            properties: {
-              idea_id: { type: "string" },
-              description: { type: "string" },
-              core_mechanism: { type: "string" },
-              expected_gain: { type: "number" },
-              confidence: { type: "number", minimum: 0, maximum: 1 },
-              is_offspring: { type: "boolean" }
-            },
-            required: ["idea_id", "description", "core_mechanism", "expected_gain", "confidence", "is_offspring"],
-            additionalProperties: false
-          },
-          minItems: 10,
-          maxItems: 10
-        }
-      },
-      required: ["ideas"],
-      additionalProperties: false
-    },
-    strict: true
-  }
-};

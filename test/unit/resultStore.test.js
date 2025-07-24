@@ -66,15 +66,8 @@ jest.unstable_mockModule('@google-cloud/firestore', () => ({
   FieldValue: mockFieldValue
 }));
 
-jest.unstable_mockModule('../../src/utils/logger.js', () => ({
-  default: {
-    info: jest.fn(),
-    error: jest.fn(),
-    warn: jest.fn()
-  }
-}));
-
 // Import after mocking
+import logger from '../../src/utils/logger.js';
 const { default: EvolutionResultStore } = await import('../../cloud/firestore/resultStore.js');
 
 describe('EvolutionResultStore', () => {

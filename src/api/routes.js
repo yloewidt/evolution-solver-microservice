@@ -13,20 +13,16 @@ export default function createRoutes(evolutionService) {
   router.post('/jobs', async (req, res) => {
     try {
       // Support both 'parameters' and 'params' for backward compatibility
-      const { problemContext, parameters, params, filters, selectedBottleneck } = req.body;
+      const { problemContext, parameters, params } = req.body;
       const evolutionParams = parameters || params || {};
 
       logger.info('Received evolution parameters:', evolutionParams);
 
-      let enrichedContext = '';
-
-      if (selectedBottleneck) {
-        enrichedContext = evolutionService.enrichContextWithBottleneck(selectedBottleneck, filters);
-      } else if (!problemContext) {
-        return res.status(400).json({ error: 'Either select a bottleneck or provide a problem context' });
-      } else {
-        enrichedContext = problemContext;
+      if (!problemContext) {
+        return res.status(400).json({ error: 'Problem context is required' });
       }
+
+      const enrichedContext = problemContext;
 
       try {
         evolutionService.validateProblemContext(enrichedContext);
@@ -38,17 +34,17 @@ export default function createRoutes(evolutionService) {
       if (evolutionParams?.maxCapex !== undefined && evolutionParams.maxCapex > 10) {
         logger.warn(`maxCapex value ${evolutionParams.maxCapex} seems high. Expected units are millions USD (e.g., 0.1 = $100K)`);
       }
-      if (evolutionParams?.diversificationUnit !== undefined && evolutionParams.diversificationUnit > 10) {
-        logger.warn(`diversificationUnit value ${evolutionParams.diversificationUnit} seems high. Expected units are millions USD (e.g., 0.05 = $50K)`);
+      if (evolutionParams?.diversificationFactor !== undefined && evolutionParams.diversificationFactor > 10) {
+        logger.warn(`diversificationFactor value ${evolutionParams.diversificationFactor} seems high. Expected units are millions USD (e.g., 0.05 = $50K)`);
       }
 
       const evolutionConfig = {
         generations: evolutionParams?.generations || 10,
         populationSize: evolutionParams?.populationSize || 5,
         maxCapex: evolutionParams?.maxCapex || 100000,  // Default $100B in millions (effectively no limit)
-        topSelectCount: evolutionParams?.topSelectCount || 3,
+        topPerformerRatio: evolutionParams?.topPerformerRatio || 0.3,
         offspringRatio: evolutionParams?.offspringRatio || 0.7,
-        diversificationUnit: evolutionParams?.diversificationUnit || 0.05  // Default $50K in millions
+        diversificationFactor: evolutionParams?.diversificationFactor || 0.05  // Default $50K in millions
       };
 
       // Only add optional parameters if they are defined
@@ -105,18 +101,15 @@ export default function createRoutes(evolutionService) {
         status: 'pending'
       });
 
-      // THEN create the workflow execution
-      const useWorkflow = process.env.USE_WORKFLOWS === 'true' || process.env.ENVIRONMENT === 'production';
+      // Create the workflow execution
+      const result = await workflowHandler.executeEvolutionWorkflow(jobData);
 
-      if (useWorkflow) {
-        const result = await workflowHandler.executeEvolutionWorkflow(jobData);
-
-        res.json({
-          jobId: jobId,
-          executionName: result.executionName,
-          status: 'queued',
-          message: 'Evolution job queued for processing (workflow)'
-        });
+      res.json({
+        jobId: jobId,
+        executionName: result.executionName,
+        status: 'queued',
+        message: 'Evolution job queued for processing'
+      });
       
     } catch (error) {
       logger.error('Submit evolution job error:', error);
@@ -184,8 +177,7 @@ export default function createRoutes(evolutionService) {
       const stats = await evolutionService.getJobStats();
 
       res.json({
-        jobs: stats,
-        queue: await taskHandler.getQueueStats()
+        jobs: stats
       });
     } catch (error) {
       logger.error('Get stats error:', error);
@@ -211,93 +203,6 @@ export default function createRoutes(evolutionService) {
     }
   });
 
-  // Get user results
-  router.get('/user/:userId/results', async (req, res) => {
-    try {
-      const { userId } = req.params;
-      const { limit = 10 } = req.query;
-
-      const results = await evolutionService.getUserResults(userId, parseInt(limit));
-
-      res.json({ results });
-    } catch (error) {
-      logger.error('Get user results error:', error);
-      res.status(500).json({ error: error.message });
-    }
-  });
-
-  // Get all solutions
-  router.get('/solutions', async (req, res) => {
-    try {
-      const { limit = 100 } = req.query;
-
-      const allResults = await evolutionService.getAllResults(parseInt(limit));
-
-      const solutions = allResults.map(result => ({
-        jobId: result.jobId || result.id,
-        problemContext: result.problemContext,
-        solutions: result.allSolutions || result.topSolutions || [],
-        createdAt: result.createdAt,
-        completedAt: result.completedAt,
-        status: result.status || 'completed',
-        totalSolutions: result.totalSolutions || (result.allSolutions || result.topSolutions || []).length,
-        generationHistory: result.generationHistory || []
-      }));
-
-      let totalSolutionsCount = 0;
-      let totalScore = 0;
-      let scoreCount = 0;
-      const uniqueBottlenecks = new Set();
-
-      solutions.forEach(result => {
-        if (result.solutions && Array.isArray(result.solutions)) {
-          result.solutions.forEach(solution => {
-            totalSolutionsCount++;
-            if (solution.score) {
-              totalScore += solution.score;
-              scoreCount++;
-            }
-            if (result.problemContext) {
-              uniqueBottlenecks.add(result.problemContext.substring(0, 100));
-            }
-          });
-        }
-      });
-
-      const avgScore = scoreCount > 0 ? totalScore / scoreCount : 0;
-
-      res.json({
-        solutions,
-        totalSolutions: totalSolutionsCount,
-        totalBottlenecks: uniqueBottlenecks.size,
-        avgScore: avgScore,
-        totalJobs: solutions.length
-      });
-    } catch (error) {
-      logger.error('Get all solutions error:', error);
-      res.status(500).json({ error: error.message });
-    }
-  });
-
-  // Get bottleneck solutions
-  router.get('/bottleneck-solutions', async (req, res) => {
-    try {
-      const { industryName, problem } = req.query;
-
-      if (!industryName || !problem) {
-        return res.status(400).json({
-          error: 'Both industryName and problem parameters are required'
-        });
-      }
-
-      const result = await evolutionService.getBottleneckSolutions(industryName, problem);
-
-      res.json(result);
-    } catch (error) {
-      logger.error('Get bottleneck solutions error:', error);
-      res.status(500).json({ error: error.message });
-    }
-  });
 
   
 

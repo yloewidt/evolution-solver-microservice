@@ -185,14 +185,13 @@ export async function processRanker({ jobId, generation, enrichedIdeas, evolutio
     
     logger.info(`Ranker complete for job ${jobId}, generation ${generation}. Ranked ${rankedIdeas.length} ideas`);
     
-    // Get top performers for next generation
-    const topPerformers = rankedIdeas.slice(0, evolutionConfig.topSelectCount || 3);
+    // Top performers are already selected by the ranker based on topPerformerRatio
     
     return { 
       success: true, 
       message: `Ranked ${rankedIdeas.length} ideas`,
       rankedIdeas,
-      topPerformers,
+      topPerformers: rankerResult.topPerformers,
       topScore,
       avgScore
     };

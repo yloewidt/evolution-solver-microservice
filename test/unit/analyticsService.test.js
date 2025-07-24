@@ -5,18 +5,8 @@ const mockResultStore = {
   getResult: jest.fn()
 };
 
-const mockLogger = {
-  info: jest.fn(),
-  error: jest.fn(),
-  warn: jest.fn()
-};
-
-// Mock modules
-jest.unstable_mockModule('../../src/utils/logger.js', () => ({
-  default: mockLogger
-}));
-
 // Import after mocking
+import logger from '../../src/utils/logger.js';
 const AnalyticsService = (await import('../../src/services/analyticsService.js')).default;
 
 describe('AnalyticsService', () => {
@@ -161,8 +151,7 @@ describe('AnalyticsService', () => {
           breakdown: {
             variator: 2,
             enricher: 1,
-            ranker: 0,
-            reformatter: 0
+            ranker: 0
           }
         },
         tokenUsage: {
@@ -321,7 +310,7 @@ describe('AnalyticsService', () => {
       mockResultStore.getResult.mockRejectedValueOnce(error);
 
       await expect(service.getJobAnalytics('test-job-123')).rejects.toThrow('Database error');
-      expect(mockLogger.error).toHaveBeenCalledWith('Error calculating job analytics:', error);
+      expect(logger.error).toHaveBeenCalledWith('Error calculating job analytics:', error);
     });
 
     it('should calculate generation timing correctly', async () => {
@@ -456,7 +445,7 @@ describe('AnalyticsService', () => {
       const analytics = {
         o3Calls: {
           actual: 0,
-          breakdown: { variator: 0, enricher: 0, ranker: 0, reformatter: 0 }
+          breakdown: { variator: 0, enricher: 0, ranker: 0 }
         },
         tokenUsage: {
           total: { input: 0, output: 0, reasoning: 0, cached: 0 },
@@ -464,8 +453,7 @@ describe('AnalyticsService', () => {
           byPhase: {
             variator: { input: 0, output: 0, reasoning: 0, cached: 0 },
             enricher: { input: 0, output: 0, reasoning: 0, cached: 0 },
-            ranker: { input: 0, output: 0, reasoning: 0, cached: 0 },
-            reformatter: { input: 0, output: 0, reasoning: 0, cached: 0 }
+            ranker: { input: 0, output: 0, reasoning: 0, cached: 0 }
           }
         },
         retries: { count: 0, failedCalls: [] }
@@ -495,7 +483,7 @@ describe('AnalyticsService', () => {
         generationAnalytics: [{ generation: 1 }, { generation: 2 }],
         o3Calls: {
           actual: 0,
-          breakdown: { variator: 0, enricher: 0, ranker: 0, reformatter: 0 }
+          breakdown: { variator: 0, enricher: 0, ranker: 0 }
         }
       };
 

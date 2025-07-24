@@ -21,16 +21,8 @@ jest.unstable_mockModule('https', () => ({
   }
 }));
 
-// Mock logger
-jest.unstable_mockModule('../../src/utils/logger.js', () => ({
-  default: {
-    info: jest.fn(),
-    error: jest.fn(),
-    warn: jest.fn()
-  }
-}));
-
 // Import after mocking
+import logger from '../../src/utils/logger.js';
 const { LLMClient } = await import('../../src/services/llmClient.js');
 
 describe('LLMClient', () => {
@@ -50,7 +42,7 @@ describe('LLMClient', () => {
     it('should initialize with default config', () => {
       expect(client.config.model).toBe('o3');
       expect(client.config.temperature).toBe(1); // Default o3 uses temperature 1
-      expect(client.config.apiKey).toBeDefined();
+      expect(client.config.apiKey).toEqual(process.env.OPENAI_API_KEY || undefined);
     });
     
     it('should use temperature 1 when o3 is explicitly set', () => {
@@ -145,46 +137,7 @@ describe('LLMClient', () => {
     });
   });
 
-  describe('createEnricherRequest', () => {
-    it('should create OpenAI-style enricher request for o3', async () => {
-      client.config.model = 'o3';
-      const prompt = 'Enrich these ideas with business cases';
-      const request = await client.createEnricherRequest(prompt);
-      
-      expect(request.model).toBe('o3');
-      expect(request.messages).toBeDefined();
-      expect(request.messages).toHaveLength(2);
-      expect(request.messages[0].role).toBe('system');
-      expect(request.messages[1].role).toBe('user');
-      expect(request.messages[1].content).toBe(prompt);
-      expect(request.temperature).toBe(1); // o3 uses temperature=1
-      expect(request.response_format).toBeDefined();
-      expect(request.store).toBe(true);
-    });
-
-    it('should support parameterized prompts for enricher', async () => {
-      const customSystem = 'Custom enricher system prompt';
-      const customUser = 'Custom enricher user prompt';
-      const request = await client.createEnricherRequest(null, customSystem, customUser);
-      
-      expect(request.messages[0].content).toBe(customSystem);
-      expect(request.messages[1].content).toBe(customUser);
-    });
-
-    it('should create OpenAI-style enricher request for gpt models', async () => {
-      client.config.model = 'gpt-4';
-      const prompt = 'Enrich these ideas with business cases';
-      const request = await client.createEnricherRequest(prompt);
-      
-      expect(request.model).toBe('gpt-4');
-      expect(request.messages).toBeDefined();
-      expect(request.messages).toHaveLength(2);
-      expect(request.messages[0].role).toBe('system');
-      expect(request.messages[1].role).toBe('user');
-      expect(request.messages[1].content).toBe(prompt);
-      expect(request.temperature).toBe(0.5); // enricher uses lower temperature
-    });
-  });
+  // createEnricherRequest method has been removed from LLMClient
 
   describe('executeRequest', () => {
     it('should call chat.completions.create for o3 models', async () => {
@@ -221,7 +174,7 @@ describe('LLMClient', () => {
       mockOpenAIInstance.chat.completions.create.mockResolvedValueOnce(mockResponse);
       
       const request = await client.createVariatorRequest('Test prompt');
-      const response = await mockOpenAIInstance.chat.completions.create(request);
+      const response = await client.executeRequest(request);
       
       expect(mockOpenAIInstance.chat.completions.create).toHaveBeenCalledWith(request);
       expect(response).toEqual(mockResponse);

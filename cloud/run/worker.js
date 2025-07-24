@@ -1,9 +1,8 @@
 import express from 'express';
 import dotenv from 'dotenv';
-import EvolutionService from '../../src/services/evolutionService.js';
 import EvolutionResultStore from '../firestore/resultStore.js';
 import CloudTaskHandler from '../tasks/taskHandler.js';
-import { processVariator, processEnricher, processRanker } from './workerHandlersSelector.js';
+import { processVariator, processEnricher, processRanker } from './workerHandlersV2.js';
 import logger from '../../src/utils/logger.js';
 import os from 'os';
 
@@ -49,7 +48,6 @@ app.use(express.json({ limit: '50mb' }));
 
 // Initialize services
 const resultStore = new EvolutionResultStore();
-const evolutionService = new EvolutionService(resultStore);
 
 const ENVIRONMENT = process.env.ENVIRONMENT || 'development';
 const SERVICE_VERSION = process.env.K_REVISION || 'unknown';
@@ -151,11 +149,29 @@ app.post('/complete-job', async (req, res) => {
     // Sort by score
     allSolutions.sort((a, b) => (b.score || 0) - (a.score || 0));
     
+    // Calculate metadata
+    const topScore = allSolutions.length > 0 ? allSolutions[0].score : 0;
+    const avgScore = allSolutions.length > 0 
+      ? allSolutions.reduce((sum, sol) => sum + (sol.score || 0), 0) / allSolutions.length 
+      : 0;
+    const processingTime = job.createdAt 
+      ? (Date.now() - new Date(job.createdAt).getTime()) / 1000 
+      : 0;
+    const apiCalls = totalGenerations * 2; // Variator + Enricher per generation
+
     await resultStore.completeJob(jobId, {
       topSolutions: allSolutions.slice(0, 10),
       allSolutions,
       generationHistory,
-      totalSolutions: allSolutions.length
+      totalSolutions: allSolutions.length,
+      metadata: {
+        totalGenerations,
+        totalSolutions: allSolutions.length,
+        processingTime,
+        apiCalls,
+        topScore,
+        avgScore
+      }
     });
     
     res.json({ success: true, jobId, totalSolutions: allSolutions.length });
@@ -368,47 +384,7 @@ app.post('/retry-enricher', async (req, res) => {
   }
 });
 
-// Legacy endpoint - create orchestrator task for backward compatibility
-app.post('/process-evolution', async (req, res) => {
-  const jobData = req.body;
-  
-  logger.info('Legacy evolution endpoint called, creating orchestrator task', {
-    jobId: jobData.jobId
-  });
-  
-  try {
-    // Check if job exists
-    const existingJob = await resultStore.getJobStatus(jobData.jobId);
-    if (existingJob && existingJob.status === 'completed') {
-      logger.info(`Job ${jobData.jobId} already completed`);
-      return res.json({ 
-        status: 'completed', 
-        jobId: jobData.jobId,
-        message: 'Job already completed'
-      });
-    }
-    
-    // If job doesn't exist or is not complete, start orchestration
-    if (!existingJob || existingJob.status === 'pending') {
-      // Update job to processing
-      await resultStore.updateJobStatus(jobData.jobId, 'processing');
-    }
-    
-    // Return success - orchestrator will handle the actual work
-    res.json({ 
-      status: 'accepted', 
-      jobId: jobData.jobId,
-      message: 'Job accepted for processing'
-    });
-    
-  } catch (error) {
-    logger.error('Legacy endpoint error:', error);
-    res.status(500).json({ 
-      error: error.message,
-      jobId: jobData.jobId
-    });
-  }
-});
+// Legacy /process-evolution endpoint removed - all jobs now use workflow orchestration
 
 // Cleanup endpoint
 app.post('/cleanup', async (req, res) => {
@@ -436,7 +412,18 @@ app.post('/cleanup', async (req, res) => {
 // Metrics endpoint
 app.get('/metrics', async (req, res) => {
   try {
-    const stats = await evolutionService.getJobStats();
+    // Get job stats directly from resultStore
+    const recentJobs = await resultStore.getRecentJobs(100);
+    
+    const stats = {
+      total: recentJobs.length,
+      completed: recentJobs.filter(j => j.status === 'completed').length,
+      pending: recentJobs.filter(j => j.status === 'pending').length,
+      processing: recentJobs.filter(j => j.status === 'processing').length,
+      failed: recentJobs.filter(j => j.status === 'failed').length,
+      avgSolutions: recentJobs.reduce((sum, j) =>
+        sum + (j.topSolutions?.length || 0), 0) / (recentJobs.filter(j => j.status === 'completed').length || 1)
+    };
     
     const metrics = {
       environment: ENVIRONMENT,

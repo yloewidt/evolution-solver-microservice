@@ -1,6 +1,6 @@
-DEPLOYMENT_VERSION=parallel-debug-v5
-DEPLOYMENT_TIME=2025-07-25T05:15:00Z
-ENRICHER_MODE=parallel
-DEBUG_ENABLED=enhanced
+DEPLOYMENT_VERSION=spec-aligned-v1
+DEPLOYMENT_TIME=2025-07-25T05:35:00Z
+ENRICHER_MODE=parallel-spec-compliant
+DEBUG_ENABLED=true
 PATH_MARKERS=enabled
-FIX=api-timeout-detection
+FIX=aligned-with-product-spec

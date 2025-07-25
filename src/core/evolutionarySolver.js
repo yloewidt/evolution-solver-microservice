@@ -4,7 +4,6 @@ import { LLMClient } from '../services/llmClient.js';
 import Joi from 'joi';
 
 const solutionSchema = Joi.object({
-  idea_id: Joi.string(),
   description: Joi.string(),
   core_mechanism: Joi.string(),
   title: Joi.string(),
@@ -125,7 +124,6 @@ ${currentSolutions.length > 0 ? `- ${offspringCount} OFFSPRING: Evolve the top p
 - ${wildcardCount} WILDCARDS: Completely fresh approaches` : `- ${numNeeded} WILDCARDS: All new creative solutions`}
 
 Each solution must have:
-- "idea_id": unique identifier
 - "title": Short, catchy title
 - "description": Business model in plain terms
 - "core_mechanism": How value is created and captured
@@ -205,10 +203,13 @@ Requirements:
         fullResponse: JSON.stringify(response)  // Full response for replay
       });
 
+      // Extract top performer IDs from current solutions
+      const topPerformerIds = new Set(currentSolutions.map(s => s.idea_id).filter(id => id));
+      
       // Parse response based on API style
       const newIdeas = this.llmClient.getApiStyle() === 'openai' 
-        ? ResponseParser.parseOpenAIResponse(response, 'variator')
-        : ResponseParser.parseVariatorResponse(response);
+        ? ResponseParser.parseOpenAIResponse(response, 'variator', generation, jobId, topPerformerIds)
+        : ResponseParser.parseVariatorResponse(response, generation, jobId, topPerformerIds);
 
       // Track API call telemetry
       if (this.progressTracker?.resultStore && this.progressTracker?.jobId && response) {

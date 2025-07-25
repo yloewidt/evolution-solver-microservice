@@ -32,8 +32,8 @@ Required fields in business_case object (ALL monetary values in millions USD):
 - "npv_success": 5-year NPV if successful in $M
 - "capex_est": Initial capital required in $M
 - "timeline_months": Time to first revenue
-- "likelihood": Success probability (0-1)
 - "risk_factors": Array of key risks
+- "likelihood": Success probability (0-1)
 - "yearly_cashflows": Array of 5 yearly cash flows in $M
 
 IMPORTANT: Return ONLY the raw JSON object.`;

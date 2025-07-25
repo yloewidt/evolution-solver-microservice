@@ -74,15 +74,31 @@ export class ResponseParser {
   /**
    * Parse and validate variator response
    */
-  static parseVariatorResponse(response) {
+  static parseVariatorResponse(response, generation = 1, jobId = null, topPerformerIds = null) {
     const content = this.extractContent(response);
     const parsed = this.parseJSON(content, 'variator');
 
     // Handle structured output format (object with ideas array)
     const ideas = Array.isArray(parsed) ? parsed : (parsed.ideas || [parsed]);
 
+    // Add idea_ids programmatically
+    const ideasWithIds = ideas.map((idea, index) => {
+      // If idea already has an ID and it's a top performer, keep it
+      if (idea.idea_id && topPerformerIds?.has(idea.idea_id)) {
+        logger.info(`Variator: Preserving existing idea_id ${idea.idea_id} for top performer`);
+        return idea;
+      }
+      
+      // Generate new ID for new ideas
+      const jobIdShort = jobId ? jobId.substring(0, 6) : 'unknown';
+      const newId = `VAR_${jobIdShort}_G${generation}_${index}`;
+      
+      logger.info(`Variator: Generated new idea_id ${newId} for idea: ${idea.title || 'untitled'}`);
+      return { ...idea, idea_id: newId };
+    });
+
     // Validate required fields (now including title and is_offspring)
-    const validIdeas = ideas.filter(idea => {
+    const validIdeas = ideasWithIds.filter(idea => {
       if (!idea || typeof idea !== 'object') return false;
       if (!idea.idea_id || !idea.title || !idea.description || !idea.core_mechanism) {
         logger.warn('Variator: Invalid idea structure', idea);
@@ -152,9 +168,9 @@ export class ResponseParser {
   /**
    * Parse OpenAI response format (for both variator and enricher)
    */
-  static parseOpenAIResponse(response, phase) {
+  static parseOpenAIResponse(response, phase, generation = 1, jobId = null, topPerformerIds = null) {
     if (phase === 'variator') {
-      return this.parseVariatorResponse(response);
+      return this.parseVariatorResponse(response, generation, jobId, topPerformerIds);
     } else if (phase === 'enricher') {
       return this.parseEnricherResponse(response);
     } else {

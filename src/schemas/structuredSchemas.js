@@ -17,10 +17,6 @@ export const VariatorResponseSchema = {
           items: {
             type: "object",
             properties: {
-              idea_id: { 
-                type: "string",
-                description: "Unique identifier for the idea (e.g., VAR_GEN1_001)"
-              },
               title: {
                 type: "string",
                 description: "Short, catchy title for the idea"
@@ -38,7 +34,7 @@ export const VariatorResponseSchema = {
                 description: "Whether this idea is based on an existing top performer"
               }
             },
-            required: ["idea_id", "title", "description", "core_mechanism", "is_offspring"],
+            required: ["title", "description", "core_mechanism", "is_offspring"],
             additionalProperties: false
           },
           // Dynamic size based on request
@@ -58,10 +54,6 @@ export const SingleIdeaEnricherResponseSchema = {
     schema: {
       type: "object",
       properties: {
-        idea_id: { 
-          type: "string",
-          description: "Must match the input idea_id"
-        },
         title: {
           type: "string", 
           description: "Must match the input title"
@@ -111,7 +103,7 @@ export const SingleIdeaEnricherResponseSchema = {
           additionalProperties: false
         }
       },
-      required: ["idea_id", "title", "description", "business_case"],
+      required: ["title", "description", "business_case"],
       additionalProperties: false
     },
     strict: true
@@ -130,10 +122,6 @@ export const EnricherResponseSchema = {
           items: {
             type: "object",
             properties: {
-              idea_id: { 
-                type: "string",
-                description: "Must match the input idea_id"
-              },
               title: {
                 type: "string", 
                 description: "Must match the input title"
@@ -183,7 +171,7 @@ export const EnricherResponseSchema = {
                 additionalProperties: false
               }
             },
-            required: ["idea_id", "title", "description", "business_case"],
+            required: ["title", "description", "business_case"],
             additionalProperties: false
           }
         }

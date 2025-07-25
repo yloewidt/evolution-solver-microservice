@@ -1,5 +1,5 @@
 import logger from '../utils/logger.js';
-import { ResponseParser } from '../utils/responseParser.js';
+import Parser from '../utils/parser.js';
 import { LLMClient } from '../services/llmClient.js';
 import Joi from 'joi';
 
@@ -207,8 +207,8 @@ Requirements:
 
       // Parse response based on API style
       const newIdeas = this.llmClient.getApiStyle() === 'openai' 
-        ? ResponseParser.parseOpenAIResponse(response, 'variator')
-        : ResponseParser.parseVariatorResponse(response);
+        ? Parser.parseOpenAIResponse(response, 'variator')
+        : Parser.parseVariatorResponse(response);
 
       // Track API call telemetry
       if (this.progressTracker?.resultStore && this.progressTracker?.jobId && response) {

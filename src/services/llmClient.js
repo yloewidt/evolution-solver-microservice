@@ -1,8 +1,56 @@
 import OpenAI from 'openai';
 import https from 'https';
 import logger from '../utils/logger.js';
-import { VariatorResponseSchema, EnricherResponseSchema } from '../schemas/structuredSchemas.js';
-import { ResponseParser } from '../utils/responseParser.js';
+import Parser from '../utils/parser.js';
+
+/**
+ * JSON Schemas for OpenAI Structured Outputs
+ * These schemas guarantee 100% compliant responses from the API
+ */
+const VariatorResponseSchema = {
+  type: "json_schema",
+  json_schema: {
+    name: "variator_response",
+    schema: {
+      type: "object",
+      properties: {
+        ideas: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              idea_id: { 
+                type: "string",
+                description: "Unique identifier for the idea (e.g., VAR_GEN1_001)"
+              },
+              title: {
+                type: "string",
+                description: "Short, catchy title for the idea"
+              },
+              description: { 
+                type: "string",
+                description: "2-3 sentence description of the business idea"
+              },
+              core_mechanism: { 
+                type: "string",
+                description: "1-2 sentence explanation of how the idea works"
+              },
+              is_offspring: { 
+                type: "boolean",
+                description: "Whether this idea is based on an existing top performer"
+              }
+            },
+            required: ["idea_id", "title", "description", "core_mechanism", "is_offspring"],
+            additionalProperties: false
+          }
+        }
+      },
+      required: ["ideas"],
+      additionalProperties: false
+    },
+    strict: true
+  }
+};
 
 /**
  * Unified LLM client that handles both OpenAI and Anthropic-style APIs

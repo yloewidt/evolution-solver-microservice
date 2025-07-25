@@ -20,11 +20,13 @@ router.post('/direct', async (req, res) => {
   // Generate job ID
   const jobId = `direct-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
   
+  // Initialize resultStore outside try block so it's accessible in catch
+  const resultStore = new EvolutionResultStore();
+  
   try {
     logger.info(`Starting direct job ${jobId}`);
     
-    // Initialize services
-    const resultStore = new EvolutionResultStore();
+    // Initialize other services
     const llmClient = new LLMClient({
       model: evolutionConfig.model || 'o3',
       fallbackModel: evolutionConfig.fallbackModel || 'gpt-4o'

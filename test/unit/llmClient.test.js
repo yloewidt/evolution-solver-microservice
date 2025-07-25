@@ -32,7 +32,7 @@ describe('LLMClient', () => {
   beforeEach(() => {
     // Clear all mocks
     jest.clearAllMocks();
-    
+
     // Create client and get mock instance
     client = new LLMClient();
     mockOpenAIInstance = client.client;
@@ -44,7 +44,7 @@ describe('LLMClient', () => {
       expect(client.config.temperature).toBe(1); // Default o3 uses temperature 1
       expect(client.config.apiKey).toEqual(process.env.OPENAI_API_KEY || undefined);
     });
-    
+
     it('should use temperature 1 when o3 is explicitly set', () => {
       const o3Client = new LLMClient({ model: 'o3' });
       expect(o3Client.config.temperature).toBe(1);
@@ -56,7 +56,7 @@ describe('LLMClient', () => {
         temperature: 0.5,
         apiKey: 'custom-key'
       });
-      
+
       expect(customClient.config.model).toBe('gpt-4');
       expect(customClient.config.temperature).toBe(0.5);
       expect(customClient.config.apiKey).toBe('custom-key');
@@ -72,7 +72,7 @@ describe('LLMClient', () => {
     it('should return openai for o3 models', () => {
       client.config.model = 'o3';
       expect(client.getApiStyle()).toBe('openai');
-      
+
       client.config.model = 'o3-mini';
       expect(client.getApiStyle()).toBe('openai');
     });
@@ -85,7 +85,7 @@ describe('LLMClient', () => {
     it('should return openai for gpt models', () => {
       client.config.model = 'gpt-4';
       expect(client.getApiStyle()).toBe('openai');
-      
+
       client.config.model = 'gpt-3.5-turbo';
       expect(client.getApiStyle()).toBe('openai');
     });
@@ -101,7 +101,7 @@ describe('LLMClient', () => {
       client.config.model = 'o3';
       const prompt = 'Generate solutions for this problem';
       const request = await client.createVariatorRequest(prompt);
-      
+
       expect(request.model).toBe('o3');
       expect(request.messages).toBeDefined();
       expect(request.messages).toHaveLength(2);
@@ -117,7 +117,7 @@ describe('LLMClient', () => {
       const customSystem = 'Custom system prompt';
       const customUser = 'Custom user prompt';
       const request = await client.createVariatorRequest(null, customSystem, customUser);
-      
+
       expect(request.messages[0].content).toBe(customSystem);
       expect(request.messages[1].content).toBe(customUser);
     });
@@ -126,7 +126,7 @@ describe('LLMClient', () => {
       const gptClient = new LLMClient({ model: 'gpt-4' });
       const prompt = 'Generate solutions for this problem';
       const request = await gptClient.createVariatorRequest(prompt);
-      
+
       expect(request.model).toBe('gpt-4');
       expect(request.messages).toBeDefined();
       expect(request.messages[0].role).toBe('system');
@@ -150,12 +150,12 @@ describe('LLMClient', () => {
         }],
         usage: { prompt_tokens: 100, completion_tokens: 200 }
       };
-      
+
       mockOpenAIInstance.chat.completions.create.mockResolvedValueOnce(mockResponse);
-      
+
       const request = await client.createVariatorRequest('Test prompt');
       const response = await client.executeRequest(request);
-      
+
       expect(mockOpenAIInstance.chat.completions.create).toHaveBeenCalledWith(request);
       expect(response).toEqual(mockResponse);
     });
@@ -170,12 +170,12 @@ describe('LLMClient', () => {
         }],
         usage: { prompt_tokens: 100, completion_tokens: 200 }
       };
-      
+
       mockOpenAIInstance.chat.completions.create.mockResolvedValueOnce(mockResponse);
-      
+
       const request = await client.createVariatorRequest('Test prompt');
       const response = await client.executeRequest(request);
-      
+
       expect(mockOpenAIInstance.chat.completions.create).toHaveBeenCalledWith(request);
       expect(response).toEqual(mockResponse);
     });

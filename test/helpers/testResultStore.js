@@ -46,12 +46,12 @@ export class TestResultStore extends EvolutionResultStore {
     const updates = {
       updatedAt: Firestore.FieldValue.serverTimestamp()
     };
-    
+
     // Map data fields to generation structure
     Object.keys(data).forEach(key => {
       updates[`${genKey}.${key}`] = data[key];
     });
-    
+
     try {
       await this.getCollection().doc(jobId).update(updates);
       return true;
@@ -71,13 +71,13 @@ export class TestResultStore extends EvolutionResultStore {
    */
   async saveApiCall(callData, jobId) {
     const callId = `${callData.phase}-${callData.generation}-${Date.now()}`;
-    
+
     // Save to apiCalls array
     await this.addApiCallTelemetry(jobId, {
       ...callData,
       callId
     });
-    
+
     // Also save to debug subcollection
     return this.saveApiCallDebug(jobId, callId, callData);
   }
@@ -101,10 +101,10 @@ export class TestResultStore extends EvolutionResultStore {
       avgScore: 0,
       solutionCount: 0
     };
-    
+
     const updates = {};
     updates[genKey] = defaultStructure;
-    
+
     await this.getCollection().doc(jobId).update(updates);
   }
 
@@ -114,12 +114,12 @@ export class TestResultStore extends EvolutionResultStore {
   async getJobStatus(jobId) {
     const status = await super.getJobStatus(jobId);
     if (!status) return null;
-    
+
     // Ensure generations structure exists
     if (!status.generations) {
       status.generations = {};
     }
-    
+
     // Normalize generation data
     Object.keys(status.generations).forEach(genKey => {
       const gen = status.generations[genKey];
@@ -131,7 +131,7 @@ export class TestResultStore extends EvolutionResultStore {
         gen.ideas = gen.solutions;
       }
     });
-    
+
     return status;
   }
 }
@@ -173,7 +173,7 @@ export class MockResultStore {
   async updateJobStatus(jobId, status, error = null) {
     const job = this.jobs.get(jobId);
     if (!job) throw new Error(`Job ${jobId} not found`);
-    
+
     job.status = status;
     job.updatedAt = new Date();
     if (error) job.error = error;
@@ -183,7 +183,7 @@ export class MockResultStore {
   async updatePhaseData(jobId, generation, phase, data) {
     const job = this.jobs.get(jobId);
     if (!job) throw new Error(`Job ${jobId} not found`);
-    
+
     if (!job.generations[`generation_${generation}`]) {
       job.generations[`generation_${generation}`] = {
         generation,
@@ -195,35 +195,35 @@ export class MockResultStore {
         rankerComplete: false
       };
     }
-    
+
     Object.assign(job.generations[`generation_${generation}`], data);
   }
 
   async updatePhaseStatus(jobId, generation, phase, status) {
     const job = this.jobs.get(jobId);
     if (!job) throw new Error(`Job ${jobId} not found`);
-    
+
     const genKey = `generation_${generation}`;
     if (!job.generations[genKey]) {
       job.generations[genKey] = {};
     }
-    
+
     const phaseKey = `${phase}Started`;
     job.generations[genKey][phaseKey] = (status === 'started');
     job.generations[genKey][`${phase}StartedAt`] = new Date();
-    
+
     return { updated: true };
   }
 
   async savePhaseResults(jobId, generation, phase, results) {
     const job = this.jobs.get(jobId);
     if (!job) throw new Error(`Job ${jobId} not found`);
-    
+
     const genKey = `generation_${generation}`;
     if (!job.generations[genKey]) {
       job.generations[genKey] = {};
     }
-    
+
     job.generations[genKey][`${phase}Complete`] = true;
     job.generations[genKey][`${phase}CompletedAt`] = new Date();
     Object.assign(job.generations[genKey], results);
@@ -232,17 +232,17 @@ export class MockResultStore {
   async saveApiCall(callData, jobId) {
     const job = this.jobs.get(jobId);
     if (!job) throw new Error(`Job ${jobId} not found`);
-    
+
     if (!job.apiCalls) job.apiCalls = [];
     job.apiCalls.push(callData);
-    
+
     // Store in separate map for subcollection simulation
     const callId = `${callData.phase}-${Date.now()}`;
     if (!this.apiCalls.has(jobId)) {
       this.apiCalls.set(jobId, new Map());
     }
     this.apiCalls.get(jobId).set(callId, callData);
-    
+
     return callId;
   }
 
@@ -261,7 +261,7 @@ export class MockResultStore {
         get: async () => {
           const data = self.jobs.get(jobId);
           if (!data) return { exists: false };
-          
+
           return {
             exists: true,
             data: () => data,
@@ -294,7 +294,7 @@ export class MockResultStore {
         update: async (updates) => {
           const existing = self.jobs.get(jobId);
           if (!existing) throw new Error('No document to update');
-          
+
           // Apply dot notation updates
           Object.keys(updates).forEach(key => {
             if (key.includes('.')) {
@@ -333,7 +333,7 @@ export class MockResultStore {
             const results = [];
             self.jobs.forEach((job, id) => {
               let matches = true;
-              
+
               for (const condition of this.conditions) {
                 let fieldValue = job[condition.field];
                 if (condition.field.includes('.')) {
@@ -343,32 +343,32 @@ export class MockResultStore {
                     fieldValue = fieldValue?.[part];
                   }
                 }
-                
+
                 let conditionMatches = false;
                 switch (condition.op) {
-                  case '==':
-                    conditionMatches = fieldValue === condition.value;
-                    break;
-                  case '>=':
-                    conditionMatches = fieldValue >= condition.value;
-                    break;
-                  case '>':
-                    conditionMatches = fieldValue > condition.value;
-                    break;
-                  case '<':
-                    conditionMatches = fieldValue < condition.value;
-                    break;
-                  case '<=':
-                    conditionMatches = fieldValue <= condition.value;
-                    break;
+                case '==':
+                  conditionMatches = fieldValue === condition.value;
+                  break;
+                case '>=':
+                  conditionMatches = fieldValue >= condition.value;
+                  break;
+                case '>':
+                  conditionMatches = fieldValue > condition.value;
+                  break;
+                case '<':
+                  conditionMatches = fieldValue < condition.value;
+                  break;
+                case '<=':
+                  conditionMatches = fieldValue <= condition.value;
+                  break;
                 }
-                
+
                 if (!conditionMatches) {
                   matches = false;
                   break;
                 }
               }
-              
+
               if (matches) {
                 results.push({
                   id,
@@ -376,14 +376,14 @@ export class MockResultStore {
                 });
               }
             });
-            
+
             return {
               docs: results,
               forEach: (fn) => results.forEach(fn)
             };
           }
         };
-        
+
         return query;
       }
     };

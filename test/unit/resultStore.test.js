@@ -150,7 +150,7 @@ describe('EvolutionResultStore', () => {
 
     it('should not set completedAt for non-completed status', async () => {
       const pendingData = { ...resultData, status: 'processing' };
-      
+
       await store.saveResult(pendingData);
 
       expect(mockDoc.set).toHaveBeenCalledWith(
@@ -443,7 +443,7 @@ describe('EvolutionResultStore', () => {
         { jobId: '2', userId: 'user-123' }
       ];
       mockQuery.get.mockResolvedValueOnce({
-        forEach: (callback) => mockResults.forEach(data => 
+        forEach: (callback) => mockResults.forEach(data =>
           callback({
             id: data.jobId,
             data: () => data
@@ -464,7 +464,7 @@ describe('EvolutionResultStore', () => {
     it('should get all results with default limit', async () => {
       const mockResults = [{ jobId: '1' }];
       mockQuery.get.mockResolvedValueOnce({
-        forEach: (callback) => mockResults.forEach(data => 
+        forEach: (callback) => mockResults.forEach(data =>
           callback({
             id: data.jobId,
             data: () => data
@@ -495,7 +495,7 @@ describe('EvolutionResultStore', () => {
         { jobId: '2', status: 'processing' }
       ];
       mockQuery.get.mockResolvedValueOnce({
-        forEach: (callback) => mockJobs.forEach((data, idx) => 
+        forEach: (callback) => mockJobs.forEach((data, idx) =>
           callback({
             id: data.jobId,
             data: () => data
@@ -518,7 +518,7 @@ describe('EvolutionResultStore', () => {
         { jobId: '1', status: 'completed' }
       ];
       mockQuery.get.mockResolvedValueOnce({
-        forEach: (callback) => mockJobs.forEach(data => 
+        forEach: (callback) => mockJobs.forEach(data =>
           callback({
             id: data.jobId,
             data: () => data
@@ -539,12 +539,12 @@ describe('EvolutionResultStore', () => {
     it('should delete old results', async () => {
       const oldDate = new Date();
       oldDate.setDate(oldDate.getDate() - 31);
-      
+
       const mockOldDocs = [
         { id: 'old-1', ref: {} },
         { id: 'old-2', ref: {} }
       ];
-      
+
       mockQuery.get.mockResolvedValueOnce({
         forEach: (callback) => mockOldDocs.forEach(callback)
       });
@@ -705,7 +705,7 @@ describe('EvolutionResultStore', () => {
       mockDebugDoc.set.mockRejectedValueOnce(error);
 
       const result = await store.saveApiCallDebug('test-job', 'call-123', {});
-      
+
       expect(result).toBe(false);
     });
   });

@@ -15,7 +15,7 @@ const solutionSchema = Joi.object({
   filterReason: Joi.string().allow(null),
   violatesPreferences: Joi.boolean(),
   preferenceNote: Joi.string().allow(null),
-  metrics: Joi.object(),
+  metrics: Joi.object()
 }).unknown(true);
 
 const ideasSchema = Joi.array().items(solutionSchema);
@@ -32,7 +32,7 @@ class EvolutionarySolver {
     };
     // Initialize LLM client - it will handle API style detection
     this.llmClient = null; // Will be initialized with model config
-    
+
     this.resultStore = resultStore;
 
     this.config = {
@@ -49,17 +49,17 @@ class EvolutionarySolver {
       // Original behavior - no retries
       return await operation();
     }
-    
+
     const maxRetries = this.config.maxRetries || 3;
     let lastError;
-    
+
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
         logger.info(`${phase} API call - attempt ${attempt}/${maxRetries}`);
         return await operation();
       } catch (error) {
         lastError = error;
-        
+
         // Check if error is retryable
         const isRetryable = error.status === 429 || // Rate limit
                           error.status === 500 || // Server error
@@ -68,19 +68,19 @@ class EvolutionarySolver {
                           error.status === 504 || // Gateway timeout
                           error.code === 'ECONNRESET' ||
                           error.code === 'ETIMEDOUT';
-        
+
         if (!isRetryable || attempt === maxRetries) {
           logger.error(`${phase} failed after ${attempt} attempts:`, error);
           throw error;
         }
-        
+
         // Exponential backoff
         const delay = this.config.retryDelay * Math.pow(2, attempt - 1);
         logger.warn(`${phase} attempt ${attempt} failed, retrying in ${delay}ms...`);
         await new Promise(resolve => setTimeout(resolve, delay));
       }
     }
-    
+
     throw lastError;
   }
 
@@ -138,7 +138,7 @@ Requirements:
 - Consider timing advantages (why now?)`;
 
     // User prompt contains previous solutions if any
-    const userPrompt = currentSolutions.length > 0 
+    const userPrompt = currentSolutions.length > 0
       ? `Previous top performers:\n${JSON.stringify(currentSolutions, null, 2)}`
       : 'Generate new creative business solutions.';
 
@@ -206,7 +206,7 @@ Requirements:
       });
 
       // Parse response based on API style
-      const newIdeas = this.llmClient.getApiStyle() === 'openai' 
+      const newIdeas = this.llmClient.getApiStyle() === 'openai'
         ? Parser.parseOpenAIResponse(response, 'variator')
         : Parser.parseVariatorResponse(response);
 

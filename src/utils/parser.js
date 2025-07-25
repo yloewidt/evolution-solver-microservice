@@ -44,23 +44,23 @@ class Parser {
     // Strategy 3: Extract JSON from text
     try {
       let jsonContent = content;
-      
+
       // Remove markdown code blocks
       jsonContent = jsonContent.replace(/```json\s*/g, '').replace(/```\s*/g, '');
-      
+
       // Find JSON-like content
       const jsonMatch = jsonContent.match(/(\[[\s\S]*\]|\{[\s\S]*\})/);
       if (jsonMatch) {
         jsonContent = jsonMatch[1];
       }
-      
+
       // Clean common issues
       jsonContent = jsonContent
         .replace(/^[^[{]*/g, '')
         .replace(/[^}\]]*$/g, '')
         .replace(/,\s*}/g, '}')
         .replace(/,\s*\]/g, ']');
-      
+
       const parsed = JSON.parse(jsonContent);
       logger.info(`${context}: JSON extraction successful`);
       return parsed;
@@ -144,7 +144,7 @@ class Parser {
 
     // Clean and parse the content
     const cleaned = content.trim();
-    
+
     try {
       const parsed = JSON.parse(cleaned);
       logger.info(`${phase}: Direct JSON parsing successful`);
@@ -170,49 +170,49 @@ class Parser {
    */
   static parseVariatorResponse(response) {
     const parsed = Parser.parseLLMResponse(response, 'variator');
-    
+
     // Handle both single object and array responses
     if (!Array.isArray(parsed)) {
       // If it's a single idea, wrap it in an array
       if (parsed.idea_id || parsed.description) {
         return [parsed];
       }
-      
+
       // If it has an 'ideas' property, extract that
       if (parsed.ideas && Array.isArray(parsed.ideas)) {
         return parsed.ideas;
       }
-      
+
       // If it has a 'solutions' property, extract that
       if (parsed.solutions && Array.isArray(parsed.solutions)) {
         return parsed.solutions;
       }
-      
+
       // Otherwise, try to extract array from object values
       const values = Object.values(parsed);
       const arrays = values.filter(v => Array.isArray(v));
       if (arrays.length > 0) {
         return arrays[0];
       }
-      
+
       throw new Error('Response is not in expected format (array of ideas)');
     }
-    
+
     return parsed;
   }
 
   /**
-   * Parse enricher response  
+   * Parse enricher response
    * (from responseParser.js)
    */
   static parseEnricherResponse(response) {
     const parsed = Parser.parseLLMResponse(response, 'enricher');
-    
+
     // Validate it has required enriched idea structure
     if (!parsed.business_case) {
       throw new Error('Enriched idea missing business_case');
     }
-    
+
     return parsed;
   }
 
@@ -222,7 +222,7 @@ class Parser {
    */
   static cleanLLMOutput(text) {
     if (!text) return '';
-    
+
     return text
       // Remove markdown code blocks
       .replace(/```[\s\S]*?```/g, '')
@@ -247,7 +247,7 @@ class Parser {
 
     const validIdeas = ideas.filter(idea => {
       if (!idea || typeof idea !== 'object') return false;
-      
+
       // Check required fields
       for (const field of requiredFields) {
         if (!idea[field]) {
@@ -255,7 +255,7 @@ class Parser {
           return false;
         }
       }
-      
+
       return true;
     });
 

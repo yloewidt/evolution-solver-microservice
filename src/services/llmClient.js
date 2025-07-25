@@ -8,44 +8,44 @@ import Parser from '../utils/parser.js';
  * These schemas guarantee 100% compliant responses from the API
  */
 const VariatorResponseSchema = {
-  type: "json_schema",
+  type: 'json_schema',
   json_schema: {
-    name: "variator_response",
+    name: 'variator_response',
     schema: {
-      type: "object",
+      type: 'object',
       properties: {
         ideas: {
-          type: "array",
+          type: 'array',
           items: {
-            type: "object",
+            type: 'object',
             properties: {
-              idea_id: { 
-                type: "string",
-                description: "Unique identifier for the idea (e.g., VAR_GEN1_001)"
+              idea_id: {
+                type: 'string',
+                description: 'Unique identifier for the idea (e.g., VAR_GEN1_001)'
               },
               title: {
-                type: "string",
-                description: "Short, catchy title for the idea"
+                type: 'string',
+                description: 'Short, catchy title for the idea'
               },
-              description: { 
-                type: "string",
-                description: "2-3 sentence description of the business idea"
+              description: {
+                type: 'string',
+                description: '2-3 sentence description of the business idea'
               },
-              core_mechanism: { 
-                type: "string",
-                description: "1-2 sentence explanation of how the idea works"
+              core_mechanism: {
+                type: 'string',
+                description: '1-2 sentence explanation of how the idea works'
               },
-              is_offspring: { 
-                type: "boolean",
-                description: "Whether this idea is based on an existing top performer"
+              is_offspring: {
+                type: 'boolean',
+                description: 'Whether this idea is based on an existing top performer'
               }
             },
-            required: ["idea_id", "title", "description", "core_mechanism", "is_offspring"],
+            required: ['idea_id', 'title', 'description', 'core_mechanism', 'is_offspring'],
             additionalProperties: false
           }
         }
       },
-      required: ["ideas"],
+      required: ['ideas'],
       additionalProperties: false
     },
     strict: true
@@ -131,16 +131,16 @@ export class LLMClient {
    */
   async executeRequest(request) {
     const apiStyle = this.getApiStyle();
-    
+
     // Create an AbortController with timeout
     const controller = new AbortController();
     const timeoutMs = this.config.timeout || 300000; // 5 minutes default
-    
+
     const timeoutId = setTimeout(() => {
       controller.abort();
       logger.error(`API request timed out after ${timeoutMs}ms`);
     }, timeoutMs);
-    
+
     try {
       let response;
       if (apiStyle === 'openai') {
@@ -150,12 +150,12 @@ export class LLMClient {
         // This branch should never be reached now
         throw new Error('Unexpected API style');
       }
-      
+
       clearTimeout(timeoutId);
       return response;
     } catch (error) {
       clearTimeout(timeoutId);
-      
+
       if (error.name === 'AbortError' || controller.signal.aborted) {
         throw new Error(`API request timed out after ${timeoutMs}ms`);
       }
@@ -183,7 +183,7 @@ export class LLMClient {
         // Try to parse as JSON first (for structured outputs)
         try {
           const parsed = JSON.parse(content);
-          
+
           // If using structured outputs, the response will be wrapped in an object
           if (parsed.ideas) {
             logger.info(`${context}: Structured output - extracted ${parsed.ideas.length} ideas`);
@@ -193,7 +193,7 @@ export class LLMClient {
             logger.info(`${context}: Structured output - extracted ${parsed.enriched_ideas.length} enriched ideas`);
             return parsed.enriched_ideas;
           }
-          
+
           // If it's valid JSON but not structured output format, return it
           return Array.isArray(parsed) ? parsed : [parsed];
         } catch (jsonError) {

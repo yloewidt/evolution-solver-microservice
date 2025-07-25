@@ -16,24 +16,24 @@ const validateEnvironment = () => {
     OPENAI_API_KEY: process.env.OPENAI_API_KEY,
     GCP_PROJECT_ID: process.env.GCP_PROJECT_ID
   };
-  
+
   const missing = [];
   for (const [key, value] of Object.entries(required)) {
     if (!value) {
       missing.push(key);
     }
   }
-  
+
   if (missing.length > 0) {
     logger.error(`Missing required environment variables: ${missing.join(', ')}`);
     logger.error('Please check your .env file or environment configuration');
-    
+
     // In production, exit. In development/test, just warn
     if (process.env.NODE_ENV === 'production') {
       process.exit(1);
     }
   }
-  
+
   // Log configuration (without sensitive values)
   logger.info('Environment configuration:', {
     NODE_ENV: process.env.NODE_ENV || 'development',

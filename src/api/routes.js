@@ -12,98 +12,98 @@ export default function createRoutes(evolutionService) {
   const jobQueue = new JobQueue();
   // Submit new evolution job
   router.post('/jobs', asyncHandler(async (req, res) => {
-      // Support both 'parameters', 'params', and 'evolutionConfig' for backward compatibility
-      const { problemContext, parameters, params, evolutionConfig: bodyEvolutionConfig } = req.body;
-      const evolutionParams = bodyEvolutionConfig || parameters || params || {};
+    // Support both 'parameters', 'params', and 'evolutionConfig' for backward compatibility
+    const { problemContext, parameters, params, evolutionConfig: bodyEvolutionConfig } = req.body;
+    const evolutionParams = bodyEvolutionConfig || parameters || params || {};
 
-      logger.info('Request body:', JSON.stringify(req.body));
-      logger.info('Received evolution parameters:', JSON.stringify(evolutionParams));
+    logger.info('Request body:', JSON.stringify(req.body));
+    logger.info('Received evolution parameters:', JSON.stringify(evolutionParams));
 
-      if (!problemContext) {
-        throw new ValidationError('Problem context is required');
-      }
+    if (!problemContext) {
+      throw new ValidationError('Problem context is required');
+    }
 
-      const enrichedContext = problemContext;
+    const enrichedContext = problemContext;
 
-      evolutionService.validateProblemContext(enrichedContext);
+    evolutionService.validateProblemContext(enrichedContext);
 
-      // Validate monetary parameters if provided
-      if (evolutionParams?.maxCapex !== undefined && evolutionParams.maxCapex > 10) {
-        logger.warn(`maxCapex value ${evolutionParams.maxCapex} seems high. Expected units are millions USD (e.g., 0.1 = $100K)`);
-      }
-      if (evolutionParams?.diversificationFactor !== undefined && evolutionParams.diversificationFactor > 10) {
-        logger.warn(`diversificationFactor value ${evolutionParams.diversificationFactor} seems high. Expected units are millions USD (e.g., 0.05 = $50K)`);
-      }
+    // Validate monetary parameters if provided
+    if (evolutionParams?.maxCapex !== undefined && evolutionParams.maxCapex > 10) {
+      logger.warn(`maxCapex value ${evolutionParams.maxCapex} seems high. Expected units are millions USD (e.g., 0.1 = $100K)`);
+    }
+    if (evolutionParams?.diversificationFactor !== undefined && evolutionParams.diversificationFactor > 10) {
+      logger.warn(`diversificationFactor value ${evolutionParams.diversificationFactor} seems high. Expected units are millions USD (e.g., 0.05 = $50K)`);
+    }
 
-      const evolutionConfig = {
-        generations: evolutionParams?.generations || 10,
-        populationSize: evolutionParams?.populationSize || 5,
-        maxCapex: evolutionParams?.maxCapex || 100000,  // Default $100B in millions (effectively no limit)
-        topPerformerRatio: evolutionParams?.topPerformerRatio || 0.3,
-        offspringRatio: evolutionParams?.offspringRatio || 0.7,
-        diversificationFactor: evolutionParams?.diversificationFactor || 0.05,  // Default $50K in millions
-        model: evolutionParams?.model || 'o3'  // Default to o3 model
-      };
+    const evolutionConfig = {
+      generations: evolutionParams?.generations || 10,
+      populationSize: evolutionParams?.populationSize || 5,
+      maxCapex: evolutionParams?.maxCapex || 100000,  // Default $100B in millions (effectively no limit)
+      topPerformerRatio: evolutionParams?.topPerformerRatio || 0.3,
+      offspringRatio: evolutionParams?.offspringRatio || 0.7,
+      diversificationFactor: evolutionParams?.diversificationFactor || 0.05,  // Default $50K in millions
+      model: evolutionParams?.model || 'o3'  // Default to o3 model
+    };
 
-      // Only add optional parameters if they are defined
-      if (evolutionParams?.dealTypes !== undefined) {
-        evolutionConfig.dealTypes = evolutionParams.dealTypes;
-      }
-      if (evolutionParams?.minProfits !== undefined) {
-        evolutionConfig.minProfits = evolutionParams.minProfits;
-      }
-      if (evolutionParams?.fallbackModel !== undefined) {
-        evolutionConfig.fallbackModel = evolutionParams.fallbackModel;
-      }
-      if (evolutionParams?.useSingleIdeaEnricher !== undefined) {
-        evolutionConfig.useSingleIdeaEnricher = evolutionParams.useSingleIdeaEnricher;
-      }
-      if (evolutionParams?.enricherConcurrency !== undefined) {
-        evolutionConfig.enricherConcurrency = evolutionParams.enricherConcurrency;
-      }
+    // Only add optional parameters if they are defined
+    if (evolutionParams?.dealTypes !== undefined) {
+      evolutionConfig.dealTypes = evolutionParams.dealTypes;
+    }
+    if (evolutionParams?.minProfits !== undefined) {
+      evolutionConfig.minProfits = evolutionParams.minProfits;
+    }
+    if (evolutionParams?.fallbackModel !== undefined) {
+      evolutionConfig.fallbackModel = evolutionParams.fallbackModel;
+    }
+    if (evolutionParams?.useSingleIdeaEnricher !== undefined) {
+      evolutionConfig.useSingleIdeaEnricher = evolutionParams.useSingleIdeaEnricher;
+    }
+    if (evolutionParams?.enricherConcurrency !== undefined) {
+      evolutionConfig.enricherConcurrency = evolutionParams.enricherConcurrency;
+    }
 
-      const jobId = uuidv4();
-      const jobData = {
-        jobId,
-        problemContext: enrichedContext,
-        initialSolutions: [],
-        evolutionConfig,
-        userId: req.user?.id || 'anonymous',
-        sessionId: req.sessionId || uuidv4()
-      };
+    const jobId = uuidv4();
+    const jobData = {
+      jobId,
+      problemContext: enrichedContext,
+      initialSolutions: [],
+      evolutionConfig,
+      userId: req.user?.id || 'anonymous',
+      sessionId: req.sessionId || uuidv4()
+    };
 
-      // Check if job already exists (prevent duplicates)
-      const existingJob = await evolutionService.resultStore.getJobStatus(jobId);
-      if (existingJob) {
-        logger.info(`Job ${jobId} already exists with status: ${existingJob.status}`);
-        return res.json({
-          jobId: jobId,
-          status: existingJob.status,
-          message: 'Job already exists',
-          existingJob: true
-        });
-      }
-
-      // Create document FIRST
-      logger.info(`Saving job with evolutionConfig:`, JSON.stringify(jobData.evolutionConfig));
-      await evolutionService.resultStore.saveResult({
+    // Check if job already exists (prevent duplicates)
+    const existingJob = await evolutionService.resultStore.getJobStatus(jobId);
+    if (existingJob) {
+      logger.info(`Job ${jobId} already exists with status: ${existingJob.status}`);
+      return res.json({
         jobId: jobId,
-        userId: jobData.userId,
-        sessionId: jobData.sessionId,
-        problemContext: enrichedContext,
-        evolutionConfig: jobData.evolutionConfig,
-        status: 'pending'
+        status: existingJob.status,
+        message: 'Job already exists',
+        existingJob: true
       });
+    }
 
-      // Queue the job for processing
-      const result = await jobQueue.queueJob(jobData);
+    // Create document FIRST
+    logger.info('Saving job with evolutionConfig:', JSON.stringify(jobData.evolutionConfig));
+    await evolutionService.resultStore.saveResult({
+      jobId: jobId,
+      userId: jobData.userId,
+      sessionId: jobData.sessionId,
+      problemContext: enrichedContext,
+      evolutionConfig: jobData.evolutionConfig,
+      status: 'pending'
+    });
 
-      res.json({
-        jobId: jobId,
-        executionName: result.executionName,
-        status: 'queued',
-        message: 'Evolution job queued for processing'
-      });
+    // Queue the job for processing
+    const result = await jobQueue.queueJob(jobData);
+
+    res.json({
+      jobId: jobId,
+      executionName: result.executionName,
+      status: 'queued',
+      message: 'Evolution job queued for processing'
+    });
   }));
 
   // Get job status
@@ -171,26 +171,26 @@ export default function createRoutes(evolutionService) {
   router.post('/direct', asyncHandler(async (req, res) => {
     const startTime = Date.now();
     const { problemContext, evolutionConfig = {} } = req.body;
-    
+
     if (!problemContext) {
       throw new ValidationError('problemContext is required');
     }
 
     // Generate job ID
     const jobId = `direct-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-    
+
     // Initialize resultStore
     const resultStore = evolutionService.resultStore;
-    
+
     try {
       logger.info(`Starting direct job ${jobId}`);
-      
+
       // Import required services for direct execution
       const { LLMClient } = await import('../services/llmClient.js');
       const SingleIdeaEnricher = (await import('../services/singleIdeaEnricher.js')).default;
       const EnricherCacheStore = (await import('../services/enricherCacheStore.js')).default;
       const EvolutionarySolver = (await import('../core/evolutionarySolver.js')).default;
-      
+
       // Initialize services
       const llmClient = new LLMClient({
         model: evolutionConfig.model || 'o3',
@@ -198,7 +198,7 @@ export default function createRoutes(evolutionService) {
       });
       const cacheStore = new EnricherCacheStore(resultStore);
       const enricher = new SingleIdeaEnricher(llmClient, cacheStore);
-      
+
       // Create job record
       await resultStore.createJob(jobId, {
         problemContext,
@@ -217,13 +217,13 @@ export default function createRoutes(evolutionService) {
       // Initialize solver
       const solver = new EvolutionarySolver(resultStore, evolutionConfig);
       solver.progressTracker = { resultStore, jobId };
-      
+
       const results = [];
       let topPerformers = [];
-      
+
       // Process single generation for testing
       const generation = 1;
-      
+
       // Variator phase
       logger.info(`Processing variator for generation ${generation}`);
       const ideas = await solver.variator(
@@ -233,13 +233,13 @@ export default function createRoutes(evolutionService) {
         generation,
         jobId
       );
-      
+
       await resultStore.savePhaseResults(jobId, generation, 'variator', {
         ideas,
         variatorComplete: true,
         variatorCompletedAt: new Date()
       });
-      
+
       // Enricher phase - parallel processing
       logger.info(`Processing enricher for generation ${generation} with ${ideas.length} ideas`);
       const { enrichedIdeas, failedIdeas } = await enricher.enrichIdeasParallel(
@@ -250,7 +250,7 @@ export default function createRoutes(evolutionService) {
         evolutionConfig.enricherConcurrency || 5,
         resultStore
       );
-      
+
       await resultStore.savePhaseResults(jobId, generation, 'enricher', {
         enrichedIdeas,
         enricherComplete: true,
@@ -261,11 +261,11 @@ export default function createRoutes(evolutionService) {
           failed: failedIdeas.length
         }
       });
-      
+
       // Ranker phase
       logger.info(`Processing ranker for generation ${generation}`);
       const { rankedIdeas, topPerformers: newTopPerformers } = await solver.ranker(enrichedIdeas);
-      
+
       await resultStore.savePhaseResults(jobId, generation, 'ranker', {
         solutions: rankedIdeas,
         rankerComplete: true,
@@ -273,7 +273,7 @@ export default function createRoutes(evolutionService) {
         topScore: rankedIdeas[0]?.score || 0,
         avgScore: rankedIdeas.reduce((sum, idea) => sum + idea.score, 0) / rankedIdeas.length
       });
-      
+
       // Complete job
       await resultStore.completeJob(jobId, {
         topSolutions: rankedIdeas.slice(0, 10),
@@ -292,7 +292,7 @@ export default function createRoutes(evolutionService) {
           topScore: rankedIdeas[0]?.score || 0
         }
       });
-      
+
       res.json({
         jobId,
         status: 'completed',
@@ -304,12 +304,12 @@ export default function createRoutes(evolutionService) {
           failed: failedIdeas.length
         }
       });
-      
+
     } catch (error) {
       logger.error(`Direct job ${jobId} failed:`, error);
-      
+
       await resultStore.updateJobStatus(jobId, 'failed', error.message);
-      
+
       // Re-throw to let error handler handle it
       throw error;
     }

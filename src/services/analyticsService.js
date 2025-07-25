@@ -35,7 +35,7 @@ class AnalyticsService {
           breakdown: {
             variator: 0,
             enricher: 0,
-            ranker: 0,
+            ranker: 0
           }
         },
         tokenUsage: {
@@ -49,7 +49,7 @@ class AnalyticsService {
           byPhase: {
             variator: { input: 0, output: 0, reasoning: 0, cached: 0 },
             enricher: { input: 0, output: 0, reasoning: 0, cached: 0 },
-            ranker: { input: 0, output: 0, reasoning: 0, cached: 0 },
+            ranker: { input: 0, output: 0, reasoning: 0, cached: 0 }
           }
         },
         retries: {

@@ -1,13 +1,12 @@
 import { jest } from '@jest/globals';
+import { createMockLogger } from '../helpers/index.js';
 
 // Mock logger to capture errors
-const mockLogger = {
-  info: jest.fn(),
-  error: jest.fn((msg, error) => {
-    console.log('[MOCK LOGGER ERROR]', msg, error);
-  }),
-  warn: jest.fn()
-};
+const mockLogger = createMockLogger();
+// Override error to see logs during tests
+mockLogger.error = jest.fn((msg, error) => {
+  console.log('[MOCK LOGGER ERROR]', msg, error);
+});
 
 jest.unstable_mockModule('../../src/utils/logger.js', () => ({
   default: mockLogger

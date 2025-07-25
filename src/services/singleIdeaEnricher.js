@@ -20,23 +20,13 @@ class SingleIdeaEnricher {
       return this.cachedPrefixes.get(prefixKey);
     }
 
-    // Build preference guidance based on problem context
-    let preferenceGuidance = '';
-    const maxCapex = 100; // Default, could be extracted from problemContext
-    const minProfits = 0; // Default
-    
-    if (maxCapex < 100) {
-      preferenceGuidance += `\n\nPREFERRED APPROACH: When analyzing this idea, note that capital-efficient solutions under $${maxCapex}M initial investment are preferred. Consider creative ways to reduce upfront costs through partnerships, phased rollouts, or asset-light models.`;
-    }
-    if (minProfits > 0) {
-      preferenceGuidance += `\nTARGET RETURNS: The solution should ideally achieve 5-year NPV above $${minProfits}M. Look for high-impact, scalable opportunities.`;
-    }
+
 
     // Create the static prefix - this will be cached by OpenAI
     // Based on product spec section 4.2 Enricher Prompts
     const prefix = `You are a business strategist expert in financial modeling and deal structuring. Provide realistic, data-driven business cases.
 
-Problem context: ${problemContext}${preferenceGuidance}
+Problem context: ${problemContext}
 
 Required fields in business_case object (ALL monetary values in millions USD):
 - "npv_success": 5-year NPV if successful in $M
@@ -57,7 +47,7 @@ IMPORTANT: Return ONLY the raw JSON object.`;
    * Create a deterministic cache key for an idea
    */
   createIdeaCacheKey(idea) {
-    const ideaString = `${idea.idea_id}|${idea.description}|${idea.core_mechanism || ''}`;
+    const ideaString = `${idea.idea_id}}`;
     return crypto.createHash('md5').update(ideaString).digest('hex');
   }
 
@@ -156,7 +146,7 @@ IMPORTANT: Return ONLY the raw JSON object.`;
           logger.info(`[ENRICH DEBUG] Calling client.chat.completions.create...`);
           
           // Add timeout wrapper with better error handling
-          const timeoutMs = 60000; // 60 seconds for o3 model
+          const timeoutMs = 300000; // 300 seconds for o3 model
           const timeoutPromise = new Promise((_, reject) => {
             setTimeout(() => {
               const timeoutError = new Error(`API call timeout after ${timeoutMs/1000} seconds`);

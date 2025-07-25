@@ -54,11 +54,21 @@ const SERVICE_VERSION = process.env.K_REVISION || 'unknown';
 
 // Health check endpoints
 app.get('/', (req, res) => {
+  const fs = require('fs');
+  let versionInfo = 'unknown';
+  try {
+    versionInfo = fs.readFileSync('./version.txt', 'utf8').trim();
+  } catch (e) {
+    versionInfo = 'no-version-file';
+  }
+  
   res.json({ 
     status: 'healthy',
     service: 'evolution-worker',
     environment: ENVIRONMENT,
     version: SERVICE_VERSION,
+    deployment: versionInfo,
+    enricherMode: 'parallel-v2',
     uptime: process.uptime()
   });
 });
@@ -229,6 +239,14 @@ app.post('/process-variator', async (req, res) => {
 app.post('/process-enricher', async (req, res) => {
   const startTime = Date.now();
   const retryCount = req.headers['x-cloudtasks-taskretrycount'] || '0';
+  
+  // CRITICAL PATH MARKER
+  console.log('[ENRICHER ENDPOINT] Request received:', {
+    jobId: req.body.jobId,
+    generation: req.body.generation,
+    ideasCount: req.body.ideas?.length,
+    timestamp: new Date().toISOString()
+  });
   
   logger.info('Processing enricher task', {
     jobId: req.body.jobId,

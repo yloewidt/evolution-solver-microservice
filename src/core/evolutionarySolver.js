@@ -232,7 +232,8 @@ Requirements:
             phase: 'variator',
             generation: this.currentGeneration || 0,
             attempt: 1,  // Always 1 - no retries
-            prompt,
+            systemPrompt,
+            userPrompt,
             fullResponse: response,
             parsedResponse: newIdeas,
             usage: response.usage,

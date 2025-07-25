@@ -62,7 +62,20 @@ Analysis steps:
 4. Risk assessment across all dimensions
 5. NPV calculation using 10% discount rate
 
-You will return a JSON object with an "enriched_ideas" array containing exactly one enriched idea.`;
+Return a JSON object with the following structure:
+{
+  "idea_id": "<matching input idea_id>",
+  "title": "<matching input title>",
+  "description": "<matching input description>",
+  "business_case": {
+    "npv_success": <number in millions USD>,
+    "capex_est": <number in millions USD, min 0.05>,
+    "timeline_months": <integer>,
+    "likelihood": <number 0-1>,
+    "risk_factors": [<array of strings>],
+    "yearly_cashflows": [<array of 5 numbers in millions USD>]
+  }
+}`;
 
     // Cache the prefix for reuse
     this.cachedPrefixes.set(prefixKey, prefix);
@@ -83,6 +96,16 @@ You will return a JSON object with an "enriched_ideas" array containing exactly 
   async enrichSingleIdea(idea, problemContext, jobId, generation, resultStore = null) {
     const startTime = Date.now();
     const cacheKey = this.createIdeaCacheKey(idea);
+    
+    // DEBUG: Log every single idea enrichment
+    logger.info(`[DEBUG] enrichSingleIdea called for idea ${idea.idea_id} in job ${jobId}`);
+    logger.info(`[ENRICH ENTRY] Starting enrichment:`, {
+      ideaId: idea.idea_id,
+      jobId: jobId,
+      generation: generation,
+      hasResultStore: !!resultStore,
+      timestamp: new Date().toISOString()
+    });
     
     // Check cache first
     if (this.cacheStore) {
@@ -108,12 +131,25 @@ You will return a JSON object with an "enriched_ideas" array containing exactly 
       logger.info(`Enriching single idea: ${idea.idea_id}`);
       
       // Make API call using the llmClient
+      if (!this.llmClient) {
+        logger.error('[ENRICH DEBUG] LLMClient is null!');
+        throw new Error('LLMClient not initialized');
+      }
+      
       const apiStyle = this.llmClient.getApiStyle();
+      logger.info(`[ENRICH DEBUG] API style: ${apiStyle}, model: ${this.llmClient.config.model}`);
+      logger.info(`[ENRICH DEBUG] LLMClient details:`, {
+        hasClient: !!this.llmClient.client,
+        clientType: this.llmClient.client?.constructor?.name,
+        model: this.llmClient.config?.model,
+        apiStyle: apiStyle
+      });
       let response;
       
       if (apiStyle === 'openai') {
         // OpenAI style call with structured output
-        response = await this.llmClient.client.chat.completions.create({
+        logger.info(`[ENRICH DEBUG] Making OpenAI API call for idea ${idea.idea_id}`);
+        const apiRequest = {
           model: this.llmClient.config.model,
           messages: [
             {
@@ -125,9 +161,61 @@ You will return a JSON object with an "enriched_ideas" array containing exactly 
               content: userPrompt
             }
           ],
-          temperature: this.llmClient.config.model === 'o3' ? 1 : 0.7,
-          response_format: SingleIdeaEnricherResponseSchema // Use single idea schema
+          temperature: this.llmClient.config.model === 'o3' ? 1 : 0.7
+          // TEMPORARILY DISABLED for debugging
+          // response_format: SingleIdeaEnricherResponseSchema // Use single idea schema
+        };
+        
+        logger.info(`[ENRICH DEBUG] API request prepared, calling OpenAI...`);
+        logger.info(`[ENRICH DEBUG] Request details:`, {
+          model: apiRequest.model,
+          messageCount: apiRequest.messages.length,
+          temperature: apiRequest.temperature,
+          hasResponseFormat: !!apiRequest.response_format,
+          responseFormatName: apiRequest.response_format?.json_schema?.name
         });
+        
+        try {
+          logger.info(`[ENRICH DEBUG] About to make OpenAI API call...`);
+          const apiStartTime = Date.now();
+          
+          if (!this.llmClient.client) {
+            throw new Error('LLMClient.client is null');
+          }
+          
+          logger.info(`[ENRICH DEBUG] Calling client.chat.completions.create...`);
+          
+          // Add timeout wrapper
+          const timeoutPromise = new Promise((_, reject) => {
+            setTimeout(() => reject(new Error('API call timeout after 30 seconds')), 30000);
+          });
+          
+          const apiCallPromise = this.llmClient.client.chat.completions.create(apiRequest);
+          
+          response = await Promise.race([apiCallPromise, timeoutPromise]).catch(error => {
+            logger.error(`[ENRICH DEBUG] Promise.race failed:`, error);
+            throw error;
+          });
+          
+          const apiDuration = Date.now() - apiStartTime;
+          logger.info(`[ENRICH DEBUG] API call completed for idea ${idea.idea_id} in ${apiDuration}ms`);
+          logger.info(`[ENRICH DEBUG] Response received:`, {
+            hasResponse: !!response,
+            hasChoices: !!response?.choices,
+            hasUsage: !!response?.usage
+          });
+        } catch (apiError) {
+          logger.error(`[ENRICH DEBUG] API call failed for idea ${idea.idea_id}:`, apiError);
+          logger.error(`[ENRICH DEBUG] Error details:`, {
+            name: apiError.name,
+            message: apiError.message,
+            status: apiError.status,
+            code: apiError.code,
+            type: apiError.type,
+            stack: apiError.stack?.substring(0, 500)
+          });
+          throw apiError;
+        }
       } else {
         // Anthropic style call (for o3)
         response = await this.llmClient.client.chat.completions.create({
@@ -139,7 +227,7 @@ You will return a JSON object with an "enriched_ideas" array containing exactly 
             },
             {
               role: 'user',
-              content: [{ type: 'input_text', text: prompt }]
+              content: [{ type: 'input_text', text: userPrompt }]
             }
           ],
           text: { format: { type: 'text' } },
@@ -150,7 +238,24 @@ You will return a JSON object with an "enriched_ideas" array containing exactly 
       }
 
       // Parse the response
+      logger.info(`[ENRICH DEBUG] Parsing response for idea ${idea.idea_id}`);
+      logger.info(`[ENRICH DEBUG] Response structure:`, {
+        hasChoices: !!response?.choices,
+        choicesLength: response?.choices?.length,
+        hasMessage: !!response?.choices?.[0]?.message,
+        hasContent: !!response?.choices?.[0]?.message?.content,
+        contentLength: response?.choices?.[0]?.message?.content?.length,
+        hasUsage: !!response?.usage,
+        usage: response?.usage
+      });
+      
       const enrichedIdea = this.parseEnricherResponse(response, idea);
+      logger.info(`[ENRICH DEBUG] Successfully parsed response for idea ${idea.idea_id}`);
+      logger.info(`[ENRICH DEBUG] Enriched idea details:`, {
+        hasBusinessCase: !!enrichedIdea?.business_case,
+        hasNPV: enrichedIdea?.business_case?.npv_success !== undefined,
+        npvValue: enrichedIdea?.business_case?.npv_success
+      });
       
       // Save to cache
       if (this.cacheStore && enrichedIdea) {
@@ -190,10 +295,19 @@ You will return a JSON object with an "enriched_ideas" array containing exactly 
         }
       }
 
+      logger.info(`[ENRICH SUCCESS] Completed enrichment for idea ${idea.idea_id} in ${Date.now() - startTime}ms`);
       return enrichedIdea;
 
     } catch (error) {
-      logger.error(`Failed to enrich idea ${idea.idea_id}:`, error);
+      const duration = Date.now() - startTime;
+      logger.error(`[ENRICH DEBUG] Failed to enrich idea ${idea.idea_id} after ${duration}ms:`, error);
+      logger.error(`[ENRICH DEBUG] Full error details:`, {
+        name: error.name,
+        message: error.message,
+        stack: error.stack?.substring(0, 1000),
+        ideaId: idea.idea_id,
+        duration: duration
+      });
       throw new Error(`Enrichment failed for idea ${idea.idea_id}: ${error.message}`);
     }
   }
@@ -257,10 +371,8 @@ You will return a JSON object with an "enriched_ideas" array containing exactly 
    * Enrich multiple ideas in parallel
    */
   async enrichIdeasParallel(ideas, problemContext, jobId, generation, maxConcurrency = 5, resultStore = null) {
-    logger.info(`Enriching ${ideas.length} ideas in parallel (max concurrency: ${maxConcurrency})`);
-    
-    // TEMPORARY: Force error to verify new code is running
-    throw new Error('PARALLEL_ENRICHMENT_TEST: This error confirms the new code is deployed');
+    logger.info(`[CRITICAL DEBUG] SingleIdeaEnricher.enrichIdeasParallel called with ${ideas.length} ideas (max concurrency: ${maxConcurrency})`);
+    logger.info(`[CRITICAL DEBUG] Job: ${jobId}, Generation: ${generation}`);
     
     const results = [];
     const errors = [];
@@ -272,12 +384,14 @@ You will return a JSON object with an "enriched_ideas" array containing exactly 
       
       const batchPromises = batch.map(async (idea) => {
         try {
-          logger.info(`Starting enrichment for idea ${idea.idea_id}`);
+          const startTime = Date.now();
+          logger.info(`[PARALLEL] Starting enrichment for idea ${idea.idea_id} at ${new Date().toISOString()}`);
           const enriched = await this.enrichSingleIdea(idea, problemContext, jobId, generation, resultStore);
-          logger.info(`Completed enrichment for idea ${idea.idea_id}`);
+          const duration = Date.now() - startTime;
+          logger.info(`[PARALLEL] Completed enrichment for idea ${idea.idea_id} in ${duration}ms`);
           return { success: true, idea: enriched };
         } catch (error) {
-          logger.error(`Failed to enrich idea ${idea.idea_id}:`, error);
+          logger.error(`[PARALLEL] Failed to enrich idea ${idea.idea_id}:`, error);
           return { success: false, idea, error: error.message };
         }
       });

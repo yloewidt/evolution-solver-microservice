@@ -66,7 +66,13 @@ export async function processVariator({ jobId, generation, problemContext, topPe
 
 export async function processEnricher({ jobId, generation, ideas, problemContext, evolutionConfig }, resultStore) {
   try {
-    logger.info(`Starting enricher for job ${jobId}, generation ${generation} with ${ideas.length} ideas`);
+    // Multiple logging approaches to ensure visibility
+    console.error(`[TRACE-ENRICHER] processEnricher V2 called for job ${jobId}`);
+    process.stdout.write(`[STDOUT-TRACE] Enricher V2: ${jobId} gen:${generation} ideas:${ideas?.length}\n`);
+    logger.error(`[LOGGER-ERROR-TRACE] processEnricher V2 called - jobId: ${jobId}, generation: ${generation}, ideas: ${ideas?.length}`);
+    
+    logger.info(`[WORKER V2] processEnricher called for job ${jobId}, generation ${generation} with ${ideas.length} ideas`);
+    logger.info(`[WORKER V2] Using SingleIdeaEnricher with parallel processing`);
     
     // Check if already complete
     const currentGen = await resultStore.getJobStatus(jobId);
@@ -89,6 +95,17 @@ export async function processEnricher({ jobId, generation, ideas, problemContext
     
     // Process ideas in parallel with max concurrency
     const maxConcurrency = evolutionConfig.enricherConcurrency || 25;
+    
+    // CRITICAL PATH MARKER
+    console.log('[BEFORE PARALLEL ENRICHMENT]', {
+      jobId,
+      generation,
+      ideasCount: ideas.length,
+      maxConcurrency,
+      enricherClass: enricher.constructor.name,
+      timestamp: new Date().toISOString()
+    });
+    
     const { enrichedIdeas, failedIdeas } = await enricher.enrichIdeasParallel(
       ideas,
       problemContext,

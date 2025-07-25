@@ -218,6 +218,17 @@ export class LLMClient {
     try {
       const parsed = JSON.parse(content);
       logger.info(`${context}: Direct JSON parsing successful`);
+      
+      // Handle structured outputs in fallback path too
+      if (parsed.ideas) {
+        logger.info(`${context}: Structured output - extracted ${parsed.ideas.length} ideas (fallback path)`);
+        return parsed.ideas;
+      }
+      if (parsed.enriched_ideas) {
+        logger.info(`${context}: Structured output - extracted ${parsed.enriched_ideas.length} enriched ideas (fallback path)`);
+        return parsed.enriched_ideas;
+      }
+      
       return Array.isArray(parsed) ? parsed : [parsed];
     } catch (e) {
       logger.info(`${context}: Direct parsing failed, trying cleanup`);

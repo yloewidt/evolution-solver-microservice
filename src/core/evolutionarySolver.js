@@ -1,5 +1,4 @@
 import logger from '../utils/logger.js';
-import Parser from '../utils/parser.js';
 import { LLMClient } from '../services/llmClient.js';
 import Joi from 'joi';
 
@@ -182,7 +181,7 @@ Requirements:
       logger.info(`VARIATOR API CALL #${this.apiCallCounts.variator} (Total: ${this.apiCallCounts.total})`);
 
       const response = await this.retryLLMCall(
-        () => this.llmClient.client.chat.completions.create(apiCall),
+        () => this.llmClient.executeRequest(apiCall),
         'variator',
         generation,
         jobId
@@ -205,10 +204,8 @@ Requirements:
         fullResponse: JSON.stringify(response)  // Full response for replay
       });
 
-      // Parse response based on API style
-      const newIdeas = this.llmClient.getApiStyle() === 'openai'
-        ? Parser.parseOpenAIResponse(response, 'variator')
-        : Parser.parseVariatorResponse(response);
+      // Use LLMClient's built-in parsing that handles structured outputs
+      const newIdeas = await this.llmClient.parseResponse(response, 'variator');
 
       // Track API call telemetry
       if (this.progressTracker?.resultStore && this.progressTracker?.jobId && response) {

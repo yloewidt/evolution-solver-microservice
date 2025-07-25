@@ -33,49 +33,20 @@ class SingleIdeaEnricher {
     }
 
     // Create the static prefix - this will be cached by OpenAI
+    // Based on product spec section 4.2 Enricher Prompts
     const prefix = `You are a business strategist expert in financial modeling and deal structuring. Provide realistic, data-driven business cases.
 
-PROBLEM CONTEXT:
-${problemContext}${preferenceGuidance}
-
-INSTRUCTIONS:
-Analyze the provided business idea and calculate key metrics:
+Problem context: ${problemContext}${preferenceGuidance}
 
 Required fields in business_case object (ALL monetary values in millions USD):
-- "npv_success": 5-year NPV if successful in $M (discounted at 10% annually)
-- "capex_est": Initial capital required in $M (e.g., 0.075 = $75K)
+- "npv_success": 5-year NPV if successful in $M
+- "capex_est": Initial capital required in $M
 - "timeline_months": Time to first revenue
 - "likelihood": Success probability (0-1)
-- "risk_factors": Array of key risks (technical, market, regulatory, execution)
+- "risk_factors": Array of key risks
 - "yearly_cashflows": Array of 5 yearly cash flows in $M
 
-IMPORTANT: All monetary values must be in millions. Examples:
-- $50K = 0.05
-- $100K = 0.1
-- $1M = 1.0
-- $50M = 50.0
-
-Analysis steps:
-1. Market size and growth potential
-2. Revenue projections by year (in $M)
-3. Cost structure and capital requirements (in $M)
-4. Risk assessment across all dimensions
-5. NPV calculation using 10% discount rate
-
-Return a JSON object with the following structure:
-{
-  "idea_id": "<matching input idea_id>",
-  "title": "<matching input title>",
-  "description": "<matching input description>",
-  "business_case": {
-    "npv_success": <number in millions USD>,
-    "capex_est": <number in millions USD, min 0.05>,
-    "timeline_months": <integer>,
-    "likelihood": <number 0-1>,
-    "risk_factors": [<array of strings>],
-    "yearly_cashflows": [<array of 5 numbers in millions USD>]
-  }
-}`;
+IMPORTANT: Return ONLY the raw JSON object.`;
 
     // Cache the prefix for reuse
     this.cachedPrefixes.set(prefixKey, prefix);
@@ -124,8 +95,8 @@ Return a JSON object with the following structure:
     // Create the enricher prefix (will be cached by OpenAI) as system prompt
     const systemPrompt = this.createEnricherPrefix(problemContext);
     
-    // User prompt is just the idea to analyze
-    const userPrompt = `Analyze this idea:\n${JSON.stringify(idea, null, 2)}`;
+    // User prompt per spec section 4.2
+    const userPrompt = `Ideas to analyze:\n${JSON.stringify(idea, null, 2)}`;
 
     try {
       logger.info(`Enriching single idea: ${idea.idea_id}`);
@@ -162,9 +133,12 @@ Return a JSON object with the following structure:
             }
           ],
           temperature: this.llmClient.config.model === 'o3' ? 1 : 0.7
-          // TEMPORARILY DISABLED for debugging
-          // response_format: SingleIdeaEnricherResponseSchema // Use single idea schema
         };
+        
+        // Only add response_format for non-o3 models
+        if (this.llmClient.config.model !== 'o3') {
+          apiRequest.response_format = SingleIdeaEnricherResponseSchema;
+        }
         
         logger.info(`[ENRICH DEBUG] API request prepared, calling OpenAI...`);
         logger.info(`[ENRICH DEBUG] Request details:`, {
@@ -185,17 +159,27 @@ Return a JSON object with the following structure:
           
           logger.info(`[ENRICH DEBUG] Calling client.chat.completions.create...`);
           
-          // Add timeout wrapper
+          // Add timeout wrapper with better error handling
+          const timeoutMs = 60000; // 60 seconds for o3 model
           const timeoutPromise = new Promise((_, reject) => {
-            setTimeout(() => reject(new Error('API call timeout after 30 seconds')), 30000);
+            setTimeout(() => {
+              const timeoutError = new Error(`API call timeout after ${timeoutMs/1000} seconds`);
+              timeoutError.code = 'TIMEOUT';
+              reject(timeoutError);
+            }, timeoutMs);
           });
           
           const apiCallPromise = this.llmClient.client.chat.completions.create(apiRequest);
           
-          response = await Promise.race([apiCallPromise, timeoutPromise]).catch(error => {
+          try {
+            response = await Promise.race([apiCallPromise, timeoutPromise]);
+          } catch (error) {
+            if (error.code === 'TIMEOUT') {
+              logger.error(`[ENRICH TIMEOUT] API call timed out for idea ${idea.idea_id} after ${timeoutMs/1000}s`);
+            }
             logger.error(`[ENRICH DEBUG] Promise.race failed:`, error);
             throw error;
-          });
+          }
           
           const apiDuration = Date.now() - apiStartTime;
           logger.info(`[ENRICH DEBUG] API call completed for idea ${idea.idea_id} in ${apiDuration}ms`);
@@ -217,24 +201,9 @@ Return a JSON object with the following structure:
           throw apiError;
         }
       } else {
-        // Anthropic style call (for o3)
-        response = await this.llmClient.client.chat.completions.create({
-          model: this.llmClient.config.model,
-          input: [
-            {
-              role: 'developer',
-              content: [{ type: 'input_text', text: 'You are a business strategist expert in financial modeling and deal structuring.' }]
-            },
-            {
-              role: 'user',
-              content: [{ type: 'input_text', text: userPrompt }]
-            }
-          ],
-          text: { format: { type: 'text' } },
-          reasoning: { effort: 'high' },
-          stream: false,
-          store: true
-        });
+        // This branch should not be reached since we're using OpenAI API for all models
+        logger.error('[ENRICH DEBUG] Unexpected API style - not openai');
+        throw new Error('Unsupported API style: ' + apiStyle);
       }
 
       // Parse the response

@@ -1,6 +1,6 @@
 import logger from '../utils/logger.js';
 import crypto from 'crypto';
-import { EnricherResponseSchema } from '../schemas/structuredSchemas.js';
+import { SingleIdeaEnricherResponseSchema } from '../schemas/structuredSchemas.js';
 
 class SingleIdeaEnricher {
   constructor(llmClient, cacheStore = null) {
@@ -126,7 +126,7 @@ You will return a JSON object with an "enriched_ideas" array containing exactly 
             }
           ],
           temperature: this.llmClient.config.model === 'o3' ? 1 : 0.7,
-          response_format: EnricherResponseSchema // Use structured output
+          response_format: SingleIdeaEnricherResponseSchema // Use single idea schema
         });
       } else {
         // Anthropic style call (for o3)
@@ -219,13 +219,8 @@ You will return a JSON object with an "enriched_ideas" array containing exactly 
         throw new Error('Unexpected response structure');
       }
 
-      // Handle structured output format (enriched_ideas array)
-      let enrichedIdea;
-      if (parsedResponse.enriched_ideas && Array.isArray(parsedResponse.enriched_ideas)) {
-        enrichedIdea = parsedResponse.enriched_ideas[0];
-      } else {
-        enrichedIdea = parsedResponse;
-      }
+      // Response is now a single enriched idea (not an array)
+      let enrichedIdea = parsedResponse;
 
       // Ensure we have the title field from original idea if not in response
       if (!enrichedIdea.title && originalIdea.title) {
@@ -270,10 +265,13 @@ You will return a JSON object with an "enriched_ideas" array containing exactly 
     // Process in batches to avoid overwhelming the API
     for (let i = 0; i < ideas.length; i += maxConcurrency) {
       const batch = ideas.slice(i, i + maxConcurrency);
+      logger.info(`Processing batch of ${batch.length} ideas (batch ${Math.floor(i/maxConcurrency) + 1})`);
       
       const batchPromises = batch.map(async (idea) => {
         try {
+          logger.info(`Starting enrichment for idea ${idea.idea_id}`);
           const enriched = await this.enrichSingleIdea(idea, problemContext, jobId, generation, resultStore);
+          logger.info(`Completed enrichment for idea ${idea.idea_id}`);
           return { success: true, idea: enriched };
         } catch (error) {
           logger.error(`Failed to enrich idea ${idea.idea_id}:`, error);
@@ -281,7 +279,9 @@ You will return a JSON object with an "enriched_ideas" array containing exactly 
         }
       });
 
+      logger.info(`Waiting for ${batchPromises.length} parallel API calls to complete...`);
       const batchResults = await Promise.all(batchPromises);
+      logger.info(`Batch complete: ${batchResults.filter(r => r.success).length} successful, ${batchResults.filter(r => !r.success).length} failed`);
       
       batchResults.forEach(result => {
         if (result.success) {

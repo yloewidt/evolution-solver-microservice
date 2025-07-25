@@ -259,6 +259,9 @@ You will return a JSON object with an "enriched_ideas" array containing exactly 
   async enrichIdeasParallel(ideas, problemContext, jobId, generation, maxConcurrency = 5, resultStore = null) {
     logger.info(`Enriching ${ideas.length} ideas in parallel (max concurrency: ${maxConcurrency})`);
     
+    // TEMPORARY: Force error to verify new code is running
+    throw new Error('PARALLEL_ENRICHMENT_TEST: This error confirms the new code is deployed');
+    
     const results = [];
     const errors = [];
     

@@ -132,13 +132,9 @@ IMPORTANT: Return ONLY the raw JSON object.`;
               content: userPrompt
             }
           ],
-          temperature: this.llmClient.config.model === 'o3' ? 1 : 0.7
+          temperature: this.llmClient.config.model === 'o3' ? 1 : 0.7,
+          response_format: SingleIdeaEnricherResponseSchema // Re-enabled structured output
         };
-        
-        // Only add response_format for non-o3 models
-        if (this.llmClient.config.model !== 'o3') {
-          apiRequest.response_format = SingleIdeaEnricherResponseSchema;
-        }
         
         logger.info(`[ENRICH DEBUG] API request prepared, calling OpenAI...`);
         logger.info(`[ENRICH DEBUG] Request details:`, {

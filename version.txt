@@ -1,6 +1,6 @@
-DEPLOYMENT_VERSION=spec-aligned-v1
-DEPLOYMENT_TIME=2025-07-25T05:35:00Z
-ENRICHER_MODE=parallel-spec-compliant
+DEPLOYMENT_VERSION=structured-output-v2
+DEPLOYMENT_TIME=2025-07-25T05:45:00Z
+ENRICHER_MODE=parallel-with-structured-output
 DEBUG_ENABLED=true
 PATH_MARKERS=enabled
-FIX=aligned-with-product-spec
+FIX=re-enabled-structured-output

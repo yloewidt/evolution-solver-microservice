@@ -41,7 +41,7 @@ echo "Worker URL: ${WORKER_URL}"
 # Deploy workflow
 echo -e "${YELLOW}Deploying workflow...${NC}"
 PATH="/Users/yonatanloewidt/google-cloud-sdk/bin:$PATH" gcloud workflows deploy ${WORKFLOW_NAME}-${ENVIRONMENT} \
-    --source=workflows/evolution-job-v2.yaml \
+    --source=workflows/evolution-job.yaml \
     --location=${LOCATION} \
     --project=${PROJECT_ID} \
     --service-account=${SERVICE_ACCOUNT} \

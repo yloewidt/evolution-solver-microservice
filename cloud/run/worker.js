@@ -1,7 +1,7 @@
 import express from 'express';
 import dotenv from 'dotenv';
 import EvolutionResultStore from '../firestore/resultStore.js';
-import { processVariator, processEnricher, processRanker } from './workerHandlersV2.js';
+import { processVariator, processEnricher, processRanker } from './workerHandlers.js';
 import logger from '../../src/utils/logger.js';
 import os from 'os';
 

@@ -313,7 +313,7 @@ Requirements:
     }
   }
 
-  // Enricher method removed - now handled by distributed processing in workerHandlersV2.js
+  // Enricher method removed - now handled by distributed processing in workerHandlers.js
 
   async ranker(enrichedIdeas) {
     // Get config parameters (all in millions USD)

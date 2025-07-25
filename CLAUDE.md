@@ -85,7 +85,7 @@ Required environment variables (see `.env.example`):
 ## Key Integration Points
 
 1. **OpenAI o3 Model**: The service uses the o3 model via OpenAI SDK. Model calls are made in `src/services/llmClient.js`
-2. **Cloud Tasks**: Jobs are enqueued with specific URL patterns handled by `cloud/run/workerHandlersV2.js`
+2. **Cloud Tasks**: Jobs are enqueued with specific URL patterns handled by `cloud/run/workerHandlers.js`
 3. **Firestore**: Results are stored in the collection specified by `FIRESTORE_COLLECTION` env var
 4. **Cloud Workflows**: Optional integration for orchestrating complex evolution pipelines
 
@@ -124,7 +124,7 @@ Required environment variables (see `.env.example`):
 3. **Making Changes**:
    - Core algorithm changes: `src/core/evolutionarySolver.js`
    - API changes: `src/api/routes.js`
-   - Worker logic: `cloud/run/workerHandlers.js` or `cloud/run/workerHandlersV2.js`
+   - Worker logic: `cloud/run/workerHandlers.js`
    - Always run tests after changes: `npm test`
 
 4. **Adding New Features**:

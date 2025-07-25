@@ -94,7 +94,8 @@ export async function processEnricher({ jobId, generation, ideas, problemContext
       problemContext,
       jobId,
       generation,
-      maxConcurrency
+      maxConcurrency,
+      resultStore  // Pass resultStore for telemetry tracking
     );
     
     // Check if we have enough successful enrichments

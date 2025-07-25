@@ -80,7 +80,7 @@ You will return a JSON object with an "enriched_ideas" array containing exactly 
   /**
    * Enrich a single idea with caching support
    */
-  async enrichSingleIdea(idea, problemContext, jobId, generation) {
+  async enrichSingleIdea(idea, problemContext, jobId, generation, resultStore = null) {
     const startTime = Date.now();
     const cacheKey = this.createIdeaCacheKey(idea);
     
@@ -170,6 +170,26 @@ You will return a JSON object with an "enriched_ideas" array containing exactly 
         cachedTokens: response.usage?.prompt_tokens_details?.cached_tokens || 0
       });
 
+      // Track API call telemetry if resultStore is provided
+      if (resultStore && resultStore.addApiCallTelemetry) {
+        try {
+          const telemetry = {
+            timestamp: new Date().toISOString(),
+            phase: 'enricher',
+            generation: generation,
+            model: this.llmClient.config.model || 'o3',
+            attempt: 1,
+            latencyMs: duration,
+            tokens: response.usage || { prompt_tokens: 0, completion_tokens: 0 },
+            success: true,
+            ideaId: idea.idea_id  // Track which idea this was for
+          };
+          await resultStore.addApiCallTelemetry(jobId, telemetry);
+        } catch (error) {
+          logger.warn('Failed to track API call telemetry:', error);
+        }
+      }
+
       return enrichedIdea;
 
     } catch (error) {
@@ -241,7 +261,7 @@ You will return a JSON object with an "enriched_ideas" array containing exactly 
   /**
    * Enrich multiple ideas in parallel
    */
-  async enrichIdeasParallel(ideas, problemContext, jobId, generation, maxConcurrency = 5) {
+  async enrichIdeasParallel(ideas, problemContext, jobId, generation, maxConcurrency = 5, resultStore = null) {
     logger.info(`Enriching ${ideas.length} ideas in parallel (max concurrency: ${maxConcurrency})`);
     
     const results = [];
@@ -253,7 +273,7 @@ You will return a JSON object with an "enriched_ideas" array containing exactly 
       
       const batchPromises = batch.map(async (idea) => {
         try {
-          const enriched = await this.enrichSingleIdea(idea, problemContext, jobId, generation);
+          const enriched = await this.enrichSingleIdea(idea, problemContext, jobId, generation, resultStore);
           return { success: true, idea: enriched };
         } catch (error) {
           logger.error(`Failed to enrich idea ${idea.idea_id}:`, error);

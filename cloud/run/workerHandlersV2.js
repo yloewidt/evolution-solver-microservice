@@ -187,7 +187,8 @@ export async function processRanker({ jobId, generation, enrichedIdeas, evolutio
     solver.currentGeneration = generation;
     
     // Rank the ideas
-    const { rankedIdeas, filteredIdeas } = await solver.ranker(enrichedIdeas);
+    const rankerResult = await solver.ranker(enrichedIdeas);
+    const { rankedIdeas, filteredIdeas, topPerformers } = rankerResult;
     
     // Calculate generation statistics
     const topScore = rankedIdeas.length > 0 ? rankedIdeas[0].score : 0;
@@ -213,7 +214,7 @@ export async function processRanker({ jobId, generation, enrichedIdeas, evolutio
       success: true, 
       message: `Ranked ${rankedIdeas.length} ideas`,
       rankedIdeas,
-      topPerformers: rankerResult.topPerformers,
+      topPerformers,
       topScore,
       avgScore
     };

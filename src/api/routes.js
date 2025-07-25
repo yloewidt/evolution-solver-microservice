@@ -12,9 +12,9 @@ export default function createRoutes(evolutionService) {
   // Submit new evolution job
   router.post('/jobs', async (req, res) => {
     try {
-      // Support both 'parameters' and 'params' for backward compatibility
-      const { problemContext, parameters, params } = req.body;
-      const evolutionParams = parameters || params || {};
+      // Support both 'parameters', 'params', and 'evolutionConfig' for backward compatibility
+      const { problemContext, parameters, params, evolutionConfig: bodyEvolutionConfig } = req.body;
+      const evolutionParams = bodyEvolutionConfig || parameters || params || {};
 
       logger.info('Received evolution parameters:', evolutionParams);
 

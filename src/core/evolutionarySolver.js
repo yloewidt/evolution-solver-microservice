@@ -121,7 +121,7 @@ Problem to solve: ${problemContext}${guidanceText}
 Focus on ${dealTypes}
 
 Generate ${numNeeded} new solutions:
-${currentSolutions.length > 0 ? `- ${offspringCount} OFFSPRING: Combine and evolve the top performers' best features
+${currentSolutions.length > 0 ? `- ${offspringCount} OFFSPRING: Evolve the top performers' best features OR find creative ways to lower direct CAPEX(getting a non-investor to bear costs, or lower costs in general), Greatly reduce risk factors of the solution, or increase NPV of the solution.
 - ${wildcardCount} WILDCARDS: Completely fresh approaches` : `- ${numNeeded} WILDCARDS: All new creative solutions`}
 
 Each solution must have:

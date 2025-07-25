@@ -57,7 +57,7 @@ app.get('/', (req, res) => {
   const fs = require('fs');
   let versionInfo = 'unknown';
   try {
-    versionInfo = fs.readFileSync('./version.txt', 'utf8').trim();
+    versionInfo = fs.readFileSync('./scripts/version.txt', 'utf8').trim();
   } catch (e) {
     versionInfo = 'no-version-file';
   }

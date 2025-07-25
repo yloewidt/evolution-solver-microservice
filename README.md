@@ -2,6 +2,13 @@
 
 A standalone microservice for running evolutionary algorithms to generate innovative business solutions using OpenAI's o3 model.
 
+## Production Status ✅
+
+- **Parallel Enrichment**: Working - Each idea gets its own API call
+- **o3 Model Integration**: Functional with structured output
+- **Full Pipeline**: Variator → Enricher (parallel) → Ranker operational
+- **Performance**: ~12-15 seconds per idea enrichment with o3 model
+
 **Repository**: https://github.com/yloewidt/evolution-solver-microservice
 
 ## Features
@@ -34,11 +41,24 @@ A standalone microservice for running evolutionary algorithms to generate innova
 POST /api/evolution/jobs
 {
   "problemContext": "string",
-  "parameters": {
+  "evolutionConfig": {
     "generations": 10,
     "populationSize": 5,
-    "maxCapex": 50000,
-    "targetROI": 10
+    "model": "o3",
+    "maxCapex": 50,
+    "minProfits": 10
+  }
+}
+```
+
+### Direct Job Processing (Bypasses Workflow)
+```
+POST /api/evolution/direct
+{
+  "problemContext": "string",
+  "evolutionConfig": {
+    "populationSize": 3,
+    "model": "o3"
   }
 }
 ```

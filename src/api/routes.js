@@ -16,7 +16,8 @@ export default function createRoutes(evolutionService) {
       const { problemContext, parameters, params, evolutionConfig: bodyEvolutionConfig } = req.body;
       const evolutionParams = bodyEvolutionConfig || parameters || params || {};
 
-      logger.info('Received evolution parameters:', evolutionParams);
+      logger.info('Request body:', JSON.stringify(req.body));
+      logger.info('Received evolution parameters:', JSON.stringify(evolutionParams));
 
       if (!problemContext) {
         return res.status(400).json({ error: 'Problem context is required' });

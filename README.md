@@ -2,6 +2,17 @@
 
 A standalone microservice for running evolutionary algorithms to generate innovative business solutions using OpenAI's o3 model.
 
+## What Does This Do?
+
+This service acts like a creative business consultant that generates and evolves innovative business ideas. Give it a business problem (like "how to reduce food waste in restaurants"), and it will:
+
+1. **Generate** multiple creative business solutions (like partnerships, new revenue models, or innovative services)
+2. **Enrich** each idea with detailed business analysis including financial projections, implementation steps, and risk assessment
+3. **Rank** all ideas based on their potential return on investment, feasibility, and capital requirements
+4. **Evolve** the best ideas over multiple generations, combining successful elements to create even better solutions
+
+Think of it as "natural selection for business ideas" - the service starts with random creative solutions, evaluates their potential, and then creates new generations by combining the best traits of successful ideas. After several generations, you get highly optimized, practical business solutions tailored to your specific problem.
+
 ## Production Status ✅
 
 - **Parallel Enrichment**: Working - Each idea gets its own API call

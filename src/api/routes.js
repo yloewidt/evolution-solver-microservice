@@ -44,7 +44,8 @@ export default function createRoutes(evolutionService) {
         maxCapex: evolutionParams?.maxCapex || 100000,  // Default $100B in millions (effectively no limit)
         topPerformerRatio: evolutionParams?.topPerformerRatio || 0.3,
         offspringRatio: evolutionParams?.offspringRatio || 0.7,
-        diversificationFactor: evolutionParams?.diversificationFactor || 0.05  // Default $50K in millions
+        diversificationFactor: evolutionParams?.diversificationFactor || 0.05,  // Default $50K in millions
+        model: evolutionParams?.model || 'o3'  // Default to o3 model
       };
 
       // Only add optional parameters if they are defined
@@ -53,10 +54,6 @@ export default function createRoutes(evolutionService) {
       }
       if (evolutionParams?.minProfits !== undefined) {
         evolutionConfig.minProfits = evolutionParams.minProfits;
-      }
-      if (evolutionParams?.model !== undefined) {
-        evolutionConfig.model = evolutionParams.model;
-        logger.info(`Model set in evolutionConfig: ${evolutionConfig.model}`);
       }
       if (evolutionParams?.fallbackModel !== undefined) {
         evolutionConfig.fallbackModel = evolutionParams.fallbackModel;

@@ -1,7 +1,6 @@
 import express from 'express';
 import dotenv from 'dotenv';
 import EvolutionResultStore from '../firestore/resultStore.js';
-import CloudTaskHandler from '../tasks/taskHandler.js';
 import { processVariator, processEnricher, processRanker } from './workerHandlersV2.js';
 import logger from '../../src/utils/logger.js';
 import os from 'os';

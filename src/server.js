@@ -5,7 +5,6 @@ import EvolutionService from './services/evolutionService.js';
 import EvolutionResultStore from '../cloud/firestore/resultStore.js';
 
 import createRoutes from './api/routes.js';
-import directJobRouter from './api/directJobRoute.js';
 import logger from './utils/logger.js';
 
 dotenv.config();
@@ -121,7 +120,7 @@ const apiRouter = createRoutes(evolutionService);
 app.use('/api/evolution', apiRouter);
 
 // Direct job processing route (bypasses workflow)
-app.use('/api/evolution', directJobRouter);
+// Direct job route now integrated into main routes
 
 // Error handling
 app.use((err, req, res, _next) => {

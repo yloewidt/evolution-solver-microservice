@@ -80,7 +80,8 @@ app.get('/', (req, res) => {
     endpoints: {
       api: '/api/evolution',
       health: '/health',
-      ready: '/ready'
+      ready: '/ready',
+      version: '/version'
     }
   });
 });
@@ -112,6 +113,49 @@ app.get('/ready', async (req, res) => {
     res.status(503).json({
       status: 'not ready',
       error: error.message
+    });
+  }
+});
+
+app.get('/version', async (req, res) => {
+  try {
+    const { execSync } = await import('child_process');
+    
+    // Get git commit hash
+    let commitHash = 'unknown';
+    let commitDate = 'unknown';
+    let branch = 'unknown';
+    
+    try {
+      commitHash = execSync('git rev-parse HEAD', { encoding: 'utf8' }).trim();
+      commitDate = execSync('git log -1 --format=%cd --date=iso', { encoding: 'utf8' }).trim();
+      branch = execSync('git rev-parse --abbrev-ref HEAD', { encoding: 'utf8' }).trim();
+    } catch (gitError) {
+      logger.warn('Could not retrieve git information:', gitError.message);
+    }
+
+    res.json({
+      service: 'Evolution Solver Microservice',
+      version: {
+        commit: commitHash,
+        commitShort: commitHash.substring(0, 8),
+        commitDate: commitDate,
+        branch: branch,
+        buildTime: new Date().toISOString(),
+        nodeVersion: process.version
+      },
+      environment: process.env.NODE_ENV || 'development',
+      deploymentInfo: {
+        k8sRevision: process.env.K_REVISION || 'unknown',
+        k8sService: process.env.K_SERVICE || 'unknown',
+        gcpProject: process.env.GCP_PROJECT_ID || 'unknown'
+      }
+    });
+  } catch (error) {
+    logger.error('Version check failed:', error);
+    res.status(500).json({
+      error: 'Could not retrieve version information',
+      message: error.message
     });
   }
 });

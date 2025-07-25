@@ -3,6 +3,7 @@ import { v4 as uuidv4 } from 'uuid';
 import AnalyticsService from '../services/analyticsService.js';
 import JobQueue from '../../cloud/jobQueue.js';
 import logger from '../utils/logger.js';
+import { asyncHandler, ValidationError, NotFoundError } from '../utils/errors.js';
 
 const router = express.Router();
 
@@ -10,8 +11,7 @@ export default function createRoutes(evolutionService) {
   const analyticsService = new AnalyticsService(evolutionService.resultStore);
   const jobQueue = new JobQueue();
   // Submit new evolution job
-  router.post('/jobs', async (req, res) => {
-    try {
+  router.post('/jobs', asyncHandler(async (req, res) => {
       // Support both 'parameters', 'params', and 'evolutionConfig' for backward compatibility
       const { problemContext, parameters, params, evolutionConfig: bodyEvolutionConfig } = req.body;
       const evolutionParams = bodyEvolutionConfig || parameters || params || {};
@@ -20,16 +20,12 @@ export default function createRoutes(evolutionService) {
       logger.info('Received evolution parameters:', JSON.stringify(evolutionParams));
 
       if (!problemContext) {
-        return res.status(400).json({ error: 'Problem context is required' });
+        throw new ValidationError('Problem context is required');
       }
 
       const enrichedContext = problemContext;
 
-      try {
-        evolutionService.validateProblemContext(enrichedContext);
-      } catch (validationError) {
-        return res.status(400).json({ error: validationError.message });
-      }
+      evolutionService.validateProblemContext(enrichedContext);
 
       // Validate monetary parameters if provided
       if (evolutionParams?.maxCapex !== undefined && evolutionParams.maxCapex > 10) {
@@ -108,106 +104,76 @@ export default function createRoutes(evolutionService) {
         status: 'queued',
         message: 'Evolution job queued for processing'
       });
-      
-    } catch (error) {
-      logger.error('Submit evolution job error:', error);
-      res.status(500).json({ error: error.message });
-    }
-  });
+  }));
 
   // Get job status
-  router.get('/jobs/:jobId', async (req, res) => {
-    try {
-      const { jobId } = req.params;
+  router.get('/jobs/:jobId', asyncHandler(async (req, res) => {
+    const { jobId } = req.params;
 
-      const status = await evolutionService.getJobStatus(jobId);
+    const status = await evolutionService.getJobStatus(jobId);
 
-      if (!status) {
-        return res.status(404).json({ error: 'Job not found' });
-      }
-
-      res.json(status);
-    } catch (error) {
-      logger.error('Get job status error:', error);
-      res.status(500).json({ error: error.message });
+    if (!status) {
+      throw new NotFoundError('Job not found');
     }
-  });
+
+    res.json(status);
+  }));
 
   // Get job results
-  router.get('/results/:jobId', async (req, res) => {
-    try {
-      const { jobId } = req.params;
+  router.get('/results/:jobId', asyncHandler(async (req, res) => {
+    const { jobId } = req.params;
 
-      const results = await evolutionService.getResults(jobId);
+    const results = await evolutionService.getResults(jobId);
 
-      if (!results) {
-        return res.status(404).json({ error: 'Results not found' });
-      }
-
-      res.json(results);
-    } catch (error) {
-      logger.error('Get results error:', error);
-      res.status(500).json({ error: error.message });
+    if (!results) {
+      throw new NotFoundError('Results not found');
     }
-  });
+
+    res.json(results);
+  }));
 
   // List jobs
-  router.get('/jobs', async (req, res) => {
-    try {
-      const { status, limit = 50 } = req.query;
+  router.get('/jobs', asyncHandler(async (req, res) => {
+    const { status, limit = 50 } = req.query;
 
-      const jobs = await evolutionService.getRecentJobs(parseInt(limit));
+    const jobs = await evolutionService.getRecentJobs(parseInt(limit));
 
-      res.json({
-        jobs: jobs,
-        total: jobs.length,
-        hasMore: jobs.length >= limit
-      });
-    } catch (error) {
-      logger.error('List jobs error:', error);
-      res.status(500).json({ error: error.message });
-    }
-  });
+    res.json({
+      jobs: jobs,
+      total: jobs.length,
+      hasMore: jobs.length >= limit
+    });
+  }));
 
   // Get job statistics
-  router.get('/stats', async (req, res) => {
-    try {
-      const stats = await evolutionService.getJobStats();
+  router.get('/stats', asyncHandler(async (req, res) => {
+    const stats = await evolutionService.getJobStats();
 
-      res.json({
-        jobs: stats
-      });
-    } catch (error) {
-      logger.error('Get stats error:', error);
-      res.status(500).json({ error: error.message });
-    }
-  });
+    res.json({
+      jobs: stats
+    });
+  }));
 
   // Get detailed job analytics
-  router.get('/jobs/:jobId/analytics', async (req, res) => {
-    try {
-      const { jobId } = req.params;
+  router.get('/jobs/:jobId/analytics', asyncHandler(async (req, res) => {
+    const { jobId } = req.params;
 
-      const analytics = await analyticsService.getJobAnalytics(jobId);
+    const analytics = await analyticsService.getJobAnalytics(jobId);
 
-      if (!analytics) {
-        return res.status(404).json({ error: 'Job not found' });
-      }
-
-      res.json(analytics);
-    } catch (error) {
-      logger.error('Get job analytics error:', error);
-      res.status(500).json({ error: error.message });
+    if (!analytics) {
+      throw new NotFoundError('Job not found');
     }
-  });
+
+    res.json(analytics);
+  }));
 
   // Direct job processing endpoint - bypasses workflow/queue
-  router.post('/direct', async (req, res) => {
+  router.post('/direct', asyncHandler(async (req, res) => {
     const startTime = Date.now();
     const { problemContext, evolutionConfig = {} } = req.body;
     
     if (!problemContext) {
-      return res.status(400).json({ error: 'problemContext is required' });
+      throw new ValidationError('problemContext is required');
     }
 
     // Generate job ID
@@ -344,12 +310,10 @@ export default function createRoutes(evolutionService) {
       
       await resultStore.updateJobStatus(jobId, 'failed', error.message);
       
-      res.status(500).json({
-        error: error.message,
-        jobId
-      });
+      // Re-throw to let error handler handle it
+      throw error;
     }
-  });
+  }));
 
   return router;
 }

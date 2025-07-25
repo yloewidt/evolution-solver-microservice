@@ -6,6 +6,7 @@ import EvolutionResultStore from '../cloud/firestore/resultStore.js';
 
 import createRoutes from './api/routes.js';
 import logger from './utils/logger.js';
+import { errorHandler, notFoundHandler } from './utils/errors.js';
 
 dotenv.config();
 
@@ -122,24 +123,11 @@ app.use('/api/evolution', apiRouter);
 // Direct job processing route (bypasses workflow)
 // Direct job route now integrated into main routes
 
-// Error handling
-app.use((err, req, res, _next) => {
-  logger.error('Unhandled error:', err);
-
-  res.status(err.status || 500).json({
-    error: 'Internal server error',
-    message: err.message,
-    ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
-  });
-});
-
 // 404 handler
-app.use((req, res) => {
-  res.status(404).json({
-    error: 'Not found',
-    message: `Cannot ${req.method} ${req.path}`
-  });
-});
+app.use(notFoundHandler);
+
+// Centralized error handling
+app.use(errorHandler);
 
 // Graceful shutdown
 process.on('SIGTERM', async () => {

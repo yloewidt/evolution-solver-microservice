@@ -120,7 +120,7 @@ Problem to solve: ${problemContext}${guidanceText}
 Focus on ${dealTypes}
 
 Generate ${numNeeded} new solutions:
-${currentSolutions.length > 0 ? `- ${offspringCount} OFFSPRING: Evolve the top performers' best features OR find creative ways to lower direct CAPEX(getting a non-investor to bear costs, or lower costs in general), Greatly reduce risk factors of the solution, or increase NPV of the solution.
+${currentSolutions.length > 0 ? `- ${offspringCount} OFFSPRING: Evolve the top performers' best features OR find creative ways to lower direct CAPEX(getting a non-investor to bear costs, or lower costs in general), Greatly reduce risk factors of the solution, or increase NPV of the solution. BE CREATIVE AND BOLD HERE.
 - ${wildcardCount} WILDCARDS: Completely fresh approaches` : `- ${numNeeded} WILDCARDS: All new creative solutions`}
 
 Each solution must have:
@@ -133,7 +133,8 @@ Requirements:
 - Business models must be realistic and implementable
 - Explain complex ideas simply (avoid jargon)
 - Focus on partnerships that reduce capital requirements
-- Consider timing advantages (why now?)`;
+- Consider timing advantages (why now?)
+- When doing an evolution, do describe each solution fully, as other functions looking at each idea wont have context about other ideas.`;
 
     // User prompt contains previous solutions if any
     const userPrompt = currentSolutions.length > 0 

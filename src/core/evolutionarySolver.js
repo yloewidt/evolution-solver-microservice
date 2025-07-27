@@ -19,7 +19,6 @@ const solutionSchema = Joi.object({
 
 const ideasSchema = Joi.array().items(solutionSchema);
 
-import config from '../config.js';
 
 class EvolutionarySolver {
   constructor(resultStore = null, config = {}) {
@@ -262,7 +261,7 @@ Requirements:
       }
 
       logger.info(`Working with ${ideasArray.length} new ideas`);
-      return [...currentSolutions, ...ideasArray];
+      return ideasArray;
     } catch (error) {
       logger.error('Variator failed - NO RETRIES:', error.message);
       logger.error('Error details:', error.stack);

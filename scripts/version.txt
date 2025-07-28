@@ -1,6 +1,0 @@
-DEPLOYMENT_VERSION=structured-output-v2
-DEPLOYMENT_TIME=2025-07-25T05:45:00Z
-ENRICHER_MODE=parallel-with-structured-output
-DEBUG_ENABLED=true
-PATH_MARKERS=enabled
-FIX=re-enabled-structured-output

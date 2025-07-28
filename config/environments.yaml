@@ -1,0 +1,69 @@
+defaults:
+  project_id: evolutionsolver
+  region: us-central1
+  service_account: evolution-solver-sa@evolutionsolver.iam.gserviceaccount.com
+  cloud_tasks_queue: evolution-jobs
+  cloud_tasks_location: us-central1
+  firestore_database: "(default)"
+  firestore_collection: evolution-results
+
+environments:
+  development:
+    api:
+      service_name: evolution-solver-dev
+      memory: 1Gi
+      cpu: 1
+      min_instances: 0
+      max_instances: 2
+      timeout: 900  # 15 minutes
+      concurrency: 80
+    worker:
+      service_name: evolution-worker-dev
+      memory: 2Gi
+      cpu: 1
+      min_instances: 0
+      max_instances: 5
+      timeout: 900  # 15 minutes
+      concurrency: 1  # Process one job at a time
+    allowed_origins: "http://localhost:3000,http://localhost:8080"
+    log_level: debug
+    
+  staging:
+    api:
+      service_name: evolution-solver-staging
+      memory: 1Gi
+      cpu: 1
+      min_instances: 0
+      max_instances: 5
+      timeout: 900
+      concurrency: 80
+    worker:
+      service_name: evolution-worker-staging
+      memory: 2Gi
+      cpu: 2
+      min_instances: 0
+      max_instances: 20
+      timeout: 900
+      concurrency: 1
+    allowed_origins: "https://staging.evolutionsolver.app"
+    log_level: info
+    
+  production:
+    api:
+      service_name: evolution-solver
+      memory: 1Gi
+      cpu: 1
+      min_instances: 0
+      max_instances: 10
+      timeout: 900
+      concurrency: 80
+    worker:
+      service_name: evolution-worker
+      memory: 4Gi
+      cpu: 2
+      min_instances: 0
+      max_instances: 100
+      timeout: 900
+      concurrency: 1
+    allowed_origins: "https://evolutionsolver.app,https://www.evolutionsolver.app"
+    log_level: warn

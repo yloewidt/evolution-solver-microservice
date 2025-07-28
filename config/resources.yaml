@@ -1,0 +1,84 @@
+# Resource definitions for the Evolution Solver microservice
+# This file defines what resources exist in our infrastructure
+
+services:
+  api:
+    type: cloud-run
+    description: REST API for job submission and result retrieval
+    dockerfile: Dockerfile
+    entrypoint: ["node", "src/server.js"]
+    environment_variables:
+      - NODE_ENV
+      - OPENAI_API_KEY
+      - GCP_PROJECT_ID
+      - EVOLUTION_WORKER_URL
+      - FIRESTORE_DATABASE
+      - FIRESTORE_COLLECTION
+      - CLOUD_TASKS_QUEUE
+      - CLOUD_TASKS_LOCATION
+      - SERVICE_ACCOUNT_EMAIL
+      - EVOLUTION_GENERATIONS
+      - PORT
+      - ALLOWED_ORIGINS
+      - LOG_LEVEL
+    health_check:
+      path: /health
+      interval: 30s
+      timeout: 10s
+      failure_threshold: 3
+    
+  worker:
+    type: cloud-run
+    description: Asynchronous worker for processing evolution jobs
+    dockerfile: Dockerfile
+    entrypoint: ["node", "cloud/run/worker.js"]
+    environment_variables:
+      - NODE_ENV
+      - OPENAI_API_KEY
+      - GCP_PROJECT_ID
+      - FIRESTORE_DATABASE
+      - FIRESTORE_COLLECTION
+      - EVOLUTION_GENERATIONS
+      - PORT
+      - LOG_LEVEL
+    health_check:
+      path: /health
+      interval: 30s
+      timeout: 10s
+      failure_threshold: 3
+
+cloud_tasks:
+  queues:
+    - name: evolution-jobs
+      description: Queue for evolution job processing
+      max_dispatches_per_second: 10
+      max_concurrent_dispatches: 100
+      max_retry_attempts: 3
+      min_backoff: 10s
+      max_backoff: 300s
+
+firestore:
+  databases:
+    - name: "(default)"
+      collections:
+        - name: evolution-results
+          description: Stores evolution job results
+          indexes:
+            - fields: ["jobId", "createdAt"]
+            - fields: ["status", "createdAt"]
+
+iam:
+  service_accounts:
+    - name: evolution-solver-sa
+      description: Service account for evolution solver services
+      roles:
+        - roles/datastore.user
+        - roles/cloudtasks.enqueuer
+        - roles/cloudtasks.viewer
+        - roles/run.invoker
+        - roles/logging.logWriter
+
+workflows:
+  - name: evolution-pipeline
+    description: Orchestrates complex evolution workflows
+    source: cloud/workflows/evolution-pipeline.yaml

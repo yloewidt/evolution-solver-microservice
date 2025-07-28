@@ -81,20 +81,22 @@ export class ResponseParser {
     // Handle structured output format (object with ideas array)
     const ideas = Array.isArray(parsed) ? parsed : (parsed.ideas || [parsed]);
 
-    // Add idea_ids programmatically
+    // Add idea_ids programmatically - ALWAYS override any LLM-generated IDs
     const ideasWithIds = ideas.map((idea, index) => {
-      // If idea already has an ID and it's a top performer, keep it
-      if (idea.idea_id && topPerformerIds?.has(idea.idea_id)) {
-        logger.info(`Variator: Preserving existing idea_id ${idea.idea_id} for top performer`);
-        return idea;
+      // Generate new ID for all ideas
+      const jobIdShort = jobId ? jobId.substring(0, 6) : 'unknown';
+      const newId = `VAR_${jobIdShort}_G${generation}_${String(index).padStart(3, '0')}`;
+      
+      // Strip any existing idea_id from LLM
+      const { idea_id: oldId, ...ideaWithoutId } = idea;
+      
+      if (oldId) {
+        logger.info(`Variator: Overriding LLM-generated ID ${oldId} with ${newId} for idea: ${idea.title || 'untitled'}`);
+      } else {
+        logger.info(`Variator: Generated new idea_id ${newId} for idea: ${idea.title || 'untitled'}`);
       }
       
-      // Generate new ID for new ideas
-      const jobIdShort = jobId ? jobId.substring(0, 6) : 'unknown';
-      const newId = `VAR_${jobIdShort}_G${generation}_${index}`;
-      
-      logger.info(`Variator: Generated new idea_id ${newId} for idea: ${idea.title || 'untitled'}`);
-      return { ...idea, idea_id: newId };
+      return { ...ideaWithoutId, idea_id: newId };
     });
 
     // Validate required fields (now including title and is_offspring)

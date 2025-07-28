@@ -111,6 +111,10 @@ class EvolutionarySolver {
       guidanceText += `\nTARGET OUTCOME: Aim for solutions with 5-year NPV potential above $${minProfits}M.`;
     }
 
+    // Add randomness to ensure unique outputs
+    const randomSeed = Math.random().toString(36).substring(7);
+    const timestamp = new Date().toISOString();
+    
     // System prompt includes problem context and requirements
     const systemPrompt = `You are an expert in creative business solution generation.
 
@@ -118,7 +122,10 @@ Problem to solve: ${problemContext}${guidanceText}
 
 Focus on ${dealTypes}
 
-Generate ${numNeeded} new solutions:
+Random seed for uniqueness: ${randomSeed}
+Timestamp: ${timestamp}
+
+Generate EXACTLY ${numNeeded} NEW solutions (do not include existing solutions):
 ${currentSolutions.length > 0 ? `- ${offspringCount} OFFSPRING: Evolve the top performers' best features OR find creative ways to lower direct CAPEX(getting a non-investor to bear costs, or lower costs in general), Greatly reduce risk factors of the solution, or increase NPV of the solution. BE CREATIVE AND BOLD HERE.
 - ${wildcardCount} WILDCARDS: Completely fresh approaches` : `- ${numNeeded} WILDCARDS: All new creative solutions`}
 
@@ -127,6 +134,9 @@ Each solution must have:
 - "description": Business model in plain terms
 - "core_mechanism": How value is created and captured
 - "is_offspring": true for offspring, false for wildcards
+
+IMPORTANT: Do NOT include an "idea_id" field - IDs will be assigned programmatically.
+Generate completely NEW ideas different from any previous generation.
 
 Requirements:
 - Business models must be realistic and implementable
@@ -260,7 +270,9 @@ Requirements:
         logger.warn(`Variator returned only ${ideasArray.length} ideas but ${numNeeded} were requested.`);
       }
 
-      logger.info(`Working with ${ideasArray.length} new ideas`);
+      logger.info(`Variator generated ${ideasArray.length} new ideas`);
+      
+      // Return ONLY the new ideas - the workflow will handle combining with top performers
       return ideasArray;
     } catch (error) {
       logger.error('Variator failed - NO RETRIES:', error.message);

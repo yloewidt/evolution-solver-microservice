@@ -10,15 +10,28 @@ const mockLLMClient = {
     }
   },
   getApiStyle: jest.fn().mockReturnValue('openai'),
-  createVariatorRequest: jest.fn()
+  createVariatorRequest: jest.fn(),
+  executeRequest: jest.fn((request) => {
+    // Return the mocked response from create method
+    return mockLLMClient.client.chat.completions.create(request);
+  }),
+  parseResponse: jest.fn((response) => {
+    // Extract ideas from the mocked response
+    const content = response.choices?.[0]?.message?.content;
+    if (content) {
+      const parsed = JSON.parse(content);
+      return parsed.ideas || parsed;
+    }
+    return [];
+  })
 };
 
-jest.unstable_mockModule('src/services/llmClient.js', () => ({
+jest.unstable_mockModule('../../src/services/llmClient.js', () => ({
   LLMClient: jest.fn().mockImplementation(() => mockLLMClient)
 }));
 
 // Mock ResponseParser
-jest.unstable_mockModule('src/utils/responseParser.js', () => ({
+jest.unstable_mockModule('../../src/utils/responseParser.js', () => ({
   ResponseParser: {
     parseOpenAIResponse: jest.fn((response, context) => {
       // Extract ideas from the mocked response
@@ -57,6 +70,7 @@ describe('EvolutionarySolver - Unit Tests', () => {
     // Create solver with mocked dependencies
     solver = new EvolutionarySolver(null, mockResultStore);
     solver.llmClient = mockLLMClient;
+    solver.currentGeneration = 1; // Set generation for ID generation
     solver.config = {
       ...solver.config,
       maxCapex: 10,
@@ -93,8 +107,8 @@ describe('EvolutionarySolver - Unit Tests', () => {
           message: {
             content: JSON.stringify({
               ideas: [
-                { idea_id: 'new-1', title: 'New 1', description: 'Desc 1', core_mechanism: 'Mech 1' },
-                { idea_id: 'new-2', title: 'New 2', description: 'Desc 2', core_mechanism: 'Mech 2' }
+                { title: 'New 1', description: 'Desc 1', core_mechanism: 'Mech 1', is_offspring: false },
+                { title: 'New 2', description: 'Desc 2', core_mechanism: 'Mech 2', is_offspring: false }
               ]
             })
           }
@@ -107,8 +121,8 @@ describe('EvolutionarySolver - Unit Tests', () => {
       const result = await solver.variator([], 2, 'test context', 1, 'job-1');
 
       expect(result).toHaveLength(2);
-      expect(result[0].idea_id).toBe('new-1');
-      expect(result[1].idea_id).toBe('new-2');
+      expect(result[0].idea_id).toBe('VAR_GEN1_001');
+      expect(result[1].idea_id).toBe('VAR_GEN1_002');
     });
 
     test('should include top performers in prompt for generation > 1', async () => {
@@ -117,13 +131,14 @@ describe('EvolutionarySolver - Unit Tests', () => {
       ];
 
       solver.config.offspringRatio = 0.7;
+      solver.currentGeneration = 2; // Set generation for test
 
       mockLLMClient.client.chat.completions.create.mockResolvedValueOnce({
         choices: [{
           message: {
             content: JSON.stringify({
               ideas: [
-                { idea_id: 'new-1', title: 'New 1', description: 'Desc 1', core_mechanism: 'Mech 1' }
+                { title: 'New 1', description: 'Desc 1', core_mechanism: 'Mech 1', is_offspring: true }
               ]
             })
           }

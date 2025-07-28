@@ -145,7 +145,7 @@ describe('LLMClient', () => {
       const mockResponse = {
         choices: [{
           message: {
-            content: JSON.stringify({ ideas: [{ idea_id: 'test-1', description: 'Test idea' }] })
+            content: JSON.stringify({ ideas: [{ description: 'Test idea' }] })
           }
         }],
         usage: { prompt_tokens: 100, completion_tokens: 200 }
@@ -165,7 +165,7 @@ describe('LLMClient', () => {
       const mockResponse = {
         choices: [{
           message: {
-            content: JSON.stringify([{ idea_id: 'test-1', description: 'Test idea' }])
+            content: JSON.stringify([{ description: 'Test idea' }])
           }
         }],
         usage: { prompt_tokens: 100, completion_tokens: 200 }

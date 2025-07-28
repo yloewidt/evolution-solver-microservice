@@ -16,6 +16,12 @@ Unified deployment script for all services. Handles API, worker, and workflow de
 ./deploy.sh staging api            # Deploy only API to staging
 ./deploy.sh production all         # Deploy all services to production
 IMAGE_TAG=v1.2.3 ./deploy.sh production api  # Deploy specific version
+
+# Deploy to a specific GCP project (overrides config):
+GCP_PROJECT_ID=ai-trader-462511 ./deploy.sh production all
+
+# Deploy with project and region overrides:
+GCP_PROJECT_ID=ai-trader-462511 GCP_REGION=us-east1 ./deploy.sh production all
 ```
 
 ### `validate-config.sh`
@@ -33,6 +39,17 @@ Library functions for loading configuration from `config/environments.yaml`. Use
 
 All deployment configuration is managed through:
 - `config/environments.yaml` - Environment-specific settings
+
+### Environment Variable Overrides
+
+You can override configuration values using environment variables:
+
+- `GCP_PROJECT_ID` - Override the target GCP project (e.g., `ai-trader-462511`)
+- `GCP_REGION` - Override the deployment region
+- `IMAGE_TAG` - Specify the Docker image tag to deploy
+- `DRY_RUN=true` - Show what would be deployed without actually deploying
+
+When `GCP_PROJECT_ID` is set, the service account email is automatically adjusted to match the target project.
 
 ## Design Philosophy
 

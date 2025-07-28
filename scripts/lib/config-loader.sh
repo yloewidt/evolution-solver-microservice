@@ -52,10 +52,18 @@ load_config() {
     
     log_info "Loading configuration for environment: $environment"
     
-    # Load defaults
-    export PROJECT_ID=$(yq eval '.defaults.project_id' "$config_file")
-    export REGION=$(yq eval '.defaults.region' "$config_file")
-    export SERVICE_ACCOUNT=$(yq eval '.defaults.service_account' "$config_file")
+    # Load defaults - allow environment variable overrides
+    export PROJECT_ID="${GCP_PROJECT_ID:-$(yq eval '.defaults.project_id' "$config_file")}"
+    export REGION="${GCP_REGION:-$(yq eval '.defaults.region' "$config_file")}"
+    
+    # If PROJECT_ID is overridden, update SERVICE_ACCOUNT to match
+    if [[ -n "${GCP_PROJECT_ID:-}" ]]; then
+        local sa_name=$(yq eval '.defaults.service_account' "$config_file" | cut -d'@' -f1)
+        export SERVICE_ACCOUNT="${sa_name}@${PROJECT_ID}.iam.gserviceaccount.com"
+        log_info "Using overridden project: $PROJECT_ID"
+    else
+        export SERVICE_ACCOUNT=$(yq eval '.defaults.service_account' "$config_file")
+    fi
     export CLOUD_TASKS_QUEUE=$(yq eval '.defaults.cloud_tasks_queue' "$config_file")
     export CLOUD_TASKS_LOCATION=$(yq eval '.defaults.cloud_tasks_location' "$config_file")
     export FIRESTORE_DATABASE=$(yq eval '.defaults.firestore_database' "$config_file")

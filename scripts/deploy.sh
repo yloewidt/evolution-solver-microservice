@@ -17,6 +17,121 @@ ACTION="${2:-all}"
 IMAGE_TAG="${IMAGE_TAG:-latest}"
 DRY_RUN="${DRY_RUN:-false}"
 
+# Build and push Docker image
+build_and_push_image() {
+    log_info "Building Docker image..."
+    
+    local image_name="gcr.io/${PROJECT_ID}/evolution-solver"
+    local full_image="${image_name}:${IMAGE_TAG}"
+    
+    # Build the image
+    if [[ "$DRY_RUN" == "true" ]]; then
+        log_info "DRY RUN: Would execute:"
+        echo "docker build -t ${full_image} ${PROJECT_ROOT}"
+    else
+        docker build -t "${full_image}" "${PROJECT_ROOT}"
+        
+        # Also tag as environment-specific
+        docker tag "${full_image}" "${image_name}:${ENVIRONMENT}"
+        
+        # Configure docker for GCR
+        gcloud auth configure-docker --quiet
+        
+        # Push both tags
+        log_info "Pushing image to Google Container Registry..."
+        docker push "${full_image}"
+        docker push "${image_name}:${ENVIRONMENT}"
+        
+        log_info "Image pushed successfully: ${full_image}"
+    fi
+}
+
+# Enable required GCP services
+enable_services() {
+    log_info "Enabling required GCP services..."
+    
+    local services=(
+        "run.googleapis.com"
+        "cloudbuild.googleapis.com"
+        "firestore.googleapis.com"
+        "cloudtasks.googleapis.com"
+        "secretmanager.googleapis.com"
+        "containerregistry.googleapis.com"
+    )
+    
+    for service in "${services[@]}"; do
+        if [[ "$DRY_RUN" == "true" ]]; then
+            log_info "DRY RUN: Would enable ${service}"
+        else
+            log_info "Enabling ${service}..."
+            gcloud services enable ${service} --project=${PROJECT_ID} || true
+        fi
+    done
+}
+
+# Create service account if it doesn't exist
+create_service_account() {
+    local sa_name="${SERVICE_ACCOUNT%%@*}"  # Extract name from email
+    
+    log_info "Checking service account ${SERVICE_ACCOUNT}..."
+    
+    if ! gcloud iam service-accounts describe ${SERVICE_ACCOUNT} \
+        --project=${PROJECT_ID} &>/dev/null; then
+        
+        log_info "Creating service account ${sa_name}..."
+        if [[ "$DRY_RUN" == "true" ]]; then
+            log_info "DRY RUN: Would create service account"
+        else
+            gcloud iam service-accounts create ${sa_name} \
+                --display-name="Evolution Solver Service Account" \
+                --project=${PROJECT_ID}
+        fi
+    else
+        log_info "Service account already exists"
+    fi
+    
+    # Grant necessary roles
+    local roles=(
+        "roles/datastore.user"
+        "roles/cloudtasks.enqueuer"
+        "roles/cloudtasks.viewer"
+        "roles/run.invoker"
+        "roles/secretmanager.secretAccessor"
+    )
+    
+    for role in "${roles[@]}"; do
+        log_info "Granting ${role} to service account..."
+        if [[ "$DRY_RUN" == "true" ]]; then
+            log_info "DRY RUN: Would grant ${role}"
+        else
+            gcloud projects add-iam-policy-binding ${PROJECT_ID} \
+                --member="serviceAccount:${SERVICE_ACCOUNT}" \
+                --role="${role}" \
+                --quiet || true
+        fi
+    done
+}
+
+# Check and create secrets
+setup_secrets() {
+    log_info "Setting up secrets..."
+    
+    # Check if OpenAI API key secret exists
+    if ! gcloud secrets describe openai-api-key \
+        --project=${PROJECT_ID} &>/dev/null; then
+        
+        log_error "Secret 'openai-api-key' does not exist!"
+        log_info "Please create it with:"
+        log_info "  echo -n 'your-api-key' | gcloud secrets create openai-api-key --data-file=-"
+        
+        if [[ "$DRY_RUN" != "true" ]]; then
+            return 1
+        fi
+    else
+        log_info "Secret 'openai-api-key' exists"
+    fi
+}
+
 # Function to display usage
 usage() {
     cat << EOF
@@ -32,7 +147,7 @@ Actions:
   api           Deploy only the API service
   worker        Deploy only the worker service
   workflow      Deploy Cloud Workflows
-  setup         Set up Cloud resources (queues, IAM, etc.)
+  setup         Set up Cloud resources (enables APIs, creates service account, queues, IAM, etc.)
 
 Options:
   IMAGE_TAG=tag        Docker image tag to deploy (default: latest)
@@ -48,11 +163,51 @@ EOF
     exit 1
 }
 
+# Validate env vars file exists and is readable
+validate_deployment() {
+    local env_file="$1"
+    
+    if [[ ! -f "$env_file" ]]; then
+        log_error "Environment variables file does not exist: $env_file"
+        return 1
+    fi
+    
+    if [[ ! -r "$env_file" ]]; then
+        log_error "Environment variables file is not readable: $env_file"
+        return 1
+    fi
+    
+    # Validate YAML syntax
+    if ! yq eval '.' "$env_file" > /dev/null 2>&1; then
+        log_error "Environment variables file has invalid YAML syntax: $env_file"
+        cat "$env_file"
+        return 1
+    fi
+    
+    log_info "Deployment validation passed"
+    return 0
+}
+
 # Deploy API service
 deploy_api() {
     log_info "Deploying API service to $ENVIRONMENT..."
     
     local image="gcr.io/${PROJECT_ID}/evolution-solver:${IMAGE_TAG}"
+    
+    # Create a temporary env vars file in YAML format to handle special characters
+    local env_file=$(mktemp --suffix=.yaml)
+    cat > "$env_file" <<EOF
+NODE_ENV: "${ENVIRONMENT}"
+GCP_PROJECT_ID: "${PROJECT_ID}"
+FIRESTORE_DATABASE: "${FIRESTORE_DATABASE}"
+FIRESTORE_COLLECTION: "${FIRESTORE_COLLECTION}"
+CLOUD_TASKS_QUEUE: "${CLOUD_TASKS_QUEUE}"
+CLOUD_TASKS_LOCATION: "${CLOUD_TASKS_LOCATION}"
+SERVICE_ACCOUNT_EMAIL: "${SERVICE_ACCOUNT}"
+ALLOWED_ORIGINS: "${ALLOWED_ORIGINS}"
+LOG_LEVEL: "${LOG_LEVEL}"
+EVOLUTION_GENERATIONS: "10"
+EOF
     
     local deploy_cmd="gcloud run deploy ${API_SERVICE_NAME} \
         --image=${image} \
@@ -66,17 +221,7 @@ deploy_api() {
         --timeout=${API_TIMEOUT} \
         --concurrency=${API_CONCURRENCY} \
         --service-account=${SERVICE_ACCOUNT} \
-        --set-env-vars=NODE_ENV=${ENVIRONMENT} \
-        --set-env-vars=GCP_PROJECT_ID=${PROJECT_ID} \
-        --set-env-vars=FIRESTORE_DATABASE=${FIRESTORE_DATABASE} \
-        --set-env-vars=FIRESTORE_COLLECTION=${FIRESTORE_COLLECTION} \
-        --set-env-vars=CLOUD_TASKS_QUEUE=${CLOUD_TASKS_QUEUE} \
-        --set-env-vars=CLOUD_TASKS_LOCATION=${CLOUD_TASKS_LOCATION} \
-        --set-env-vars=SERVICE_ACCOUNT_EMAIL=${SERVICE_ACCOUNT} \
-        --set-env-vars=PORT=8080 \
-        --set-env-vars=ALLOWED_ORIGINS=${ALLOWED_ORIGINS} \
-        --set-env-vars=LOG_LEVEL=${LOG_LEVEL} \
-        --set-env-vars=EVOLUTION_GENERATIONS=10 \
+        --env-vars-file=\"${env_file}\" \
         --update-secrets=OPENAI_API_KEY=openai-api-key:latest \
         --command=node,src/server.js"
     
@@ -89,8 +234,22 @@ deploy_api() {
     if [[ "$DRY_RUN" == "true" ]]; then
         log_info "DRY RUN: Would execute:"
         echo "$deploy_cmd"
+        log_info "DRY RUN: Environment variables file content:"
+        cat "$env_file"
     else
-        eval "$deploy_cmd"
+        # Validate deployment files
+        if ! validate_deployment "$env_file"; then
+            log_error "Deployment aborted due to validation errors"
+            rm -f "$env_file"
+            return 1
+        fi
+        
+        # Execute the deployment
+        if ! eval "$deploy_cmd"; then
+            log_error "Deployment failed"
+            rm -f "$env_file"
+            return 1
+        fi
         
         # Get and display the service URL
         local api_url=$(get_service_url "$API_SERVICE_NAME")
@@ -99,6 +258,9 @@ deploy_api() {
         # Update worker environment with API URL
         export EVOLUTION_WORKER_URL="${api_url}/internal/worker"
     fi
+    
+    # Clean up temp file
+    rm -f "$env_file"
 }
 
 # Deploy Worker service
@@ -111,12 +273,23 @@ deploy_worker() {
         if [[ -n "$api_url" ]]; then
             EVOLUTION_WORKER_URL="${api_url}/internal/worker"
         else
-            log_error "API service must be deployed first to get worker URL"
+            log_error "API service must be deployed first to get worker URL. Run './scripts/deploy.sh ${ENVIRONMENT} api' first."
             exit 1
         fi
     fi
     
     local image="gcr.io/${PROJECT_ID}/evolution-solver:${IMAGE_TAG}"
+    
+    # Create a temporary env vars file in YAML format to handle special characters
+    local env_file=$(mktemp --suffix=.yaml)
+    cat > "$env_file" <<EOF
+NODE_ENV: "${ENVIRONMENT}"
+GCP_PROJECT_ID: "${PROJECT_ID}"
+FIRESTORE_DATABASE: "${FIRESTORE_DATABASE}"
+FIRESTORE_COLLECTION: "${FIRESTORE_COLLECTION}"
+LOG_LEVEL: "${LOG_LEVEL}"
+EVOLUTION_GENERATIONS: "10"
+EOF
     
     local deploy_cmd="gcloud run deploy ${WORKER_SERVICE_NAME} \
         --image=${image} \
@@ -130,13 +303,7 @@ deploy_worker() {
         --timeout=${WORKER_TIMEOUT} \
         --concurrency=${WORKER_CONCURRENCY} \
         --service-account=${SERVICE_ACCOUNT} \
-        --set-env-vars=NODE_ENV=${ENVIRONMENT} \
-        --set-env-vars=GCP_PROJECT_ID=${PROJECT_ID} \
-        --set-env-vars=FIRESTORE_DATABASE=${FIRESTORE_DATABASE} \
-        --set-env-vars=FIRESTORE_COLLECTION=${FIRESTORE_COLLECTION} \
-        --set-env-vars=PORT=8080 \
-        --set-env-vars=LOG_LEVEL=${LOG_LEVEL} \
-        --set-env-vars=EVOLUTION_GENERATIONS=10 \
+        --env-vars-file=\"${env_file}\" \
         --update-secrets=OPENAI_API_KEY=openai-api-key:latest \
         --command=node,cloud/run/worker.js \
         --no-allow-unauthenticated"
@@ -144,20 +311,66 @@ deploy_worker() {
     if [[ "$DRY_RUN" == "true" ]]; then
         log_info "DRY RUN: Would execute:"
         echo "$deploy_cmd"
+        log_info "DRY RUN: Environment variables file content:"
+        cat "$env_file"
     else
-        eval "$deploy_cmd"
+        # Validate deployment files
+        if ! validate_deployment "$env_file"; then
+            log_error "Deployment aborted due to validation errors"
+            rm -f "$env_file"
+            return 1
+        fi
+        
+        # Execute the deployment
+        if ! eval "$deploy_cmd"; then
+            log_error "Deployment failed"
+            rm -f "$env_file"
+            return 1
+        fi
         
         # Get and display the service URL
         local worker_url=$(get_service_url "$WORKER_SERVICE_NAME")
         log_info "Worker deployed successfully to: $worker_url"
+
+        # Grant the service account permission to invoke the worker.
+        # We use a retry loop to handle potential API propagation delays.
+        log_info "Granting Cloud Run Invoker role to the service account for the worker..."
         
+        local attempts=0
+        local max_attempts=5
+        local success=false
+        while [ $attempts -lt $max_attempts ]; do
+            if gcloud run services add-iam-policy-binding ${WORKER_SERVICE_NAME} \
+                --project=${PROJECT_ID} \
+                --region=${REGION} \
+                --member="serviceAccount:${SERVICE_ACCOUNT}" \
+                --role="roles/run.invoker" \
+                --quiet; then
+                log_info "Successfully granted IAM role."
+                success=true
+                break
+            fi
+            
+            attempts=$((attempts+1))
+            log_warn "IAM binding failed. Retrying in 5 seconds... (Attempt ${attempts}/${max_attempts})"
+            sleep 5
+        done
+
+        if [ "$success" = false ]; then
+            log_error "Could not grant IAM role to worker service after several attempts. Please grant 'roles/run.invoker' to '${SERVICE_ACCOUNT}' on the '${WORKER_SERVICE_NAME}' service manually."
+            exit 1
+        fi
+
         # Update API with worker URL if needed
         log_info "Updating API service with worker URL..."
         gcloud run services update ${API_SERVICE_NAME} \
             --project=${PROJECT_ID} \
             --region=${REGION} \
-            --update-env-vars=EVOLUTION_WORKER_URL=${worker_url}/task
+            --update-env-vars=\"EVOLUTION_WORKER_URL=${worker_url}/task\"
     fi
+    
+    # Clean up temp file
+    rm -f "$env_file"
 }
 
 # Deploy Cloud Workflows
@@ -180,6 +393,8 @@ deploy_workflow() {
     if [[ "$DRY_RUN" == "true" ]]; then
         log_info "DRY RUN: Would execute:"
         echo "$deploy_cmd"
+        log_info "DRY RUN: Environment variables file content:"
+        cat "$env_file"
     else
         eval "$deploy_cmd"
         log_info "Workflow deployed successfully"
@@ -189,6 +404,15 @@ deploy_workflow() {
 # Set up Cloud resources
 setup_resources() {
     log_info "Setting up Cloud resources for $ENVIRONMENT..."
+    
+    # Enable required services first
+    enable_services
+    
+    # Create service account
+    create_service_account
+    
+    # Setup secrets
+    setup_secrets || return 1
     
     # Create Cloud Tasks queue if it doesn't exist
     log_info "Setting up Cloud Tasks queue..."
@@ -210,16 +434,9 @@ setup_resources() {
         log_info "Cloud Tasks queue already exists"
     fi
     
-    # Set up IAM bindings
-    log_info "Setting up IAM bindings..."
-    
-    # Cloud Run invoker for Cloud Tasks
-    gcloud run services add-iam-policy-binding ${WORKER_SERVICE_NAME} \
-        --project=${PROJECT_ID} \
-        --region=${REGION} \
-        --member="serviceAccount:${SERVICE_ACCOUNT}" \
-        --role="roles/run.invoker" || true
-    
+    # The IAM binding for the worker is now handled within the deploy_worker function.
+    # No further IAM actions are needed here for the worker.
+    log_info "IAM bindings for the worker will be set upon its successful deployment."
     log_info "Resources setup completed"
 }
 
@@ -238,10 +455,29 @@ main() {
     load_config "$ENVIRONMENT"
     load_resources
     
+    # Validate project ID if specified
+    if [[ -n "${GCP_PROJECT_ID:-}" ]]; then
+        log_info "Using project override: $GCP_PROJECT_ID"
+        
+        # Verify we're authenticated to the correct project
+        local current_project=$(gcloud config get-value project 2>/dev/null || true)
+        if [[ "$current_project" != "$PROJECT_ID" ]]; then
+            log_warn "Current gcloud project ($current_project) differs from target ($PROJECT_ID)"
+            log_info "Setting gcloud project to $PROJECT_ID"
+            gcloud config set project "$PROJECT_ID"
+        fi
+    fi
+    
     log_info "Starting deployment"
     log_info "Environment: $ENVIRONMENT"
+    log_info "Project: $PROJECT_ID"
     log_info "Action: $ACTION"
     log_info "Image Tag: $IMAGE_TAG"
+    
+    # Build and push image first (unless just doing setup)
+    if [[ "$ACTION" != "setup" ]]; then
+        build_and_push_image
+    fi
     
     # Execute action
     case $ACTION in

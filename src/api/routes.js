@@ -220,12 +220,14 @@ export default function createRoutes(evolutionService) {
 
       const results = [];
       let topPerformers = [];
+      const numGenerations = evolutionConfig.generations || 1;
 
-      // Process single generation for testing
-      const generation = 1;
+      // Process all requested generations
+      for (let generation = 1; generation <= numGenerations; generation++) {
+        logger.info(`Starting generation ${generation} of ${numGenerations}`);
 
-      // Variator phase
-      logger.info(`Processing variator for generation ${generation}`);
+        // Variator phase
+        logger.info(`Processing variator for generation ${generation}`);
       const ideas = await solver.variator(
         topPerformers,
         evolutionConfig.populationSize || 3,
@@ -274,35 +276,52 @@ export default function createRoutes(evolutionService) {
         avgScore: rankedIdeas.reduce((sum, idea) => sum + idea.score, 0) / rankedIdeas.length
       });
 
+      // Store results for this generation
+      results.push({
+        generation,
+        solutions: rankedIdeas,
+        topScore: rankedIdeas[0]?.score || 0,
+        avgScore: rankedIdeas.reduce((sum, idea) => sum + idea.score, 0) / rankedIdeas.length
+      });
+
+      // Update top performers for next generation
+      topPerformers = newTopPerformers;
+      
+      logger.info(`Completed generation ${generation} with ${rankedIdeas.length} solutions`);
+      } // End of generation loop
+
+      // Aggregate all solutions from all generations
+      const allSolutions = results.flatMap(r => r.solutions);
+      const topSolutions = allSolutions
+        .sort((a, b) => b.score - a.score)
+        .slice(0, 10);
+
       // Complete job
       await resultStore.completeJob(jobId, {
-        topSolutions: rankedIdeas.slice(0, 10),
-        allSolutions: rankedIdeas,
-        generationHistory: [{
-          generation: 1,
-          solutionCount: rankedIdeas.length,
-          topScore: rankedIdeas[0]?.score || 0
-        }],
-        totalSolutions: rankedIdeas.length,
+        topSolutions,
+        allSolutions,
+        generationHistory: results.map(r => ({
+          generation: r.generation,
+          solutionCount: r.solutions.length,
+          topScore: r.topScore
+        })),
+        totalSolutions: allSolutions.length,
         metadata: {
-          totalGenerations: 1,
-          totalSolutions: rankedIdeas.length,
+          totalGenerations: numGenerations,
+          totalSolutions: allSolutions.length,
           processingTime: (Date.now() - startTime) / 1000,
           apiCalls: (await resultStore.getResult(jobId))?.apiCalls?.length || 0,
-          topScore: rankedIdeas[0]?.score || 0
+          topScore: topSolutions[0]?.score || 0
         }
       });
 
       res.json({
         jobId,
         status: 'completed',
-        solutions: rankedIdeas.slice(0, 5),
+        solutions: topSolutions.slice(0, 5),
         processingTime: (Date.now() - startTime) / 1000,
-        enrichmentStats: {
-          total: ideas.length,
-          successful: enrichedIdeas.length,
-          failed: failedIdeas.length
-        }
+        totalGenerations: numGenerations,
+        totalSolutions: allSolutions.length
       });
 
     } catch (error) {

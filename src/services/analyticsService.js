@@ -102,18 +102,24 @@ class AnalyticsService {
 
     Object.keys(generations).forEach(genKey => {
       const gen = generations[genKey];
+      // Extract generation number from key like "generation_1"
+      const generationNum = parseInt(genKey.replace('generation_', ''));
+      
+      // Only process if ranker is complete (generation is fully done)
+      if (!gen.rankerComplete) return;
+      
       completedGenerations++;
 
       const genAnalytics = {
-        generation: gen.generation,
-        solutionCount: gen.solutionCount,
-        topScore: gen.topScore,
-        avgScore: gen.avgScore,
-        completedAt: gen.completedAt
+        generation: generationNum,
+        solutionCount: gen.solutions?.length || 0,
+        topScore: gen.topScore || 0,
+        avgScore: gen.avgScore || 0,
+        completedAt: gen.rankerCompletedAt || gen.completedAt
       };
 
       analytics.generationAnalytics.push(genAnalytics);
-      analytics.solutions.averageScoreByGeneration[gen.generation] = gen.avgScore;
+      analytics.solutions.averageScoreByGeneration[generationNum] = gen.avgScore || 0;
 
       totalScore += gen.avgScore;
 
@@ -121,7 +127,7 @@ class AnalyticsService {
       if (gen.solutions && Array.isArray(gen.solutions)) {
         gen.solutions.forEach(solution => {
           analytics.solutions.all.push({
-            generation: gen.generation,
+            generation: generationNum,
             ideaId: solution.idea_id,
             score: solution.score,
             description: solution.description,
@@ -134,6 +140,9 @@ class AnalyticsService {
     });
 
     analytics.solutions.overallAverageScore = completedGenerations > 0 ? totalScore / completedGenerations : 0;
+
+    // Sort generation analytics by generation number
+    analytics.generationAnalytics.sort((a, b) => a.generation - b.generation);
 
     // Sort solutions by score and get top 10
     analytics.solutions.all.sort((a, b) => (b.score || 0) - (a.score || 0));

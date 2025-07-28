@@ -57,8 +57,8 @@ export class LLMClient {
     const finalSystemPrompt = systemPrompt || 'You are an expert in creative business deal-making and solution generation. Generate innovative, low-risk, high-return solutions.';
     const finalUserPrompt = userPrompt || prompt;
 
-    // OpenAI style with structured output
-    return {
+    // OpenAI style - o3 doesn't support structured output
+    const request = {
       model: this.config.model,
       messages: [
         {
@@ -70,10 +70,16 @@ export class LLMClient {
           content: finalUserPrompt
         }
       ],
-      response_format: VariatorResponseSchema,
       temperature: this.config.temperature,
       store: true
     };
+    
+    // Only add response_format for models that support it
+    if (this.config.model !== 'o3') {
+      request.response_format = VariatorResponseSchema;
+    }
+    
+    return request;
   }
 
   // createEnricherRequest removed - enrichment now handled by singleIdeaEnricher

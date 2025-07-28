@@ -124,7 +124,6 @@ ${currentSolutions.length > 0 ? `- ${offspringCount} OFFSPRING: Combine and evol
 - ${wildcardCount} WILDCARDS: Completely fresh approaches` : `- ${numNeeded} WILDCARDS: All new creative solutions`}
 
 Each solution must have:
-- "idea_id": unique identifier
 - "title": Short, catchy title
 - "description": Business model in plain terms
 - "core_mechanism": How value is created and captured
@@ -158,11 +157,11 @@ Requirements:
       const apiCall = await this.llmClient.createVariatorRequest(null, systemPrompt, userPrompt);
 
       // Log the full API call for replay
-      const callId = `${this.progressTracker?.jobId || 'unknown'}_gen${this.currentGeneration || 0}_variator_${Date.now()}`;
+      const callId = `${this.progressTracker?.jobId || 'unknown'}_gen${generation}_variator_${Date.now()}`;
       logger.info('API_CALL_REPLAY:', {
         callId,
         phase: 'variator',
-        generation: this.currentGeneration || 0,
+        generation: generation,
         attempt: 1,  // Always 1 - no retries
         timestamp: new Date().toISOString(),
         request: {
@@ -193,7 +192,7 @@ Requirements:
       logger.info('API_RESPONSE_REPLAY:', {
         callId,
         phase: 'variator',
-        generation: this.currentGeneration || 0,
+        generation: generation,
         latencyMs: Date.now() - startTime,
         usage: response.usage,
         responseStructure: {
@@ -212,7 +211,7 @@ Requirements:
         const telemetry = {
           timestamp: new Date().toISOString(),
           phase: 'variator',
-          generation: this.currentGeneration || 1,
+          generation: generation,
           model: this.config.model,
           attempt: 1,  // Always 1 - no retries
           latencyMs: Date.now() - startTime,
@@ -227,7 +226,7 @@ Requirements:
           callId,
           {
             phase: 'variator',
-            generation: this.currentGeneration || 0,
+            generation: generation,
             attempt: 1,  // Always 1 - no retries
             systemPrompt,
             userPrompt,
@@ -248,6 +247,12 @@ Requirements:
 
       const ideasArray = Array.isArray(newIdeas) ? newIdeas : [newIdeas];
 
+      // Generate idea_id programmatically in the format VAR_GEN{n}_{number}
+      ideasArray.forEach((idea, index) => {
+        const ideaNumber = index + 1;
+        idea.idea_id = `VAR_GEN${generation}_${String(ideaNumber).padStart(3, '0')}`;
+      });
+
       // Validate count and trim if necessary
       if (ideasArray.length > numNeeded) {
         logger.warn(`Variator returned ${ideasArray.length} ideas but only ${numNeeded} were requested. Trimming to requested count.`);
@@ -257,7 +262,8 @@ Requirements:
       }
 
       logger.info(`Working with ${ideasArray.length} new ideas`);
-      return [...currentSolutions, ...ideasArray];
+      // Only return the new ideas, not the combination
+      return ideasArray;
     } catch (error) {
       logger.error('Variator failed - NO RETRIES:', error.message);
       logger.error('Error details:', error.stack);
@@ -267,7 +273,7 @@ Requirements:
         const telemetry = {
           timestamp: new Date().toISOString(),
           phase: 'variator',
-          generation: this.currentGeneration || 1,
+          generation: generation,
           model: this.config.model,
           attempt: 1,  // Always 1 - no retries
           latencyMs: Date.now() - startTime,

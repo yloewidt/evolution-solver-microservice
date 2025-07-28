@@ -19,10 +19,6 @@ const VariatorResponseSchema = {
           items: {
             type: 'object',
             properties: {
-              idea_id: {
-                type: 'string',
-                description: 'Unique identifier for the idea (e.g., VAR_GEN1_001)'
-              },
               title: {
                 type: 'string',
                 description: 'Short, catchy title for the idea'
@@ -40,7 +36,7 @@ const VariatorResponseSchema = {
                 description: 'Whether this idea is based on an existing top performer'
               }
             },
-            required: ['idea_id', 'title', 'description', 'core_mechanism', 'is_offspring'],
+            required: ['title', 'description', 'core_mechanism', 'is_offspring'],
             additionalProperties: false
           }
         }

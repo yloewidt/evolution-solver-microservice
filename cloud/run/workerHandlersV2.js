@@ -32,29 +32,43 @@ export async function processVariator({ jobId, generation, problemContext, topPe
     const topPerformerIds = new Set(topPerformers ? topPerformers.map(p => p.idea_id).filter(id => id) : []);
     logger.info(`Variator: Preserving ${topPerformerIds.size} top performer IDs for generation ${generation}`);
     
-    // Generate new ideas
+    // Implement elitism: preserve top 2 performers unchanged in generation 2+
+    let eliteCount = 0;
+    let eliteIdeas = [];
+    if (generation > 1 && topPerformers && topPerformers.length > 0) {
+      eliteCount = Math.min(2, Math.floor(evolutionConfig.populationSize * 0.2)); // Top 20% or 2, whichever is smaller
+      eliteIdeas = topPerformers.slice(0, eliteCount);
+      logger.info(`Preserving top ${eliteCount} elite performers unchanged`);
+    }
+
+    // Generate new ideas for remaining slots
+    const newIdeaCount = evolutionConfig.populationSize - eliteCount;
     const ideas = await solver.variator(
       topPerformers,
-      evolutionConfig.populationSize,
+      newIdeaCount,
       problemContext,
       generation,
       jobId
     );
+
+    // Combine elite performers with new ideas
+    const allIdeas = [...eliteIdeas, ...ideas];
+    logger.info(`Combined ${eliteIdeas.length} elite + ${ideas.length} new = ${allIdeas.length} total ideas`);
     
     // Save results
     await resultStore.savePhaseResults(jobId, generation, 'variator', {
-      ideas,
+      ideas: allIdeas,
       variatorComplete: true,
       variatorCompletedAt: new Date()
     });
     
-    logger.info(`Variator complete for job ${jobId}, generation ${generation}. Generated ${ideas.length} ideas`);
+    logger.info(`Variator complete for job ${jobId}, generation ${generation}. Generated ${allIdeas.length} total ideas (${eliteCount} elite + ${ideas.length} new)`);
     
     return { 
       success: true, 
-      message: `Generated ${ideas.length} ideas`,
-      ideasCount: ideas.length,
-      ideas  // Return ideas for workflow to pass to enricher
+      message: `Generated ${allIdeas.length} ideas (${eliteCount} elite + ${ideas.length} new)`,
+      ideasCount: allIdeas.length,
+      ideas: allIdeas  // Return combined ideas for workflow to pass to enricher
     };
     
   } catch (error) {

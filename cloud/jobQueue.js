@@ -104,10 +104,16 @@ class TaskStrategy {
       throw new Error('EVOLUTION_WORKER_URL not configured');
     }
 
+    // Ensure URL is properly formatted
+    const cleanUrl = workerUrl.trim();
+    if (!cleanUrl.startsWith('https://')) {
+      throw new Error(`Invalid worker URL format: ${cleanUrl}`);
+    }
+
     const task = {
       httpRequest: {
         httpMethod: 'POST',
-        url: `${workerUrl}/process`,
+        url: `${cleanUrl}/process`,
         headers: {
           'Content-Type': 'application/json',
         },

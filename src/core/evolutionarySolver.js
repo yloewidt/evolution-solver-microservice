@@ -21,6 +21,7 @@ const ideasSchema = Joi.array().items(solutionSchema);
 
 import config from '../config.js';
 
+
 class EvolutionarySolver {
   constructor(resultStore = null, config = {}) {
     // API call tracking - ensure exactly 1 call per operation
@@ -112,6 +113,10 @@ class EvolutionarySolver {
       guidanceText += `\nTARGET OUTCOME: Aim for solutions with 5-year NPV potential above $${minProfits}M.`;
     }
 
+    // Add randomness to ensure unique outputs
+    const randomSeed = Math.random().toString(36).substring(7);
+    const timestamp = new Date().toISOString();
+    
     // System prompt includes problem context and requirements
     const systemPrompt = `You are an expert in creative business solution generation.
 
@@ -119,8 +124,11 @@ Problem to solve: ${problemContext}${guidanceText}
 
 Focus on ${dealTypes}
 
-Generate ${numNeeded} new solutions:
-${currentSolutions.length > 0 ? `- ${offspringCount} OFFSPRING: Combine and evolve the top performers' best features
+Random seed for uniqueness: ${randomSeed}
+Timestamp: ${timestamp}
+
+Generate EXACTLY ${numNeeded} NEW solutions (do not include existing solutions):
+${currentSolutions.length > 0 ? `- ${offspringCount} OFFSPRING: Evolve the top performers' best features OR find creative ways to lower direct CAPEX(getting a non-investor to bear costs, or lower costs in general), Greatly reduce risk factors of the solution, or increase NPV of the solution. BE CREATIVE AND BOLD HERE.
 - ${wildcardCount} WILDCARDS: Completely fresh approaches` : `- ${numNeeded} WILDCARDS: All new creative solutions`}
 
 Each solution must have:
@@ -129,11 +137,15 @@ Each solution must have:
 - "core_mechanism": How value is created and captured
 - "is_offspring": true for offspring, false for wildcards
 
+IMPORTANT: Do NOT include an "idea_id" field - IDs will be assigned programmatically.
+Generate completely NEW ideas different from any previous generation.
+
 Requirements:
 - Business models must be realistic and implementable
 - Explain complex ideas simply (avoid jargon)
 - Focus on partnerships that reduce capital requirements
-- Consider timing advantages (why now?)`;
+- Consider timing advantages (why now?)
+- When doing an evolution, do describe each solution fully, as other functions looking at each idea wont have context about other ideas.`;
 
     // User prompt contains previous solutions if any
     const userPrompt = currentSolutions.length > 0
@@ -203,8 +215,11 @@ Requirements:
         fullResponse: JSON.stringify(response)  // Full response for replay
       });
 
-      // Use LLMClient's built-in parsing that handles structured outputs
-      const newIdeas = await this.llmClient.parseResponse(response, 'variator');
+      // Extract top performer IDs from current solutions
+      const topPerformerIds = new Set(currentSolutions.map(s => s.idea_id).filter(id => id));
+      
+      // Use LLMClient's built-in parsing that handles structured outputs and programmatic ID assignment
+      const newIdeas = await this.llmClient.parseResponse(response, 'variator', generation, jobId, topPerformerIds);
 
       // Track API call telemetry
       if (this.progressTracker?.resultStore && this.progressTracker?.jobId && response) {
@@ -261,8 +276,9 @@ Requirements:
         logger.warn(`Variator returned only ${ideasArray.length} ideas but ${numNeeded} were requested.`);
       }
 
-      logger.info(`Working with ${ideasArray.length} new ideas`);
-      // Only return the new ideas, not the combination
+      logger.info(`Variator generated ${ideasArray.length} new ideas`);
+      
+      // Return ONLY the new ideas - the workflow will handle combining with top performers
       return ideasArray;
     } catch (error) {
       logger.error('Variator failed - NO RETRIES:', error.message);

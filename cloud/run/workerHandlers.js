@@ -28,11 +28,17 @@ export async function processVariator({ jobId, generation, problemContext, topPe
     // Set up progress tracker for telemetry
     solver.progressTracker = { resultStore, jobId };
     
+    // Extract top performer IDs to preserve them
+    const topPerformerIds = new Set(topPerformers ? topPerformers.map(p => p.idea_id).filter(id => id) : []);
+    logger.info(`Variator: Preserving ${topPerformerIds.size} top performer IDs for generation ${generation}`);
+    
     // Generate new ideas
     const ideas = await solver.variator(
       topPerformers,
       evolutionConfig.populationSize,
-      problemContext
+      problemContext,
+      generation,
+      jobId
     );
     
     // Save results

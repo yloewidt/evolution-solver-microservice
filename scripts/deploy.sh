@@ -97,6 +97,7 @@ create_service_account() {
         "roles/cloudtasks.viewer"
         "roles/run.invoker"
         "roles/secretmanager.secretAccessor"
+        "roles/iam.serviceAccountUser"
     )
     
     for role in "${roles[@]}"; do
@@ -110,6 +111,21 @@ create_service_account() {
                 --quiet || true
         fi
     done
+    
+    # Grant permission for Cloud Run to impersonate the service account
+    log_info "Granting service account impersonation permission..."
+    if [[ "$DRY_RUN" != "true" ]]; then
+        # Get the project number for the Compute Engine default service account
+        local project_number=$(gcloud projects describe ${PROJECT_ID} --format="value(projectNumber)")
+        local compute_sa="${project_number}-compute@developer.gserviceaccount.com"
+        
+        # Grant the actAs permission
+        gcloud iam service-accounts add-iam-policy-binding ${SERVICE_ACCOUNT} \
+            --member="serviceAccount:${compute_sa}" \
+            --role="roles/iam.serviceAccountUser" \
+            --project=${PROJECT_ID} \
+            --quiet || true
+    fi
 }
 
 # Check and create secrets
@@ -366,7 +382,7 @@ EOF
         gcloud run services update ${API_SERVICE_NAME} \
             --project=${PROJECT_ID} \
             --region=${REGION} \
-            --update-env-vars=\"EVOLUTION_WORKER_URL=${worker_url}/task\"
+            --update-env-vars=EVOLUTION_WORKER_URL=${worker_url}/task
     fi
     
     # Clean up temp file

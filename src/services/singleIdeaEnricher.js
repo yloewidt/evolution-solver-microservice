@@ -225,7 +225,7 @@ IMPORTANT: Return ONLY the raw JSON object.`;
           logger.info('[ENRICH DEBUG] Calling client.chat.completions.create...');
 
           // Add timeout wrapper with better error handling
-          const timeoutMs = 60000; // 60 seconds for o3 model
+          const timeoutMs = 300000; // 300 seconds (5 minutes) for o3 model
           const timeoutPromise = new Promise((_, reject) => {
             setTimeout(() => {
               const timeoutError = new Error(`API call timeout after ${timeoutMs/1000} seconds`);

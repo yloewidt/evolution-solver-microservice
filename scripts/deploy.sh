@@ -400,7 +400,7 @@ deploy_workflow() {
         return 0
     fi
     
-    local deploy_cmd="gcloud workflows deploy evolution-pipeline-${ENVIRONMENT} \
+    local deploy_cmd="gcloud workflows deploy evolution-job-workflow-${ENVIRONMENT} \
         --source=${workflow_file} \
         --project=${PROJECT_ID} \
         --location=${REGION} \

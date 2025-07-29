@@ -14,16 +14,9 @@ class JobQueue {
     this.workflowName = config.workflowName || process.env.WORKFLOW_NAME || 'evolution-job-workflow';
     this.environment = config.environment || process.env.ENVIRONMENT || 'production';
     
-    // Choose strategy based on configuration
-    const useWorkflows = process.env.USE_WORKFLOWS === 'true' || config.useWorkflows;
-    
-    if (useWorkflows) {
-      this.strategy = new WorkflowStrategy(this);
-    } else {
-      this.strategy = new TaskStrategy(this);
-    }
-    
-    logger.info(`JobQueue initialized with ${useWorkflows ? 'Workflow' : 'Task'} strategy`);
+    // Always use workflows for state persistence (no more task strategy)
+    this.strategy = new WorkflowStrategy(this);
+    logger.info('JobQueue initialized with Workflow strategy');
   }
 
   /**

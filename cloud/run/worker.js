@@ -1,7 +1,7 @@
 import express from 'express';
 import dotenv from 'dotenv';
 import EvolutionResultStore from '../firestore/resultStore.js';
-import { processVariator, processEnricher, processRanker } from './workerHandlers.js';
+import { processVariator, processEnricher, processRanker } from './workerHandlersV2.js';
 import logger from '../../src/utils/logger.js';
 import os from 'os';
 
@@ -105,6 +105,8 @@ app.get('/health', (req, res) => {
   
   res.json(healthStatus);
 });
+
+// Monolithic /process endpoint removed - now using workflow-based processing
 
 // Status update endpoint for workflows
 app.post('/update-job-status', async (req, res) => {

@@ -392,12 +392,11 @@ Requirements:
       // All values now in millions USD
       const expectedValue = p * npv - (1 - p) * capex;
 
-      // Diversification penalty: logarithmic penalty for high CAPEX
-      // Use log scale to avoid extreme penalties that destabilize evolution
-      const diversificationPenalty = Math.log(1 + capex / C0) * 0.1;
+      // Diversification penalty: sqrt(CAPEX/C0)
+      const diversificationPenalty = Math.sqrt(capex / C0);
 
-      // Risk-Adjusted NPV: subtract penalty instead of dividing
-      const score = expectedValue - diversificationPenalty;
+      // Risk-Adjusted NPV
+      const score = expectedValue / diversificationPenalty;
 
       // Track if idea violates preferences (for logging only)
       let violatesPreferences = false;

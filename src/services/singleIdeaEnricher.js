@@ -114,7 +114,7 @@ IMPORTANT: Return ONLY the raw JSON object.`;
    * Create a deterministic cache key for an idea
    */
   createIdeaCacheKey(idea) {
-    const ideaString = `${idea.idea_id}|${idea.description}|${idea.core_mechanism || ''}`;
+    const ideaString = `${idea.idea_id}`;
     return crypto.createHash('md5').update(ideaString).digest('hex');
   }
 

@@ -36,7 +36,7 @@ export async function processVariator({ jobId, generation, problemContext, topPe
     let eliteCount = 0;
     let eliteIdeas = [];
     if (generation > 1 && topPerformers && topPerformers.length > 0) {
-      eliteCount = Math.min(2, Math.floor(evolutionConfig.populationSize * 0.2)); // Top 20% or 2, whichever is smaller
+      eliteCount = Math.max(1, Math.floor(evolutionConfig.populationSize * evolutionConfig.topPerformerRatio)); // Top topPerformerRatio% or 1, whichever is bigger
       eliteIdeas = topPerformers.slice(0, eliteCount);
       logger.info(`Preserving top ${eliteCount} elite performers unchanged`);
     }

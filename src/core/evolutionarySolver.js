@@ -147,9 +147,12 @@ Requirements:
 - Consider timing advantages (why now?)
 - When doing an evolution, do describe each solution fully, as other functions looking at each idea wont have context about other ideas.`;
 
+    // Remove idea_id from currentSolutions
+    const currentSolutionsClean = currentSolutions.map(({ idea_id, ...rest }) => rest);
+
     // User prompt contains previous solutions if any
     const userPrompt = currentSolutions.length > 0
-      ? `Previous top performers:\n${JSON.stringify(currentSolutions, null, 2)}`
+      ? `Previous top performers:\n${JSON.stringify(currentSolutionsClean, null, 2)}`
       : 'Generate new creative business solutions.';
 
     // NO RETRIES - exactly 1 API call

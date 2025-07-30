@@ -52,9 +52,6 @@ export default function createRoutes(evolutionService) {
     if (evolutionParams?.minProfits !== undefined) {
       evolutionConfig.minProfits = evolutionParams.minProfits;
     }
-    if (evolutionParams?.fallbackModel !== undefined) {
-      evolutionConfig.fallbackModel = evolutionParams.fallbackModel;
-    }
     if (evolutionParams?.useSingleIdeaEnricher !== undefined) {
       evolutionConfig.useSingleIdeaEnricher = evolutionParams.useSingleIdeaEnricher;
     }
@@ -193,8 +190,7 @@ export default function createRoutes(evolutionService) {
 
       // Initialize services
       const llmClient = new LLMClient({
-        model: evolutionConfig.model || 'o3',
-        fallbackModel: evolutionConfig.fallbackModel || 'gpt-4o'
+        model: evolutionConfig.model || 'o3'
       });
       const cacheStore = new EnricherCacheStore(resultStore);
       const enricher = new SingleIdeaEnricher(llmClient, cacheStore);

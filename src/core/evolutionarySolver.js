@@ -160,7 +160,6 @@ Requirements:
       if (!this.llmClient) {
         this.llmClient = new LLMClient({
           model: this.config.model,
-          fallbackModel: this.config.fallbackModel,
           apiKey: this.config.apiKey
         });
       }

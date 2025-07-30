@@ -57,7 +57,6 @@ export class LLMClient {
     const model = config.model || 'o3';
     this.config = {
       model: model,
-      fallbackModel: config.fallbackModel || 'gpt-4o',
       temperature: config.temperature || (model === 'o3' ? 1 : 0.7),
       apiKey: config.apiKey || process.env.OPENAI_API_KEY
     };
@@ -135,7 +134,7 @@ export class LLMClient {
   // createEnricherRequest removed - enrichment now handled by singleIdeaEnricher
 
   /**
-   * Execute the request with timeout protection and fallback
+   * Execute the request with timeout protection
    */
   async executeRequest(request) {
     const apiStyle = this.getApiStyle();
@@ -164,32 +163,6 @@ export class LLMClient {
       clearTimeout(timeoutId);
       
       logger.error(`Request failed with model ${request.model}:`, error.message);
-      
-      // If using o3 and it fails, try fallback model
-      if (request.model === 'o3' && this.config.fallbackModel && request.model !== this.config.fallbackModel) {
-        logger.warn(`o3 model failed, falling back to ${this.config.fallbackModel}`);
-        
-        // Create fallback request
-        const fallbackRequest = {
-          ...request,
-          model: this.config.fallbackModel
-        };
-        
-        // Add structured output for non-o3 models
-        if (this.config.fallbackModel !== 'o3') {
-          fallbackRequest.response_format = VariatorResponseSchema;
-        }
-        
-        // Retry with fallback model
-        try {
-          const fallbackResponse = await this.client.chat.completions.create(fallbackRequest);
-          logger.info(`Fallback to ${this.config.fallbackModel} succeeded`);
-          return fallbackResponse;
-        } catch (fallbackError) {
-          logger.error(`Fallback model ${this.config.fallbackModel} also failed:`, fallbackError.message);
-          throw new Error(`Both primary model (${request.model}) and fallback model (${this.config.fallbackModel}) failed`);
-        }
-      }
 
       if (error.name === 'AbortError' || controller.signal.aborted) {
         throw new Error(`API request timed out after ${timeoutMs}ms`);

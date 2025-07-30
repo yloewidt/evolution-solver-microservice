@@ -103,8 +103,7 @@ export async function processEnricher({ jobId, generation, ideas, problemContext
     
     // Initialize LLM client
     const llmClient = new LLMClient({
-      model: evolutionConfig.model || 'o3',
-      fallbackModel: evolutionConfig.fallbackModel || 'gpt-4o'
+      model: evolutionConfig.model || 'o3'
     });
     
     // Initialize cache store

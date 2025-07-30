@@ -51,10 +51,15 @@ This is a microservice implementing an evolutionary algorithm for generating inn
 
 ### Key Architectural Decisions
 
-1. **Async Processing**: Jobs are queued in Cloud Tasks and processed by Cloud Run workers to handle long-running evolution processes (can take 10-15 minutes)
-2. **Result Persistence**: Firestore stores job results for later retrieval
-3. **Separation of Concerns**: API handles requests, workers process jobs, core algorithm is framework-agnostic
-4. **Cloud-Native Design**: Built for Google Cloud Run with proper health checks, graceful shutdown, and auto-scaling
+1. **Workflow-Based Processing**: Uses Cloud Workflows to orchestrate evolution jobs, maintaining state across generations for consistent score progression
+2. **Individual Phase Endpoints**: Worker provides separate endpoints for variator, enricher, and ranker phases (processed via `workerHandlersV2.js`)
+3. **Result Persistence**: Firestore stores job results and maintains generation history for later retrieval
+4. **Separation of Concerns**: API handles requests, workflows orchestrate jobs, workers process individual phases
+5. **Cloud-Native Design**: Built for Google Cloud Run with proper health checks, graceful shutdown, and auto-scaling
+
+### Current Architecture Files
+- **Active**: `workerHandlersV2.js` - Current implementation with workflow-based processing
+- **Legacy**: `workerHandlers.js` - Original monolithic implementation (deprecated)
 
 ## Important Configuration
 
@@ -124,7 +129,7 @@ Required environment variables (see `.env.example`):
 3. **Making Changes**:
    - Core algorithm changes: `src/core/evolutionarySolver.js`
    - API changes: `src/api/routes.js`
-   - Worker logic: `cloud/run/workerHandlers.js` or `cloud/run/workerHandlersV2.js`
+   - Worker logic: `cloud/run/workerHandlersV2.js`
    - Always run tests after changes: `npm test`
 
 4. **Adding New Features**:

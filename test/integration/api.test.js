@@ -77,19 +77,19 @@ const { default: createRoutes } = await import('../../src/api/routes.js');
 describe('API Endpoints - Comprehensive Tests', () => {
   let app;
   let routes;
-  
+
   beforeEach(() => {
     jest.clearAllMocks();
-    
+
     // Create evolution service with result store
     const evolutionServiceWithStore = {
       ...mockEvolutionService,
       resultStore: mockResultStore
     };
-    
+
     // Create routes with mocked dependencies
     routes = createRoutes(evolutionServiceWithStore, mockTaskHandler);
-    
+
     // Create fresh Express app for each test
     app = express();
     app.use(express.json());
@@ -107,25 +107,25 @@ describe('API Endpoints - Comprehensive Tests', () => {
           model: 'gpt-4o'
         }
       };
-      
+
       mockTaskHandler.createEvolutionTask.mockResolvedValueOnce({
         jobId: 'job-123',
         taskName: 'task-456',
         status: 'queued'
       });
-      
+
       const response = await request(app)
         .post('/api/evolution/jobs')
         .send(jobData)
         .expect(200);
-      
+
       expect(response.body).toMatchObject({
         taskName: 'task-456',
         status: 'queued',
         message: 'Evolution job queued for processing'
       });
       expect(response.body.jobId).toMatch(/^[\w-]+$/);
-      
+
       expect(mockTaskHandler.createEvolutionTask).toHaveBeenCalledWith(
         expect.objectContaining({
           problemContext: jobData.problemContext,
@@ -133,39 +133,39 @@ describe('API Endpoints - Comprehensive Tests', () => {
         })
       );
     });
-    
+
     test('test_post_job_returns_jobid', async () => {
       mockTaskHandler.createEvolutionTask.mockResolvedValueOnce({
         jobId: 'unique-job-id',
         taskName: 'task-123',
         status: 'queued'
       });
-      
+
       const response = await request(app)
         .post('/api/evolution/jobs')
         .send({
           problemContext: 'Test problem'
         })
         .expect(200);
-      
+
       expect(response.body.jobId).toMatch(/^[\w-]+$/);
       expect(response.body.status).toBe('queued');
     });
-    
+
     test('test_post_job_default_params', async () => {
       mockTaskHandler.createEvolutionTask.mockResolvedValueOnce({
         jobId: 'job-123',
         taskName: 'task-456',
         status: 'queued'
       });
-      
+
       await request(app)
         .post('/api/evolution/jobs')
         .send({
           problemContext: 'Test problem'
         })
         .expect(200);
-      
+
       expect(mockTaskHandler.createEvolutionTask).toHaveBeenCalledWith(
         expect.objectContaining({
           evolutionConfig: expect.objectContaining({
@@ -176,7 +176,7 @@ describe('API Endpoints - Comprehensive Tests', () => {
         })
       );
     });
-    
+
     test('test_post_job_optional_fields', async () => {
       const jobData = {
         problemContext: 'Test problem',
@@ -186,18 +186,18 @@ describe('API Endpoints - Comprehensive Tests', () => {
           { idea_id: '1', description: 'Initial idea' }
         ]
       };
-      
+
       mockTaskHandler.createEvolutionTask.mockResolvedValueOnce({
         jobId: 'job-123',
         taskName: 'task-456',
         status: 'queued'
       });
-      
+
       await request(app)
         .post('/api/evolution/jobs')
         .send(jobData)
         .expect(200);
-      
+
       // API generates its own IDs and doesn't pass through user/session from body
       expect(mockTaskHandler.createEvolutionTask).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -214,17 +214,17 @@ describe('API Endpoints - Comprehensive Tests', () => {
         .post('/api/evolution/jobs')
         .send({})
         .expect(400);
-      
+
       expect(response.body.error).toContain('Either select a bottleneck or provide a problem context');
     });
-    
+
     test('test_post_job_invalid_generations', async () => {
       mockTaskHandler.createEvolutionTask.mockResolvedValueOnce({
         jobId: 'job-123',
         taskName: 'task-456',
         status: 'queued'
       });
-      
+
       const response = await request(app)
         .post('/api/evolution/jobs')
         .send({
@@ -232,7 +232,7 @@ describe('API Endpoints - Comprehensive Tests', () => {
           parameters: { generations: 0 }
         })
         .expect(200);
-      
+
       // API uses default value for invalid generations
       expect(mockTaskHandler.createEvolutionTask).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -240,14 +240,14 @@ describe('API Endpoints - Comprehensive Tests', () => {
         })
       );
     });
-    
+
     test('test_post_job_invalid_population', async () => {
       mockTaskHandler.createEvolutionTask.mockResolvedValueOnce({
         jobId: 'job-123',
         taskName: 'task-456',
         status: 'queued'
       });
-      
+
       const response = await request(app)
         .post('/api/evolution/jobs')
         .send({
@@ -255,7 +255,7 @@ describe('API Endpoints - Comprehensive Tests', () => {
           parameters: { populationSize: 101 }
         })
         .expect(200);
-      
+
       // API doesn't validate population size, it just uses the value
       expect(mockTaskHandler.createEvolutionTask).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -263,19 +263,19 @@ describe('API Endpoints - Comprehensive Tests', () => {
         })
       );
     });
-    
+
     test('test_post_job_service_error', async () => {
       mockTaskHandler.createEvolutionTask.mockRejectedValueOnce(
         new Error('Service unavailable')
       );
-      
+
       const response = await request(app)
         .post('/api/evolution/jobs')
         .send({
           problemContext: 'Test problem'
         })
         .expect(500);
-      
+
       expect(response.body.error).toBe('Service unavailable');
     });
   });
@@ -291,11 +291,11 @@ describe('API Endpoints - Comprehensive Tests', () => {
           percentComplete: 30
         }
       });
-      
+
       const response = await request(app)
         .get('/api/evolution/jobs/job-123')
         .expect(200);
-      
+
       expect(response.body).toEqual({
         jobId: 'job-123',
         status: 'processing',
@@ -306,17 +306,17 @@ describe('API Endpoints - Comprehensive Tests', () => {
         }
       });
     });
-    
+
     test('test_get_job_status_not_found', async () => {
       mockEvolutionService.getJobStatus.mockResolvedValueOnce(null);
-      
+
       const response = await request(app)
         .get('/api/evolution/jobs/invalid-job')
         .expect(404);
-      
+
       expect(response.body.error).toBe('Job not found');
     });
-    
+
     test('test_get_job_status_completed', async () => {
       mockEvolutionService.getJobStatus.mockResolvedValueOnce({
         jobId: 'job-123',
@@ -324,11 +324,11 @@ describe('API Endpoints - Comprehensive Tests', () => {
         completedAt: '2024-01-01T12:00:00Z',
         totalSolutions: 50
       });
-      
+
       const response = await request(app)
         .get('/api/evolution/jobs/job-123')
         .expect(200);
-      
+
       expect(response.body.status).toBe('completed');
       expect(response.body.totalSolutions).toBe(50);
     });
@@ -346,36 +346,36 @@ describe('API Endpoints - Comprehensive Tests', () => {
           { generation: 1, avgScore: 75.2 }
         ]
       };
-      
+
       mockEvolutionService.getResults.mockResolvedValueOnce(mockResults);
-      
+
       const response = await request(app)
         .get('/api/evolution/results/job-123')
         .expect(200);
-      
+
       expect(response.body).toEqual(mockResults);
     });
-    
+
     test('test_get_results_not_found', async () => {
       mockEvolutionService.getResults.mockResolvedValueOnce(null);
-      
+
       const response = await request(app)
         .get('/api/evolution/results/invalid-job')
         .expect(404);
-      
+
       expect(response.body.error).toBe('Results not found');
     });
-    
+
     test('test_get_results_job_incomplete', async () => {
       mockEvolutionService.getResults.mockResolvedValueOnce({
         jobId: 'job-123',
         status: 'processing'
       });
-      
+
       const response = await request(app)
         .get('/api/evolution/results/job-123')
         .expect(200);
-      
+
       expect(response.body.status).toBe('processing');
     });
   });
@@ -386,13 +386,13 @@ describe('API Endpoints - Comprehensive Tests', () => {
         { jobId: 'job-1', status: 'completed' },
         { jobId: 'job-2', status: 'processing' }
       ];
-      
+
       mockEvolutionService.getRecentJobs.mockResolvedValueOnce(mockJobs);
-      
+
       const response = await request(app)
         .get('/api/evolution/jobs')
         .expect(200);
-      
+
       expect(response.body).toMatchObject({
         jobs: mockJobs,
         total: 2,
@@ -400,18 +400,18 @@ describe('API Endpoints - Comprehensive Tests', () => {
       });
       expect(mockEvolutionService.getRecentJobs).toHaveBeenCalledWith(50);
     });
-    
+
     test('test_list_jobs_with_status', async () => {
       const mockJobs = [
         { jobId: 'job-1', status: 'completed' }
       ];
-      
+
       mockResultStore.getJobsByStatus.mockResolvedValueOnce(mockJobs);
-      
+
       const response = await request(app)
         .get('/api/evolution/jobs?status=completed')
         .expect(200);
-      
+
       expect(response.body).toMatchObject({
         jobs: mockJobs,
         total: 1,
@@ -419,14 +419,14 @@ describe('API Endpoints - Comprehensive Tests', () => {
       });
       expect(mockResultStore.getJobsByStatus).toHaveBeenCalledWith('completed', 50);
     });
-    
+
     test('test_list_jobs_with_limit', async () => {
       mockEvolutionService.getRecentJobs.mockResolvedValueOnce([]);
-      
+
       await request(app)
         .get('/api/evolution/jobs?limit=10')
         .expect(200);
-      
+
       expect(mockEvolutionService.getRecentJobs).toHaveBeenCalledWith(10);
     });
   });
@@ -442,23 +442,23 @@ describe('API Endpoints - Comprehensive Tests', () => {
           enricher: { calls: 10, tokens: 25000 }
         }
       };
-      
+
       mockAnalyticsService.getJobAnalytics.mockResolvedValueOnce(mockAnalytics);
-      
+
       const response = await request(app)
         .get('/api/evolution/jobs/job-123/analytics')
         .expect(200);
-      
+
       expect(response.body).toEqual(mockAnalytics);
     });
-    
+
     test('test_get_analytics_not_found', async () => {
       mockAnalyticsService.getJobAnalytics.mockResolvedValueOnce(null);
-      
+
       const response = await request(app)
         .get('/api/evolution/jobs/invalid/analytics')
         .expect(404);
-      
+
       expect(response.body.error).toBe('Job not found');
     });
   });
@@ -473,13 +473,13 @@ describe('API Endpoints - Comprehensive Tests', () => {
         avgCompletionTime: 180,
         successRate: 94.4
       };
-      
+
       mockEvolutionService.getJobStats.mockResolvedValueOnce(mockStats);
-      
+
       const response = await request(app)
         .get('/api/evolution/stats')
         .expect(200);
-      
+
       expect(response.body).toEqual({ jobs: mockStats });
     });
   });
@@ -487,42 +487,42 @@ describe('API Endpoints - Comprehensive Tests', () => {
   describe('3.8 Queue Management Endpoints', () => {
     test('test_pause_queue_success', async () => {
       mockTaskHandler.pauseQueue.mockResolvedValueOnce(true);
-      
+
       const response = await request(app)
         .post('/api/evolution/queue/pause')
         .expect(200);
-      
+
       expect(response.body.message).toBe('Queue paused');
     });
-    
+
     test('test_resume_queue_success', async () => {
       mockTaskHandler.resumeQueue.mockResolvedValueOnce(true);
-      
+
       const response = await request(app)
         .post('/api/evolution/queue/resume')
         .expect(200);
-      
+
       expect(response.body.message).toBe('Queue resumed');
     });
-    
+
     test('test_purge_queue_success', async () => {
       mockTaskHandler.purgeQueue.mockResolvedValueOnce(true);
-      
+
       const response = await request(app)
         .delete('/api/evolution/queue/purge')
         .expect(200);
-      
+
       expect(response.body.message).toBe('Queue purged');
       expect(response.body.success).toBe(true);
     });
-    
+
     test('test_queue_operation_failure', async () => {
       mockTaskHandler.pauseQueue.mockResolvedValueOnce(false);
-      
+
       const response = await request(app)
         .post('/api/evolution/queue/pause')
         .expect(200);
-      
+
       expect(response.body.success).toBe(false);
       expect(response.body.message).toBe('Failed to pause queue');
     });
@@ -534,37 +534,37 @@ describe('API Endpoints - Comprehensive Tests', () => {
         .put('/api/evolution/jobs')
         .expect(404);
     });
-    
+
     test('test_invalid_endpoint', async () => {
       await request(app)
         .get('/api/evolution/invalid')
         .expect(404);
     });
-    
+
     test('test_large_problem_context', async () => {
       const largeContext = 'x'.repeat(5001);
-      
+
       mockEvolutionService.validateProblemContext.mockImplementation(() => {
         throw new Error('Problem context too long (5001 > 5000 chars)');
       });
-      
+
       const response = await request(app)
         .post('/api/evolution/jobs')
         .send({
           problemContext: largeContext
         })
         .expect(400);
-      
+
       expect(response.body.error).toContain('too long');
     });
-    
+
     test('test_invalid_json_body', async () => {
       const response = await request(app)
         .post('/api/evolution/jobs')
         .set('Content-Type', 'application/json')
         .send('{"invalid": json')
         .expect(400);
-      
+
       expect(response.status).toBe(400);
     });
   });

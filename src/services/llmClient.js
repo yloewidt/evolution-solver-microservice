@@ -1,8 +1,52 @@
 import OpenAI from 'openai';
 import https from 'https';
 import logger from '../utils/logger.js';
-import { VariatorResponseSchema, EnricherResponseSchema } from '../schemas/structuredSchemas.js';
-import { ResponseParser } from '../utils/responseParser.js';
+import Parser from '../utils/parser.js';
+
+/**
+ * JSON Schemas for OpenAI Structured Outputs
+ * These schemas guarantee 100% compliant responses from the API
+ */
+const VariatorResponseSchema = {
+  type: 'json_schema',
+  json_schema: {
+    name: 'variator_response',
+    schema: {
+      type: 'object',
+      properties: {
+        ideas: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              title: {
+                type: 'string',
+                description: 'Short, catchy title for the idea'
+              },
+              description: {
+                type: 'string',
+                description: '2-3 sentence description of the business idea'
+              },
+              core_mechanism: {
+                type: 'string',
+                description: '1-2 sentence explanation of how the idea works'
+              },
+              is_offspring: {
+                type: 'boolean',
+                description: 'Whether this idea is based on an existing top performer'
+              }
+            },
+            required: ['title', 'description', 'core_mechanism', 'is_offspring'],
+            additionalProperties: false
+          }
+        }
+      },
+      required: ['ideas'],
+      additionalProperties: false
+    },
+    strict: true
+  }
+};
 
 /**
  * Unified LLM client that handles both OpenAI and Anthropic-style APIs
@@ -13,6 +57,7 @@ export class LLMClient {
     const model = config.model || 'o3';
     this.config = {
       model: model,
+      fallbackModel: config.fallbackModel || 'gpt-4o',
       temperature: config.temperature || (model === 'o3' ? 1 : 0.7),
       apiKey: config.apiKey || process.env.OPENAI_API_KEY
     };
@@ -55,9 +100,14 @@ export class LLMClient {
 
     // Use provided prompts or defaults
     const finalSystemPrompt = systemPrompt || 'You are an expert in creative business deal-making and solution generation. Generate innovative, low-risk, high-return solutions.';
-    const finalUserPrompt = userPrompt || prompt;
+    let finalUserPrompt = userPrompt || prompt;
+    
+    // For o3 model, add explicit JSON format instruction since it doesn't support structured output
+    if (this.config.model === 'o3') {
+      finalUserPrompt += '\n\nIMPORTANT: You must respond with a valid JSON object containing an "ideas" array. Each idea must have: title, description, core_mechanism, target_market, revenue_streams, implementation_steps, competitive_advantages, risks, and idea_id. Do not include any text outside the JSON object.';
+    }
 
-    // OpenAI style - o3 doesn't support structured output
+    // OpenAI style request
     const request = {
       model: this.config.model,
       messages: [
@@ -74,7 +124,7 @@ export class LLMClient {
       store: true
     };
     
-    // Only add response_format for models that support it
+    // Only add response_format for models that support structured output
     if (this.config.model !== 'o3') {
       request.response_format = VariatorResponseSchema;
     }
@@ -85,35 +135,62 @@ export class LLMClient {
   // createEnricherRequest removed - enrichment now handled by singleIdeaEnricher
 
   /**
-   * Execute the request with timeout protection
+   * Execute the request with timeout protection and fallback
    */
   async executeRequest(request) {
     const apiStyle = this.getApiStyle();
-    
+
     // Create an AbortController with timeout
     const controller = new AbortController();
     const timeoutMs = this.config.timeout || 300000; // 5 minutes default
-    
+
     const timeoutId = setTimeout(() => {
       controller.abort();
       logger.error(`API request timed out after ${timeoutMs}ms`);
     }, timeoutMs);
-    
+
     try {
       let response;
       if (apiStyle === 'openai') {
-        // OpenAI doesn't support signal in the request, use client-level timeout
+        logger.info(`Making request with model: ${request.model}`);
         response = await this.client.chat.completions.create(request);
       } else {
-        // This branch should never be reached now
         throw new Error('Unexpected API style');
       }
-      
+
       clearTimeout(timeoutId);
       return response;
     } catch (error) {
       clearTimeout(timeoutId);
       
+      logger.error(`Request failed with model ${request.model}:`, error.message);
+      
+      // If using o3 and it fails, try fallback model
+      if (request.model === 'o3' && this.config.fallbackModel && request.model !== this.config.fallbackModel) {
+        logger.warn(`o3 model failed, falling back to ${this.config.fallbackModel}`);
+        
+        // Create fallback request
+        const fallbackRequest = {
+          ...request,
+          model: this.config.fallbackModel
+        };
+        
+        // Add structured output for non-o3 models
+        if (this.config.fallbackModel !== 'o3') {
+          fallbackRequest.response_format = VariatorResponseSchema;
+        }
+        
+        // Retry with fallback model
+        try {
+          const fallbackResponse = await this.client.chat.completions.create(fallbackRequest);
+          logger.info(`Fallback to ${this.config.fallbackModel} succeeded`);
+          return fallbackResponse;
+        } catch (fallbackError) {
+          logger.error(`Fallback model ${this.config.fallbackModel} also failed:`, fallbackError.message);
+          throw new Error(`Both primary model (${request.model}) and fallback model (${this.config.fallbackModel}) failed`);
+        }
+      }
+
       if (error.name === 'AbortError' || controller.signal.aborted) {
         throw new Error(`API request timed out after ${timeoutMs}ms`);
       }
@@ -129,6 +206,9 @@ export class LLMClient {
 
     try {
       if (apiStyle === 'openai') {
+        // Log the full response for debugging
+        logger.info(`${context}: Full OpenAI response structure:`, JSON.stringify(response, null, 2));
+        
         // Check for refusal first
         if (response.choices?.[0]?.message?.refusal) {
           throw new Error(`Model refused request: ${response.choices[0].message.refusal}`);
@@ -136,12 +216,16 @@ export class LLMClient {
 
         // Get content from response
         const content = response.choices?.[0]?.message?.content;
-        if (!content) throw new Error('No content in OpenAI response');
+        logger.info(`${context}: Extracted content:`, content);
+        if (!content) {
+          logger.error(`${context}: No content found. Response choices:`, JSON.stringify(response.choices, null, 2));
+          throw new Error('No content in OpenAI response');
+        }
 
         // Try to parse as JSON first (for structured outputs)
         try {
           const parsed = JSON.parse(content);
-          
+
           // If using structured outputs, the response will be wrapped in an object
           if (parsed.ideas) {
             logger.info(`${context}: Structured output - extracted ${parsed.ideas.length} ideas`);
@@ -151,7 +235,7 @@ export class LLMClient {
             logger.info(`${context}: Structured output - extracted ${parsed.enriched_ideas.length} enriched ideas`);
             return parsed.enriched_ideas;
           }
-          
+
           // If it's valid JSON but not structured output format, return it
           return Array.isArray(parsed) ? parsed : [parsed];
         } catch (jsonError) {
@@ -176,6 +260,17 @@ export class LLMClient {
     try {
       const parsed = JSON.parse(content);
       logger.info(`${context}: Direct JSON parsing successful`);
+      
+      // Handle structured outputs in fallback path too
+      if (parsed.ideas) {
+        logger.info(`${context}: Structured output - extracted ${parsed.ideas.length} ideas (fallback path)`);
+        return parsed.ideas;
+      }
+      if (parsed.enriched_ideas) {
+        logger.info(`${context}: Structured output - extracted ${parsed.enriched_ideas.length} enriched ideas (fallback path)`);
+        return parsed.enriched_ideas;
+      }
+      
       return Array.isArray(parsed) ? parsed : [parsed];
     } catch (e) {
       logger.info(`${context}: Direct parsing failed, trying cleanup`);
@@ -215,7 +310,6 @@ export class LLMClient {
 
     // If all else fails, use the robust parser as last resort
     logger.warn(`${context}: Falling back to robust parser`);
-    const RobustJsonParser = (await import('../utils/jsonParser.js')).default;
-    return RobustJsonParser.parse(content, context);
+    return Parser.parse(content, context);
   }
 }

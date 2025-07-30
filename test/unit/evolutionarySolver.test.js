@@ -10,15 +10,28 @@ const mockLLMClient = {
     }
   },
   getApiStyle: jest.fn().mockReturnValue('openai'),
-  createVariatorRequest: jest.fn()
+  createVariatorRequest: jest.fn(),
+  executeRequest: jest.fn((request) => {
+    // Return the mocked response from create method
+    return mockLLMClient.client.chat.completions.create(request);
+  }),
+  parseResponse: jest.fn((response) => {
+    // Extract ideas from the mocked response
+    const content = response.choices?.[0]?.message?.content;
+    if (content) {
+      const parsed = JSON.parse(content);
+      return parsed.ideas || parsed;
+    }
+    return [];
+  })
 };
 
-jest.unstable_mockModule('src/services/llmClient.js', () => ({
+jest.unstable_mockModule('../../src/services/llmClient.js', () => ({
   LLMClient: jest.fn().mockImplementation(() => mockLLMClient)
 }));
 
 // Mock ResponseParser
-jest.unstable_mockModule('src/utils/responseParser.js', () => ({
+jest.unstable_mockModule('../../src/utils/responseParser.js', () => ({
   ResponseParser: {
     parseOpenAIResponse: jest.fn((response, context) => {
       // Extract ideas from the mocked response
@@ -41,10 +54,10 @@ const { default: EvolutionarySolver } = await import('../../src/core/evolutionar
 describe('EvolutionarySolver - Unit Tests', () => {
   let solver;
   let mockResultStore;
-  
+
   beforeEach(() => {
     jest.clearAllMocks();
-    
+
     // Mock result store
     mockResultStore = {
       saveApiCall: jest.fn(),
@@ -53,10 +66,11 @@ describe('EvolutionarySolver - Unit Tests', () => {
       updateGenerationProgress: jest.fn(),
       savePartialResult: jest.fn()
     };
-    
+
     // Create solver with mocked dependencies
     solver = new EvolutionarySolver(null, mockResultStore);
     solver.llmClient = mockLLMClient;
+    solver.currentGeneration = 1; // Set generation for ID generation
     solver.config = {
       ...solver.config,
       maxCapex: 10,
@@ -80,59 +94,60 @@ describe('EvolutionarySolver - Unit Tests', () => {
         { idea_id: '2', title: 'Idea 2' },
         { idea_id: '3', title: 'Idea 3' }
       ];
-      
+
       const result = await solver.variator(currentSolutions, 3, 'context', 1, 'job-1');
-      
+
       expect(result).toEqual(currentSolutions);
       expect(mockLLMClient.client.chat.completions.create).not.toHaveBeenCalled();
     });
-    
+
     test('should generate new ideas when needed', async () => {
       const mockResponse = {
         choices: [{
           message: {
             content: JSON.stringify({
               ideas: [
-                { idea_id: 'new-1', title: 'New 1', description: 'Desc 1', core_mechanism: 'Mech 1' },
-                { idea_id: 'new-2', title: 'New 2', description: 'Desc 2', core_mechanism: 'Mech 2' }
+                { title: 'New 1', description: 'Desc 1', core_mechanism: 'Mech 1', is_offspring: false },
+                { title: 'New 2', description: 'Desc 2', core_mechanism: 'Mech 2', is_offspring: false }
               ]
             })
           }
         }],
         usage: { prompt_tokens: 100, completion_tokens: 200 }
       };
-      
+
       mockLLMClient.client.chat.completions.create.mockResolvedValueOnce(mockResponse);
-      
+
       const result = await solver.variator([], 2, 'test context', 1, 'job-1');
-      
+
       expect(result).toHaveLength(2);
-      expect(result[0].idea_id).toBe('new-1');
-      expect(result[1].idea_id).toBe('new-2');
+      expect(result[0].idea_id).toBe('VAR_GEN1_001');
+      expect(result[1].idea_id).toBe('VAR_GEN1_002');
     });
-    
+
     test('should include top performers in prompt for generation > 1', async () => {
       const currentSolutions = [
         { idea_id: 'top-1', title: 'Top Performer', score: 100 }
       ];
-      
+
       solver.config.offspringRatio = 0.7;
-      
+      solver.currentGeneration = 2; // Set generation for test
+
       mockLLMClient.client.chat.completions.create.mockResolvedValueOnce({
         choices: [{
           message: {
             content: JSON.stringify({
               ideas: [
-                { idea_id: 'new-1', title: 'New 1', description: 'Desc 1', core_mechanism: 'Mech 1' }
+                { title: 'New 1', description: 'Desc 1', core_mechanism: 'Mech 1', is_offspring: true }
               ]
             })
           }
         }],
         usage: { prompt_tokens: 100, completion_tokens: 50 }
       });
-      
+
       await solver.variator(currentSolutions, 11, 'context', 2, 'job-1');
-      
+
       // Check that the request was created with the current solutions
       expect(mockLLMClient.createVariatorRequest).toHaveBeenCalled();
       const [_, systemPrompt, userPrompt] = mockLLMClient.createVariatorRequest.mock.calls[0];
@@ -143,7 +158,7 @@ describe('EvolutionarySolver - Unit Tests', () => {
   });
 
   // Enricher tests removed - enrichment now handled by singleIdeaEnricher service
-  
+
   describe('Enricher Logic Tests (removed)', () => {
     test.skip('enricher method has been removed from evolutionarySolver', () => {
       // Enrichment is now handled by the singleIdeaEnricher service
@@ -165,21 +180,21 @@ describe('EvolutionarySolver - Unit Tests', () => {
           }
         }
       ];
-      
+
       const result = await solver.ranker(ideas);
-      
+
       expect(result.rankedIdeas).toHaveLength(1);
       expect(result.filteredIdeas).toHaveLength(0);
-      
+
       const idea = result.rankedIdeas[0];
       const p = 0.8;
       const expectedValue = p * 10 - (1 - p) * 2;
       const diversificationPenalty = Math.sqrt(2 / 0.05);
       const expectedScore = expectedValue / diversificationPenalty;
-      
+
       expect(idea.score).toBeCloseTo(expectedScore, 6);
     });
-    
+
     test('should sort by score descending', async () => {
       const ideas = [
         {
@@ -198,14 +213,14 @@ describe('EvolutionarySolver - Unit Tests', () => {
           business_case: { npv_success: 10, capex_est: 2, likelihood: 0.6, risk_factors: [], timeline_months: 12 }
         }
       ];
-      
+
       const result = await solver.ranker(ideas);
-      
+
       expect(result.rankedIdeas[0].title).toBe('High Score');
       expect(result.rankedIdeas[1].title).toBe('Medium Score');
       expect(result.rankedIdeas[2].title).toBe('Low Score');
     });
-    
+
     test('should mark ideas that violate preferences', async () => {
       const ideas = [
         {
@@ -219,21 +234,21 @@ describe('EvolutionarySolver - Unit Tests', () => {
           business_case: { npv_success: 0.5, capex_est: 1, likelihood: 0.8, risk_factors: [], timeline_months: 12 }
         }
       ];
-      
+
       solver.config.maxCapex = 10;
       solver.config.minProfits = 1;
-      
+
       const result = await solver.ranker(ideas);
-      
+
       const overCapex = result.rankedIdeas.find(i => i.title === 'Over CAPEX');
       expect(overCapex.violatesPreferences).toBe(true);
       expect(overCapex.preferenceNote).toContain('exceeds preference');
-      
+
       const underProfit = result.rankedIdeas.find(i => i.title === 'Under Profit');
       expect(underProfit.violatesPreferences).toBe(true);
       expect(underProfit.preferenceNote).toContain('below preference');
     });
-    
+
     test('should validate business_case fields', async () => {
       const invalidIdeas = [
         {
@@ -241,7 +256,7 @@ describe('EvolutionarySolver - Unit Tests', () => {
           title: 'Missing business_case'
         }
       ];
-      
+
       await expect(solver.ranker(invalidIdeas)).rejects.toThrow('Data validation failed in ranker');
     });
   });
@@ -251,19 +266,19 @@ describe('EvolutionarySolver - Unit Tests', () => {
       solver.config.generations = 2;
       solver.config.populationSize = 2;
       solver.config.topSelectCount = 1;
-      
+
       // Mock variator requests
       mockLLMClient.createVariatorRequest.mockResolvedValue({
         model: 'gpt-4o',
         messages: [{ role: 'user', content: 'variator prompt' }]
       });
-      
+
       // Mock enricher requests
       mockLLMClient.createEnricherRequest.mockResolvedValue({
         model: 'gpt-4o',
         messages: [{ role: 'user', content: 'enricher prompt' }]
       });
-      
+
       // Generation 1 variator
       mockLLMClient.client.chat.completions.create
         .mockResolvedValueOnce({
@@ -350,14 +365,14 @@ describe('EvolutionarySolver - Unit Tests', () => {
           }],
           usage: { prompt_tokens: 100, completion_tokens: 100 }
         });
-      
+
       const progressTracker = {
         jobId: 'test-job',
         resultStore: mockResultStore
       };
-      
+
       const result = await solver.evolve('Test problem', [], solver.config, progressTracker);
-      
+
       expect(result.generationHistory).toHaveLength(2);
       expect(result.allSolutions).toHaveLength(3); // 2 from gen1 + 1 from gen2
       expect(result.apiCallCounts.variator).toBe(2);
@@ -371,29 +386,29 @@ describe('EvolutionarySolver - Unit Tests', () => {
       solver.config.enableRetries = true;
       solver.config.maxRetries = 3;
       solver.config.retryDelay = 10;
-      
+
       const rateLimitError = new Error('Rate limit');
       rateLimitError.status = 429;
-      
+
       const operation = jest.fn()
         .mockRejectedValueOnce(rateLimitError)
         .mockResolvedValueOnce({ success: true });
-      
+
       const result = await solver.retryLLMCall(operation, 'test', 1, 'job-1');
-      
+
       expect(result).toEqual({ success: true });
       expect(operation).toHaveBeenCalledTimes(2);
     });
-    
+
     test('should not retry when disabled', async () => {
       solver.config.enableRetries = false;
-      
+
       const operation = jest.fn().mockRejectedValueOnce(new Error('API Error'));
-      
+
       await expect(
         solver.retryLLMCall(operation, 'test', 1, 'job-1')
       ).rejects.toThrow('API Error');
-      
+
       expect(operation).toHaveBeenCalledTimes(1);
     });
   });

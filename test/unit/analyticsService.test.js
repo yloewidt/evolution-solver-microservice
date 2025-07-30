@@ -511,7 +511,7 @@ describe('AnalyticsService', () => {
       };
 
       const createdAt = new Date('2024-01-01T10:00:00Z');
-      
+
       service.calculateGenerationTiming(createdAt, analytics);
 
       expect(analytics.timing.generationTimes).toHaveLength(1);

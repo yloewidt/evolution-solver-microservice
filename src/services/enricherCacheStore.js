@@ -44,7 +44,7 @@ class EnricherCacheStore {
    */
   async saveEnrichedIdea(jobId, cacheKey, enrichedIdea) {
     const memKey = `${jobId}:${cacheKey}`;
-    
+
     // Save to memory cache immediately
     this.memoryCache.set(memKey, enrichedIdea);
 
@@ -60,7 +60,7 @@ class EnricherCacheStore {
           cachedAt: new Date(),
           businessCase: enrichedIdea.business_case
         });
-      
+
       logger.debug(`Cached enriched idea ${enrichedIdea.idea_id}`);
     } catch (error) {
       logger.error('Error saving cached idea:', error);

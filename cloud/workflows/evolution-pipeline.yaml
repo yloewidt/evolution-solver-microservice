@@ -1,0 +1,102 @@
+# Evolution Job Workflow V2 - Simplified
+# Orchestrates the evolution algorithm through variator, enricher, and ranker phases
+
+main:
+  params: [jobData]
+  steps:
+    - init:
+        assign:
+          - jobId: ${jobData.jobId}
+          - evolutionConfig: ${jobData.evolutionConfig}
+          - problemContext: ${jobData.problemContext}
+          - workerUrl: "https://evolution-worker-447287579394.us-central1.run.app"
+          - currentGeneration: 1
+          - maxGenerations: ${evolutionConfig.generations}
+          - topPerformers: []
+          
+    - processAllGenerations:
+        for:
+          value: gen
+          range: [1, ${maxGenerations}]
+          steps:
+            - processGeneration:
+                call: processOneGeneration
+                args:
+                  jobId: ${jobId}
+                  generation: ${gen}
+                  evolutionConfig: ${evolutionConfig}
+                  problemContext: ${problemContext}
+                  workerUrl: ${workerUrl}
+                  topPerformers: ${topPerformers}
+                result: genResult
+            - updateTopPerformers:
+                assign:
+                  - topPerformers: ${genResult.topPerformers}
+    
+    - completeJob:
+        call: http.post
+        args:
+          url: ${workerUrl + "/complete-job"}
+          body:
+            jobId: ${jobId}
+          auth:
+            type: OIDC
+            
+    - returnResult:
+        return:
+          jobId: ${jobId}
+          status: "completed"
+          generations: ${maxGenerations}
+
+processOneGeneration:
+  params: [jobId, generation, evolutionConfig, problemContext, workerUrl, topPerformers]
+  steps:
+    - variator:
+        call: http.post
+        args:
+          url: ${workerUrl + "/process-variator"}
+          body:
+            jobId: ${jobId}
+            generation: ${generation}
+            evolutionConfig: ${evolutionConfig}
+            problemContext: ${problemContext}
+            topPerformers: ${topPerformers}
+          auth:
+            type: OIDC
+          timeout: 300
+        result: variatorResult
+        
+    - enricher:
+        call: http.post
+        args:
+          url: ${workerUrl + "/process-enricher"}
+          body:
+            jobId: ${jobId}
+            generation: ${generation}
+            evolutionConfig: ${evolutionConfig}
+            ideas: ${variatorResult.body.ideas}
+            problemContext: ${problemContext}
+          auth:
+            type: OIDC
+          timeout: 300
+        result: enricherResult
+        
+    - ranker:
+        call: http.post
+        args:
+          url: ${workerUrl + "/process-ranker"}
+          body:
+            jobId: ${jobId}
+            generation: ${generation}
+            evolutionConfig: ${evolutionConfig}
+            enrichedIdeas: ${enricherResult.body.enrichedIdeas}
+            problemContext: ${problemContext}
+          auth:
+            type: OIDC
+          timeout: 300
+        result: rankerResult
+        
+    - returnGenerationResult:
+        return:
+          topPerformers: ${rankerResult.body.topPerformers}
+          topScore: ${rankerResult.body.topScore}

@@ -5,8 +5,8 @@ import EvolutionService from './services/evolutionService.js';
 import EvolutionResultStore from '../cloud/firestore/resultStore.js';
 
 import createRoutes from './api/routes.js';
-import directJobRouter from './api/directJobRoute.js';
 import logger from './utils/logger.js';
+import { errorHandler, notFoundHandler } from './utils/errors.js';
 
 dotenv.config();
 
@@ -16,24 +16,24 @@ const validateEnvironment = () => {
     OPENAI_API_KEY: process.env.OPENAI_API_KEY,
     GCP_PROJECT_ID: process.env.GCP_PROJECT_ID
   };
-  
+
   const missing = [];
   for (const [key, value] of Object.entries(required)) {
     if (!value) {
       missing.push(key);
     }
   }
-  
+
   if (missing.length > 0) {
     logger.error(`Missing required environment variables: ${missing.join(', ')}`);
     logger.error('Please check your .env file or environment configuration');
-    
+
     // In production, exit. In development/test, just warn
     if (process.env.NODE_ENV === 'production') {
       process.exit(1);
     }
   }
-  
+
   // Log configuration (without sensitive values)
   logger.info('Environment configuration:', {
     NODE_ENV: process.env.NODE_ENV || 'development',
@@ -80,7 +80,8 @@ app.get('/', (req, res) => {
     endpoints: {
       api: '/api/evolution',
       health: '/health',
-      ready: '/ready'
+      ready: '/ready',
+      version: '/version'
     }
   });
 });
@@ -116,31 +117,61 @@ app.get('/ready', async (req, res) => {
   }
 });
 
+app.get('/version', async (req, res) => {
+  try {
+    const { execSync } = await import('child_process');
+    
+    // Get git commit hash
+    let commitHash = 'unknown';
+    let commitDate = 'unknown';
+    let branch = 'unknown';
+    
+    try {
+      commitHash = execSync('git rev-parse HEAD', { encoding: 'utf8' }).trim();
+      commitDate = execSync('git log -1 --format=%cd --date=iso', { encoding: 'utf8' }).trim();
+      branch = execSync('git rev-parse --abbrev-ref HEAD', { encoding: 'utf8' }).trim();
+    } catch (gitError) {
+      logger.warn('Could not retrieve git information:', gitError.message);
+    }
+
+    res.json({
+      service: 'Evolution Solver Microservice',
+      version: {
+        commit: commitHash,
+        commitShort: commitHash.substring(0, 8),
+        commitDate: commitDate,
+        branch: branch,
+        buildTime: new Date().toISOString(),
+        nodeVersion: process.version
+      },
+      environment: process.env.NODE_ENV || 'development',
+      deploymentInfo: {
+        k8sRevision: process.env.K_REVISION || 'unknown',
+        k8sService: process.env.K_SERVICE || 'unknown',
+        gcpProject: process.env.GCP_PROJECT_ID || 'unknown'
+      }
+    });
+  } catch (error) {
+    logger.error('Version check failed:', error);
+    res.status(500).json({
+      error: 'Could not retrieve version information',
+      message: error.message
+    });
+  }
+});
+
 // API routes
 const apiRouter = createRoutes(evolutionService);
 app.use('/api/evolution', apiRouter);
 
 // Direct job processing route (bypasses workflow)
-app.use('/api/evolution', directJobRouter);
-
-// Error handling
-app.use((err, req, res, _next) => {
-  logger.error('Unhandled error:', err);
-
-  res.status(err.status || 500).json({
-    error: 'Internal server error',
-    message: err.message,
-    ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
-  });
-});
+// Direct job route now integrated into main routes
 
 // 404 handler
-app.use((req, res) => {
-  res.status(404).json({
-    error: 'Not found',
-    message: `Cannot ${req.method} ${req.path}`
-  });
-});
+app.use(notFoundHandler);
+
+// Centralized error handling
+app.use(errorHandler);
 
 // Graceful shutdown
 process.on('SIGTERM', async () => {

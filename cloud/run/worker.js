@@ -1,7 +1,6 @@
 import express from 'express';
 import dotenv from 'dotenv';
 import EvolutionResultStore from '../firestore/resultStore.js';
-import CloudTaskHandler from '../tasks/taskHandler.js';
 import { processVariator, processEnricher, processRanker } from './workerHandlersV2.js';
 import logger from '../../src/utils/logger.js';
 import os from 'os';
@@ -57,7 +56,7 @@ app.get('/', (req, res) => {
   const fs = require('fs');
   let versionInfo = 'unknown';
   try {
-    versionInfo = fs.readFileSync('./version.txt', 'utf8').trim();
+    versionInfo = fs.readFileSync('./scripts/version.txt', 'utf8').trim();
   } catch (e) {
     versionInfo = 'no-version-file';
   }
@@ -106,6 +105,8 @@ app.get('/health', (req, res) => {
   
   res.json(healthStatus);
 });
+
+// Monolithic /process endpoint removed - now using workflow-based processing
 
 // Status update endpoint for workflows
 app.post('/update-job-status', async (req, res) => {

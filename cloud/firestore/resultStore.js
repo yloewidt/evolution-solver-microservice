@@ -25,6 +25,19 @@ class EvolutionResultStore {
     return this.firestore.collection(this.collectionName);
   }
 
+  /**
+   * Create a new job - wrapper around saveResult for consistency
+   */
+  async createJob(jobId, data) {
+    return this.saveResult({
+      jobId,
+      status: 'pending',
+      generations: {},
+      apiCalls: [],
+      ...data
+    });
+  }
+
   async saveResult(resultData) {
     try {
       const docRef = this.getCollection().doc(resultData.jobId);

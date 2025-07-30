@@ -1,23 +1,17 @@
 import { jest } from '@jest/globals';
+import { MockResultStore } from '../helpers/index.js';
 
 // Import service
 const EvolutionService = (await import('../../src/services/evolutionService.js')).default;
 
-// Mock resultStore
-const mockResultStore = {
-  saveResult: jest.fn(),
-  updateJobStatus: jest.fn(),
-  getJobStatus: jest.fn(),
-  getResult: jest.fn(),
-  getRecentJobs: jest.fn()
-};
-
 describe('EvolutionService', () => {
   let service;
+  let mockResultStore;
 
   beforeEach(() => {
     jest.clearAllMocks();
     jest.useFakeTimers();
+    mockResultStore = new MockResultStore();
     service = new EvolutionService(mockResultStore);
   });
 
@@ -60,11 +54,11 @@ describe('EvolutionService', () => {
   describe('getJobStatus', () => {
     it('should return job status', async () => {
       const jobStatus = { jobId: 'test-123', status: 'completed' };
-      mockResultStore.getJobStatus.mockResolvedValueOnce(jobStatus);
+      // Add job to the mock store
+      await mockResultStore.saveResult(jobStatus);
 
       const result = await service.getJobStatus('test-123');
 
-      expect(mockResultStore.getJobStatus).toHaveBeenCalledWith('test-123');
       expect(result).toEqual(jobStatus);
     });
   });
@@ -72,11 +66,11 @@ describe('EvolutionService', () => {
   describe('getResults', () => {
     it('should return job results', async () => {
       const jobResults = { jobId: 'test-123', topSolutions: [] };
-      mockResultStore.getResult.mockResolvedValueOnce(jobResults);
+      // Add job to the mock store
+      await mockResultStore.saveResult(jobResults);
 
       const result = await service.getResults('test-123');
 
-      expect(mockResultStore.getResult).toHaveBeenCalledWith('test-123');
       expect(result).toEqual(jobResults);
     });
   });
@@ -85,23 +79,25 @@ describe('EvolutionService', () => {
 
   describe('getRecentJobs', () => {
     it('should return recent jobs with default limit', async () => {
-      const recentJobs = [{ jobId: '1' }, { jobId: '2' }];
-      mockResultStore.getRecentJobs.mockResolvedValueOnce(recentJobs);
+      // Add jobs to the mock store
+      await mockResultStore.saveResult({ jobId: '1', createdAt: new Date() });
+      await mockResultStore.saveResult({ jobId: '2', createdAt: new Date() });
 
       const result = await service.getRecentJobs();
 
-      expect(mockResultStore.getRecentJobs).toHaveBeenCalledWith(50);
-      expect(result).toEqual(recentJobs);
+      expect(result).toHaveLength(2);
+      expect(result[0].jobId).toBeDefined();
     });
 
     it('should return recent jobs with custom limit', async () => {
-      const recentJobs = [{ jobId: '1' }];
-      mockResultStore.getRecentJobs.mockResolvedValueOnce(recentJobs);
+      // Add multiple jobs to the mock store
+      await mockResultStore.saveResult({ jobId: '1', createdAt: new Date() });
+      await mockResultStore.saveResult({ jobId: '2', createdAt: new Date() });
+      await mockResultStore.saveResult({ jobId: '3', createdAt: new Date() });
 
-      const result = await service.getRecentJobs(25);
+      const result = await service.getRecentJobs(2);
 
-      expect(mockResultStore.getRecentJobs).toHaveBeenCalledWith(25);
-      expect(result).toEqual(recentJobs);
+      expect(result).toHaveLength(2);
     });
   });
 

@@ -1,9 +1,9 @@
 import logger from '../utils/logger.js';
-import { ResponseParser } from '../utils/responseParser.js';
 import { LLMClient } from '../services/llmClient.js';
 import Joi from 'joi';
 
 const solutionSchema = Joi.object({
+  idea_id: Joi.string(),
   description: Joi.string(),
   core_mechanism: Joi.string(),
   title: Joi.string(),
@@ -14,10 +14,12 @@ const solutionSchema = Joi.object({
   filterReason: Joi.string().allow(null),
   violatesPreferences: Joi.boolean(),
   preferenceNote: Joi.string().allow(null),
-  metrics: Joi.object(),
+  metrics: Joi.object()
 }).unknown(true);
 
 const ideasSchema = Joi.array().items(solutionSchema);
+
+import config from '../config.js';
 
 
 class EvolutionarySolver {
@@ -30,7 +32,7 @@ class EvolutionarySolver {
     };
     // Initialize LLM client - it will handle API style detection
     this.llmClient = null; // Will be initialized with model config
-    
+
     this.resultStore = resultStore;
 
     this.config = {
@@ -47,17 +49,17 @@ class EvolutionarySolver {
       // Original behavior - no retries
       return await operation();
     }
-    
+
     const maxRetries = this.config.maxRetries || 3;
     let lastError;
-    
+
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
         logger.info(`${phase} API call - attempt ${attempt}/${maxRetries}`);
         return await operation();
       } catch (error) {
         lastError = error;
-        
+
         // Check if error is retryable
         const isRetryable = error.status === 429 || // Rate limit
                           error.status === 500 || // Server error
@@ -66,19 +68,19 @@ class EvolutionarySolver {
                           error.status === 504 || // Gateway timeout
                           error.code === 'ECONNRESET' ||
                           error.code === 'ETIMEDOUT';
-        
+
         if (!isRetryable || attempt === maxRetries) {
           logger.error(`${phase} failed after ${attempt} attempts:`, error);
           throw error;
         }
-        
+
         // Exponential backoff
         const delay = this.config.retryDelay * Math.pow(2, attempt - 1);
         logger.warn(`${phase} attempt ${attempt} failed, retrying in ${delay}ms...`);
         await new Promise(resolve => setTimeout(resolve, delay));
       }
     }
-    
+
     throw lastError;
   }
 
@@ -146,7 +148,7 @@ Requirements:
 - When doing an evolution, do describe each solution fully, as other functions looking at each idea wont have context about other ideas.`;
 
     // User prompt contains previous solutions if any
-    const userPrompt = currentSolutions.length > 0 
+    const userPrompt = currentSolutions.length > 0
       ? `Previous top performers:\n${JSON.stringify(currentSolutions, null, 2)}`
       : 'Generate new creative business solutions.';
 
@@ -167,11 +169,11 @@ Requirements:
       const apiCall = await this.llmClient.createVariatorRequest(null, systemPrompt, userPrompt);
 
       // Log the full API call for replay
-      const callId = `${this.progressTracker?.jobId || 'unknown'}_gen${this.currentGeneration || 0}_variator_${Date.now()}`;
+      const callId = `${this.progressTracker?.jobId || 'unknown'}_gen${generation}_variator_${Date.now()}`;
       logger.info('API_CALL_REPLAY:', {
         callId,
         phase: 'variator',
-        generation: this.currentGeneration || 0,
+        generation: generation,
         attempt: 1,  // Always 1 - no retries
         timestamp: new Date().toISOString(),
         request: {
@@ -190,7 +192,7 @@ Requirements:
       logger.info(`VARIATOR API CALL #${this.apiCallCounts.variator} (Total: ${this.apiCallCounts.total})`);
 
       const response = await this.retryLLMCall(
-        () => this.llmClient.client.chat.completions.create(apiCall),
+        () => this.llmClient.executeRequest(apiCall),
         'variator',
         generation,
         jobId
@@ -202,7 +204,7 @@ Requirements:
       logger.info('API_RESPONSE_REPLAY:', {
         callId,
         phase: 'variator',
-        generation: this.currentGeneration || 0,
+        generation: generation,
         latencyMs: Date.now() - startTime,
         usage: response.usage,
         responseStructure: {
@@ -216,17 +218,15 @@ Requirements:
       // Extract top performer IDs from current solutions
       const topPerformerIds = new Set(currentSolutions.map(s => s.idea_id).filter(id => id));
       
-      // Parse response based on API style
-      const newIdeas = this.llmClient.getApiStyle() === 'openai' 
-        ? ResponseParser.parseOpenAIResponse(response, 'variator', generation, jobId, topPerformerIds)
-        : ResponseParser.parseVariatorResponse(response, generation, jobId, topPerformerIds);
+      // Use LLMClient's built-in parsing that handles structured outputs and programmatic ID assignment
+      const newIdeas = await this.llmClient.parseResponse(response, 'variator', generation, jobId, topPerformerIds);
 
       // Track API call telemetry
       if (this.progressTracker?.resultStore && this.progressTracker?.jobId && response) {
         const telemetry = {
           timestamp: new Date().toISOString(),
           phase: 'variator',
-          generation: this.currentGeneration || 1,
+          generation: generation,
           model: this.config.model,
           attempt: 1,  // Always 1 - no retries
           latencyMs: Date.now() - startTime,
@@ -241,7 +241,7 @@ Requirements:
           callId,
           {
             phase: 'variator',
-            generation: this.currentGeneration || 0,
+            generation: generation,
             attempt: 1,  // Always 1 - no retries
             systemPrompt,
             userPrompt,
@@ -261,6 +261,12 @@ Requirements:
       });
 
       const ideasArray = Array.isArray(newIdeas) ? newIdeas : [newIdeas];
+
+      // Generate idea_id programmatically in the format VAR_GEN{n}_{number}
+      ideasArray.forEach((idea, index) => {
+        const ideaNumber = index + 1;
+        idea.idea_id = `VAR_GEN${generation}_${String(ideaNumber).padStart(3, '0')}`;
+      });
 
       // Validate count and trim if necessary
       if (ideasArray.length > numNeeded) {
@@ -283,7 +289,7 @@ Requirements:
         const telemetry = {
           timestamp: new Date().toISOString(),
           phase: 'variator',
-          generation: this.currentGeneration || 1,
+          generation: generation,
           model: this.config.model,
           attempt: 1,  // Always 1 - no retries
           latencyMs: Date.now() - startTime,
@@ -326,7 +332,7 @@ Requirements:
     }
   }
 
-  // Enricher method removed - now handled by distributed processing in workerHandlersV2.js
+  // Enricher method removed - now handled by distributed processing in workerHandlers.js
 
   async ranker(enrichedIdeas) {
     // Get config parameters (all in millions USD)
@@ -385,11 +391,12 @@ Requirements:
       // All values now in millions USD
       const expectedValue = p * npv - (1 - p) * capex;
 
-      // Diversification penalty: sqrt(CAPEX/C0)
-      const diversificationPenalty = Math.sqrt(capex / C0);
+      // Diversification penalty: logarithmic penalty for high CAPEX
+      // Use log scale to avoid extreme penalties that destabilize evolution
+      const diversificationPenalty = Math.log(1 + capex / C0) * 0.1;
 
-      // Risk-Adjusted NPV
-      const score = expectedValue / diversificationPenalty;
+      // Risk-Adjusted NPV: subtract penalty instead of dividing
+      const score = expectedValue - diversificationPenalty;
 
       // Track if idea violates preferences (for logging only)
       let violatesPreferences = false;

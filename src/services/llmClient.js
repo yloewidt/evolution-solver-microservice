@@ -99,12 +99,7 @@ export class LLMClient {
 
     // Use provided prompts or defaults
     const finalSystemPrompt = systemPrompt || 'You are an expert in creative business deal-making and solution generation. Generate innovative, low-risk, high-return solutions.';
-    let finalUserPrompt = userPrompt || prompt;
-    
-    // For o3 model, add explicit JSON format instruction since it doesn't support structured output
-    if (this.config.model === 'o3') {
-      finalUserPrompt += '\n\nIMPORTANT: You must respond with a valid JSON object containing an "ideas" array. Each idea must have: title, description, core_mechanism, target_market, revenue_streams, implementation_steps, competitive_advantages, risks, and idea_id. Do not include any text outside the JSON object.';
-    }
+    const finalUserPrompt = userPrompt || prompt;
 
     // OpenAI style request
     const request = {
@@ -123,10 +118,8 @@ export class LLMClient {
       store: true
     };
     
-    // Only add response_format for models that support structured output
-    if (this.config.model !== 'o3') {
-      request.response_format = VariatorResponseSchema;
-    }
+    // Add response_format for structured output
+    request.response_format = VariatorResponseSchema;
     
     return request;
   }

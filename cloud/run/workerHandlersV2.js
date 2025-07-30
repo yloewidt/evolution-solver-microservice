@@ -57,6 +57,7 @@ export async function processVariator({ jobId, generation, problemContext, topPe
     
     // Save results
     await resultStore.savePhaseResults(jobId, generation, 'variator', {
+      generation,  // Include generation field for consistency
       ideas: allIdeas,
       variatorComplete: true,
       variatorCompletedAt: new Date()
@@ -217,6 +218,7 @@ export async function processRanker({ jobId, generation, enrichedIdeas, evolutio
     
     // Save results
     await resultStore.savePhaseResults(jobId, generation, 'ranker', {
+      generation,  // Include generation field for consistency
       solutions: [...rankedIdeas, ...filteredIdeas], // Include all ideas
       rankerComplete: true,
       rankerCompletedAt: new Date(),

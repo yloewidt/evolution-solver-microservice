@@ -93,7 +93,7 @@ class SingleIdeaEnricher {
     // Based on product spec section 4.2 Enricher Prompts
     const prefix = `You are a business strategist expert in financial modeling and deal structuring. Provide realistic, data-driven business cases.
 
-Problem context: ${problemContext}${preferenceGuidance}
+Problem context: ${problemContext}
 
 Required fields in business_case object (ALL monetary values in millions USD):
 - "npv_success": 5-year NPV if successful in $M

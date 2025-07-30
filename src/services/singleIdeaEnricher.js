@@ -89,18 +89,6 @@ class SingleIdeaEnricher {
       return this.cachedPrefixes.get(prefixKey);
     }
 
-    // Build preference guidance based on problem context
-    let preferenceGuidance = '';
-    const maxCapex = 100; // Default, could be extracted from problemContext
-    const minProfits = 0; // Default
-
-    if (maxCapex < 100) {
-      preferenceGuidance += `\n\nPREFERRED APPROACH: When analyzing this idea, note that capital-efficient solutions under $${maxCapex}M initial investment are preferred. Consider creative ways to reduce upfront costs through partnerships, phased rollouts, or asset-light models.`;
-    }
-    if (minProfits > 0) {
-      preferenceGuidance += `\nTARGET RETURNS: The solution should ideally achieve 5-year NPV above $${minProfits}M. Look for high-impact, scalable opportunities.`;
-    }
-
     // Create the static prefix - this will be cached by OpenAI
     // Based on product spec section 4.2 Enricher Prompts
     const prefix = `You are a business strategist expert in financial modeling and deal structuring. Provide realistic, data-driven business cases.

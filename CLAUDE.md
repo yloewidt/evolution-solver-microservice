@@ -59,7 +59,6 @@ This is a microservice implementing an evolutionary algorithm for generating inn
 
 ### Current Architecture Files
 - **Active**: `workerHandlersV2.js` - Current implementation with workflow-based processing
-- **Legacy**: `workerHandlers.js` - Original monolithic implementation (deprecated)
 
 ## Important Configuration
 

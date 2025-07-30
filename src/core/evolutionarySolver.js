@@ -262,10 +262,12 @@ Requirements:
 
       const ideasArray = Array.isArray(newIdeas) ? newIdeas : [newIdeas];
 
-      // Generate idea_id programmatically in the format VAR_GEN{n}_{number}
-      ideasArray.forEach((idea, index) => {
-        const ideaNumber = index + 1;
-        idea.idea_id = `VAR_GEN${generation}_${String(ideaNumber).padStart(3, '0')}`;
+      // Generate idea_id programmatically only for ideas without existing IDs
+      let idNumber = 1;
+      ideasArray.forEach((idea) => {
+        if (!idea.idea_id) {
+          idea.idea_id = `VAR_GEN${generation}_${String(idNumber++).padStart(3, '0')}`;
+        }
       });
 
       // Validate count and trim if necessary
@@ -332,7 +334,7 @@ Requirements:
     }
   }
 
-  // Enricher method removed - now handled by distributed processing in workerHandlers.js
+  // Enricher method removed - now handled by distributed processing in workerHandlersV2.js
 
   async ranker(enrichedIdeas) {
     // Get config parameters (all in millions USD)

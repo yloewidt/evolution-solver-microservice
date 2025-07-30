@@ -118,7 +118,7 @@ export class LLMClient {
       store: true
     };
     
-    // Add response_format for structured output
+    // Add response_format for structured output (all models including o3 support schema)
     request.response_format = VariatorResponseSchema;
     
     return request;

@@ -321,8 +321,14 @@ EOF
         --service-account=${SERVICE_ACCOUNT} \
         --env-vars-file=\"${env_file}\" \
         --update-secrets=OPENAI_API_KEY=openai-api-key:latest \
-        --command=node,cloud/run/worker.js \
-        --no-allow-unauthenticated"
+        --command=node,cloud/run/worker.js"
+    
+    # Add environment-specific authentication
+    if [[ "$ENVIRONMENT" == "production" ]]; then
+        deploy_cmd="$deploy_cmd --no-allow-unauthenticated"
+    else
+        deploy_cmd="$deploy_cmd --allow-unauthenticated"
+    fi
     
     if [[ "$DRY_RUN" == "true" ]]; then
         log_info "DRY RUN: Would execute:"
@@ -348,33 +354,35 @@ EOF
         local worker_url=$(get_service_url "$WORKER_SERVICE_NAME")
         log_info "Worker deployed successfully to: $worker_url"
 
-        # Grant the service account permission to invoke the worker.
-        # We use a retry loop to handle potential API propagation delays.
-        log_info "Granting Cloud Run Invoker role to the service account for the worker..."
-        
-        local attempts=0
-        local max_attempts=5
-        local success=false
-        while [ $attempts -lt $max_attempts ]; do
-            if gcloud run services add-iam-policy-binding ${WORKER_SERVICE_NAME} \
-                --project=${PROJECT_ID} \
-                --region=${REGION} \
-                --member="serviceAccount:${SERVICE_ACCOUNT}" \
-                --role="roles/run.invoker" \
-                --quiet; then
-                log_info "Successfully granted IAM role."
-                success=true
-                break
-            fi
-            
-            attempts=$((attempts+1))
-            log_warn "IAM binding failed. Retrying in 5 seconds... (Attempt ${attempts}/${max_attempts})"
-            sleep 5
-        done
+        # Grant service account permission to invoke worker (needed for production)
+        if [[ "$ENVIRONMENT" == "production" ]]; then
+            log_info "Granting Cloud Run Invoker role to service account for production worker..."
+            local attempts=0
+            local max_attempts=5
+            local success=false
+            while [ $attempts -lt $max_attempts ]; do
+                if gcloud run services add-iam-policy-binding ${WORKER_SERVICE_NAME} \
+                    --project=${PROJECT_ID} \
+                    --region=${REGION} \
+                    --member="serviceAccount:${SERVICE_ACCOUNT}" \
+                    --role="roles/run.invoker" \
+                    --quiet; then
+                    log_info "Successfully granted IAM role for production."
+                    success=true
+                    break
+                fi
+                
+                attempts=$((attempts+1))
+                log_warn "IAM binding failed. Retrying in 5 seconds... (Attempt ${attempts}/${max_attempts})"
+                sleep 5
+            done
 
-        if [ "$success" = false ]; then
-            log_error "Could not grant IAM role to worker service after several attempts. Please grant 'roles/run.invoker' to '${SERVICE_ACCOUNT}' on the '${WORKER_SERVICE_NAME}' service manually."
-            exit 1
+            if [ "$success" = false ]; then
+                log_error "Could not grant IAM role to worker service. Please grant 'roles/run.invoker' to '${SERVICE_ACCOUNT}' manually."
+                exit 1
+            fi
+        else
+            log_info "Development/staging worker deployed with public access for testing"
         fi
 
         # Update API with worker URL if needed

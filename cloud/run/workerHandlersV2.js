@@ -36,7 +36,7 @@ export async function processVariator({ jobId, generation, problemContext, topPe
     let eliteCount = 0;
     let eliteIdeas = [];
     if (generation > 1 && topPerformers && topPerformers.length > 0) {
-      eliteCount = Math.min(2, Math.floor(evolutionConfig.populationSize * 0.2)); // Top 20% or 2, whichever is smaller
+      eliteCount = Math.max(1, Math.floor(evolutionConfig.populationSize * evolutionConfig.topPerformerRatio)); // Top topPerformerRatio% or 1, whichever is bigger
       eliteIdeas = topPerformers.slice(0, eliteCount);
       logger.info(`Preserving top ${eliteCount} elite performers unchanged`);
     }
@@ -57,6 +57,7 @@ export async function processVariator({ jobId, generation, problemContext, topPe
     
     // Save results
     await resultStore.savePhaseResults(jobId, generation, 'variator', {
+      generation,  // Include generation field for consistency
       ideas: allIdeas,
       variatorComplete: true,
       variatorCompletedAt: new Date()
@@ -103,8 +104,7 @@ export async function processEnricher({ jobId, generation, ideas, problemContext
     
     // Initialize LLM client
     const llmClient = new LLMClient({
-      model: evolutionConfig.model || 'o3',
-      fallbackModel: evolutionConfig.fallbackModel || 'gpt-4o'
+      model: evolutionConfig.model || 'o3'
     });
     
     // Initialize cache store
@@ -218,6 +218,7 @@ export async function processRanker({ jobId, generation, enrichedIdeas, evolutio
     
     // Save results
     await resultStore.savePhaseResults(jobId, generation, 'ranker', {
+      generation,  // Include generation field for consistency
       solutions: [...rankedIdeas, ...filteredIdeas], // Include all ideas
       rankerComplete: true,
       rankerCompletedAt: new Date(),

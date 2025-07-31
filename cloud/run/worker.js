@@ -4,6 +4,7 @@ import EvolutionResultStore from '../firestore/resultStore.js';
 import { processVariator, processEnricher, processRanker } from './workerHandlersV2.js';
 import logger from '../../src/utils/logger.js';
 import os from 'os';
+import fs from 'fs';
 
 dotenv.config();
 
@@ -53,7 +54,6 @@ const SERVICE_VERSION = process.env.K_REVISION || 'unknown';
 
 // Health check endpoints
 app.get('/', (req, res) => {
-  const fs = require('fs');
   let versionInfo = 'unknown';
   try {
     versionInfo = fs.readFileSync('./scripts/version.txt', 'utf8').trim();

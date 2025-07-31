@@ -89,8 +89,9 @@ class EvolutionarySolver {
     if (error) {
       throw new Error(`Invalid currentSolutions: ${error.message}`);
     }
-    const numNeeded = targetCount - currentSolutions.length;
-    if (numNeeded <= 0) return currentSolutions;
+    // targetCount is the number of NEW ideas to generate
+    const numNeeded = targetCount;
+    if (numNeeded <= 0) return [];
 
     let startTime = Date.now(); // Define at method level for error handling
 
@@ -116,7 +117,7 @@ class EvolutionarySolver {
     // Add randomness to ensure unique outputs
     const randomSeed = Math.random().toString(36).substring(7);
     const timestamp = new Date().toISOString();
-    
+
     // System prompt includes problem context and requirements
     const systemPrompt = `You are an expert in creative business solution generation.
 
@@ -127,29 +128,44 @@ Focus on ${dealTypes}
 Random seed for uniqueness: ${randomSeed}
 Timestamp: ${timestamp}
 
-Generate EXACTLY ${numNeeded} NEW solutions (do not include existing solutions):
-${currentSolutions.length > 0 ? `- ${offspringCount} OFFSPRING: Evolve the top performers' best features OR find creative ways to lower direct CAPEX(getting a non-investor to bear costs, or lower costs in general), Greatly reduce risk factors of the solution, or increase NPV of the solution. BE CREATIVE AND BOLD HERE.
-- ${wildcardCount} WILDCARDS: Completely fresh approaches` : `- ${numNeeded} WILDCARDS: All new creative solutions`}
+CRITICAL INSTRUCTION: You MUST generate EXACTLY ${numNeeded} NEW solutions.
+${currentSolutions.length > 0 ? `
+Required breakdown:
+- ${offspringCount} OFFSPRING ideas (evolved from top performers)
+- ${wildcardCount} WILDCARD ideas (completely fresh approaches)
 
-Each solution must have:
+OFFSPRING: Evolve the top performers' best features OR find creative ways to lower direct CAPEX (getting a non-investor to bear costs, or lower costs in general), Greatly reduce risk factors of the solution, or increase NPV of the solution. BE CREATIVE AND BOLD HERE.
+WILDCARDS: Completely fresh approaches that are unrelated to existing ideas.` : `Generate ${numNeeded} WILDCARD ideas (all new creative solutions).`}
+
+Your response MUST be a JSON array containing EXACTLY ${numNeeded} objects.
+
+Each solution object MUST have these fields:
 - "title": Short, catchy title
 - "description": Business model in plain terms
 - "core_mechanism": How value is created and captured
 - "is_offspring": true for offspring, false for wildcards
 
-IMPORTANT: Do NOT include an "idea_id" field - IDs will be assigned programmatically.
-Generate completely NEW ideas different from any previous generation.
+IMPORTANT: 
+- Do NOT include an "idea_id" field - IDs will be assigned programmatically
+- Generate completely NEW ideas different from any previous generation
+- You MUST return exactly ${numNeeded} ideas - no more, no less
+- Count your ideas before responding to ensure you have exactly ${numNeeded}
 
 Requirements:
 - Business models must be realistic and implementable
 - Explain complex ideas simply (avoid jargon)
 - Focus on partnerships that reduce capital requirements
 - Consider timing advantages (why now?)
-- When doing an evolution, do describe each solution fully, as other functions looking at each idea wont have context about other ideas.`;
+- When doing an evolution, do describe each solution fully, as other functions looking at each idea wont have context about other ideas.
+
+FINAL CHECK: Ensure your JSON array contains EXACTLY ${numNeeded} idea objects.`;
+
+    // Remove idea_id from currentSolutions
+    const currentSolutionsClean = currentSolutions.map(({ idea_id, ...rest }) => rest);
 
     // User prompt contains previous solutions if any
     const userPrompt = currentSolutions.length > 0
-      ? `Previous top performers:\n${JSON.stringify(currentSolutions, null, 2)}`
+      ? `Previous top performers:\n${JSON.stringify(currentSolutionsClean, null, 2)}`
       : 'Generate new creative business solutions.';
 
     // NO RETRIES - exactly 1 API call
@@ -160,7 +176,6 @@ Requirements:
       if (!this.llmClient) {
         this.llmClient = new LLMClient({
           model: this.config.model,
-          fallbackModel: this.config.fallbackModel,
           apiKey: this.config.apiKey
         });
       }
@@ -262,10 +277,12 @@ Requirements:
 
       const ideasArray = Array.isArray(newIdeas) ? newIdeas : [newIdeas];
 
-      // Generate idea_id programmatically in the format VAR_GEN{n}_{number}
-      ideasArray.forEach((idea, index) => {
-        const ideaNumber = index + 1;
-        idea.idea_id = `VAR_GEN${generation}_${String(ideaNumber).padStart(3, '0')}`;
+      // Generate idea_id programmatically only for ideas without existing IDs
+      let idNumber = 1;
+      ideasArray.forEach((idea) => {
+        if (!idea.idea_id) {
+          idea.idea_id = `VAR_GEN${generation}_${String(idNumber++).padStart(3, '0')}`;
+        }
       });
 
       // Validate count and trim if necessary
@@ -332,7 +349,7 @@ Requirements:
     }
   }
 
-  // Enricher method removed - now handled by distributed processing in workerHandlers.js
+  // Enricher method removed - now handled by distributed processing in workerHandlersV2.js
 
   async ranker(enrichedIdeas) {
     // Get config parameters (all in millions USD)
@@ -391,12 +408,11 @@ Requirements:
       // All values now in millions USD
       const expectedValue = p * npv - (1 - p) * capex;
 
-      // Diversification penalty: logarithmic penalty for high CAPEX
-      // Use log scale to avoid extreme penalties that destabilize evolution
-      const diversificationPenalty = Math.log(1 + capex / C0) * 0.1;
+      // Diversification penalty: sqrt(CAPEX/C0)
+      const diversificationPenalty = Math.sqrt(capex / C0);
 
-      // Risk-Adjusted NPV: subtract penalty instead of dividing
-      const score = expectedValue - diversificationPenalty;
+      // Risk-Adjusted NPV
+      const score = expectedValue / diversificationPenalty;
 
       // Track if idea violates preferences (for logging only)
       let violatesPreferences = false;

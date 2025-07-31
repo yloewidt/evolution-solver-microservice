@@ -57,7 +57,6 @@ export class LLMClient {
     const model = config.model || 'o3';
     this.config = {
       model: model,
-      fallbackModel: config.fallbackModel || 'gpt-4o',
       temperature: config.temperature || (model === 'o3' ? 1 : 0.7),
       apiKey: config.apiKey || process.env.OPENAI_API_KEY
     };
@@ -100,12 +99,7 @@ export class LLMClient {
 
     // Use provided prompts or defaults
     const finalSystemPrompt = systemPrompt || 'You are an expert in creative business deal-making and solution generation. Generate innovative, low-risk, high-return solutions.';
-    let finalUserPrompt = userPrompt || prompt;
-    
-    // For o3 model, add explicit JSON format instruction since it doesn't support structured output
-    if (this.config.model === 'o3') {
-      finalUserPrompt += '\n\nIMPORTANT: You must respond with a valid JSON object containing an "ideas" array. Each idea must have: title, description, core_mechanism, target_market, revenue_streams, implementation_steps, competitive_advantages, risks, and idea_id. Do not include any text outside the JSON object.';
-    }
+    const finalUserPrompt = userPrompt || prompt;
 
     // OpenAI style request
     const request = {
@@ -124,10 +118,8 @@ export class LLMClient {
       store: true
     };
     
-    // Only add response_format for models that support structured output
-    if (this.config.model !== 'o3') {
-      request.response_format = VariatorResponseSchema;
-    }
+    // Add response_format for structured output (all models including o3 support schema)
+    request.response_format = VariatorResponseSchema;
     
     return request;
   }
@@ -135,7 +127,7 @@ export class LLMClient {
   // createEnricherRequest removed - enrichment now handled by singleIdeaEnricher
 
   /**
-   * Execute the request with timeout protection and fallback
+   * Execute the request with timeout protection
    */
   async executeRequest(request) {
     const apiStyle = this.getApiStyle();
@@ -164,32 +156,6 @@ export class LLMClient {
       clearTimeout(timeoutId);
       
       logger.error(`Request failed with model ${request.model}:`, error.message);
-      
-      // If using o3 and it fails, try fallback model
-      if (request.model === 'o3' && this.config.fallbackModel && request.model !== this.config.fallbackModel) {
-        logger.warn(`o3 model failed, falling back to ${this.config.fallbackModel}`);
-        
-        // Create fallback request
-        const fallbackRequest = {
-          ...request,
-          model: this.config.fallbackModel
-        };
-        
-        // Add structured output for non-o3 models
-        if (this.config.fallbackModel !== 'o3') {
-          fallbackRequest.response_format = VariatorResponseSchema;
-        }
-        
-        // Retry with fallback model
-        try {
-          const fallbackResponse = await this.client.chat.completions.create(fallbackRequest);
-          logger.info(`Fallback to ${this.config.fallbackModel} succeeded`);
-          return fallbackResponse;
-        } catch (fallbackError) {
-          logger.error(`Fallback model ${this.config.fallbackModel} also failed:`, fallbackError.message);
-          throw new Error(`Both primary model (${request.model}) and fallback model (${this.config.fallbackModel}) failed`);
-        }
-      }
 
       if (error.name === 'AbortError' || controller.signal.aborted) {
         throw new Error(`API request timed out after ${timeoutMs}ms`);

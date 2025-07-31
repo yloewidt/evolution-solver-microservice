@@ -1,0 +1,13 @@
+{
+  "name": "test-run",
+  "problemsFile": "problems-test.json",
+  "testCollection": "evolution-results-test",
+  "concurrency": 1,
+  "evolutionConfig": {
+    "generations": 2,
+    "populationSize": 3,
+    "model": "o3",
+    "maxCapex": 50,
+    "minProfits": 10
+  }
+}

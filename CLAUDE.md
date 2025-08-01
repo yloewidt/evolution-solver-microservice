@@ -60,6 +60,13 @@ This is a microservice implementing an evolutionary algorithm for generating inn
 ### Current Architecture Files
 - **Active**: `workerHandlersV2.js` - Current implementation with workflow-based processing
 
+### Workflow Orchestration
+The evolution process is orchestrated through Google Cloud Workflows (`workflows/evolution-job.yaml`):
+- Each generation goes through three phases: variator → enricher → ranker
+- Workflow maintains top performers across generations for evolutionary improvement
+- Individual phase endpoints: `/process-variator`, `/process-enricher`, `/process-ranker`
+- Final job completion: `/complete-job`
+
 ## Important Configuration
 
 ### Environment Variables
@@ -104,7 +111,8 @@ Required environment variables (see `.env.example`):
 
 ## API Endpoints
 
-- `POST /api/evolution/jobs` - Submit a new evolution job
+- `POST /api/evolution/jobs` - Submit a new evolution job (uses Cloud Workflows)
+- `POST /api/evolution/direct` - Process job directly without workflow orchestration
 - `GET /api/evolution/jobs/:jobId` - Get job status
 - `GET /api/evolution/results/:jobId` - Get job results
 - `GET /api/evolution/jobs` - List all jobs (with optional filters)
@@ -136,3 +144,13 @@ Required environment variables (see `.env.example`):
    - Add unit tests in `test/unit/`
    - Add integration tests if touching API or worker
    - Update environment variables in `.env.example` if needed
+
+## Key Files and Their Purpose
+
+- `src/core/evolutionarySolver.js` - Core evolutionary algorithm implementation with retry logic
+- `cloud/run/workerHandlersV2.js` - Worker endpoints for variator, enricher, ranker phases
+- `src/services/llmClient.js` - OpenAI o3 integration with structured output support
+- `src/services/singleIdeaEnricher.js` - Parallel idea enrichment with financial analysis
+- `cloud/firestore/resultStore.js` - Firestore integration for job persistence
+- `src/utils/errorHandler.js` - Centralized error handling middleware
+- `src/utils/logger.js` - Winston-based structured logging

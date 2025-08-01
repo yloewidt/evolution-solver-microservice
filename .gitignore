@@ -9,6 +9,7 @@ yarn-error.log*
 .env.local
 .env.development
 .env.production
+.env.test
 
 # Logs
 logs/
@@ -64,3 +65,6 @@ job-status-summary.js
 NO-RETRY-SUMMARY.md
 failed-response.json
 raw-response.txt
+
+# Business test results (large raw data)
+test/business/results/

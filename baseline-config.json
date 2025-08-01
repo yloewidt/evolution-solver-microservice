@@ -1,0 +1,12 @@
+{
+  "name": "baseline",
+  "testCollection": "evolution-results-test",
+  "concurrency": 3,
+  "evolutionConfig": {
+    "generations": 20,
+    "populationSize": 10,
+    "model": "o3",
+    "maxCapex": 50,
+    "minProfits": 10
+  }
+}

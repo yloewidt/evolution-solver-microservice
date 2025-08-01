@@ -14,12 +14,18 @@ dotenv.config({ path: '.env.test' });
 
 const API_URL = process.env.EVOLUTION_API_URL || 'http://localhost:8080';
 
-// Already submitted job IDs
-const existingJobs = [
-  { problemId: 'food-waste-restaurants', jobId: '78f7bf54-4e73-438c-9b43-b73c8b838af1' },
-  { problemId: 'elderly-tech-adoption', jobId: '23db77f9-6a47-4d68-abc4-8b23e1640953' },
-  { problemId: 'rural-healthcare-access', jobId: '209e1307-3ad3-4a75-8f09-186c54761e15' }
-];
+// Load existing job IDs from file if provided
+async function loadExistingJobs(existingJobsFile) {
+  if (!existingJobsFile) return [];
+  
+  try {
+    const content = await fs.readFile(existingJobsFile, 'utf-8');
+    return JSON.parse(content);
+  } catch (error) {
+    console.log('No existing jobs file found, starting fresh');
+    return [];
+  }
+}
 
 const evolutionConfig = {
   generations: 20,
@@ -56,11 +62,18 @@ async function submitJob(problem) {
 }
 
 async function main() {
+  const existingJobsFile = process.argv[2];
+  const outputDir = process.argv[3] || 'test/business/results/new-test';
+  
   console.log('Baseline Job Submission');
   console.log('======================');
   console.log(`API URL: ${API_URL}`);
   console.log(`Configuration: ${JSON.stringify(evolutionConfig, null, 2)}`);
+  console.log(`Output directory: ${outputDir}`);
   console.log('');
+  
+  // Load existing jobs if provided
+  const existingJobs = await loadExistingJobs(existingJobsFile);
   
   // Load all problems
   const allProblems = await loadProblems();
@@ -119,10 +132,13 @@ async function main() {
   });
   markdown += '```\n';
   
-  const outputDir = path.join(__dirname, '../../test/business/results/baseline');
   await fs.mkdir(outputDir, { recursive: true });
   const outputPath = path.join(outputDir, 'job-ids.md');
   await fs.writeFile(outputPath, markdown);
+  
+  // Also save as JSON for easier programmatic use
+  const jsonPath = path.join(outputDir, 'jobs.json');
+  await fs.writeFile(jsonPath, JSON.stringify(allJobs, null, 2));
   
   console.log(`\n✅ All jobs submitted successfully!`);
   console.log(`📄 Job IDs saved to: ${outputPath}`);

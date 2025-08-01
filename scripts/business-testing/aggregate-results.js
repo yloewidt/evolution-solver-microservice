@@ -5,6 +5,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import axios from 'axios';
 import dotenv from 'dotenv';
+import { processAllMetrics } from './calculate-metrics.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -23,6 +24,35 @@ class ResultsAggregator {
     return JSON.parse(summaryData);
   }
 
+  async loadJobIds(jobIdsFile) {
+    const content = await fs.readFile(jobIdsFile, 'utf-8');
+    
+    // Try to parse as JSON first
+    try {
+      const data = JSON.parse(content);
+      if (Array.isArray(data)) {
+        return data.map(item => typeof item === 'string' ? item : item.jobId);
+      }
+      // If it's an object with jobIds property
+      if (data.jobIds && Array.isArray(data.jobIds)) {
+        return data.jobIds;
+      }
+    } catch (e) {
+      // Not JSON, try other formats
+    }
+    
+    // Extract job IDs from markdown
+    const jobIdSection = content.match(/```\n([\s\S]*?)```/);
+    if (jobIdSection) {
+      return jobIdSection[1].trim().split('\n').filter(id => id.trim());
+    }
+    
+    // Try line-by-line (for .txt files with one ID per line)
+    return content.split('\n')
+      .map(line => line.trim())
+      .filter(line => line && line.match(/^[a-f0-9-]{36}$/));
+  }
+
   async fetchJobResult(jobId) {
     try {
       const response = await axios.get(`${this.apiUrl}/api/evolution/results/${jobId}`);
@@ -33,7 +63,8 @@ class ResultsAggregator {
     }
   }
 
-  calculateKPIs(jobResult) {
+  // Legacy KPI calculation for backward compatibility
+  calculateLegacyKPIs(jobResult) {
     const kpis = {
       jobId: jobResult.jobId || jobResult.id,
       problemId: jobResult.problemContext,
@@ -135,7 +166,7 @@ class ResultsAggregator {
     return kpis;
   }
 
-  async aggregateResults(summaryPath) {
+  async aggregateResults(summaryPath, options = {}) {
     console.log('Results Aggregator');
     console.log('==================');
     
@@ -151,7 +182,8 @@ class ResultsAggregator {
     await fs.mkdir(rawDir, { recursive: true });
     
     // Fetch and process each job
-    const jobKPIs = [];
+    const jobResults = [];
+    const jobKPIs = []; // For legacy compatibility
     
     for (let i = 0; i < summary.jobIds.length; i++) {
       const jobId = summary.jobIds[i];
@@ -161,41 +193,79 @@ class ResultsAggregator {
       const jobResult = await this.fetchJobResult(jobId);
       
       if (jobResult) {
+        // Ensure jobId is in the result
+        if (!jobResult.jobId) {
+          jobResult.jobId = jobId;
+        }
+        
         // Save raw result
         const rawPath = path.join(rawDir, `${jobId}.json`);
         await fs.writeFile(rawPath, JSON.stringify(jobResult, null, 2));
         
-        // Calculate KPIs
-        const kpis = this.calculateKPIs(jobResult);
-        jobKPIs.push(kpis);
+        jobResults.push(jobResult);
         
-        console.log(`  Top Score: ${kpis.topScore.toFixed(2)}`);
-        console.log(`  Total Tokens: ${kpis.totalTokens}`);
-        console.log(`  Search Efficiency: ${kpis.searchEfficiency.toFixed(6)}`);
+        // Calculate legacy KPIs for backward compatibility
+        if (!options.useNewMetrics) {
+          const kpis = this.calculateLegacyKPIs(jobResult);
+          jobKPIs.push(kpis);
+          
+          console.log(`  Top Score: ${kpis.topScore.toFixed(2)}`);
+          console.log(`  Total Tokens: ${kpis.totalTokens}`);
+          console.log(`  Search Efficiency: ${kpis.searchEfficiency.toFixed(6)}`);
+        }
       }
     }
     
-    // Calculate aggregate KPIs
-    const aggregateKPIs = this.calculateAggregateKPIs(jobKPIs);
-    
-    // Save KPIs
-    const kpisPath = path.join(testDir, 'kpis.json');
-    await fs.writeFile(kpisPath, JSON.stringify({
-      summary: {
-        testName: summary.config.name,
-        config: summary.config.evolutionConfig,
-        timestamp: summary.timestamp,
-        duration: summary.duration,
-        totalJobs: summary.jobIds.length
-      },
-      aggregate: aggregateKPIs,
-      perJob: jobKPIs
-    }, null, 2));
-    
-    console.log(`\n\nAggregate KPIs saved to: ${kpisPath}`);
-    this.printAggregateKPIs(aggregateKPIs);
-    
-    return aggregateKPIs;
+    if (options.useNewMetrics) {
+      // Use new metrics calculation
+      console.log('\nCalculating metrics using client specifications...');
+      const metrics = await processAllMetrics(jobResults, {
+        intendedGenerations: summary.config.evolutionConfig?.generations || 20,
+        totalProblems: summary.jobIds.length,
+        model: 'o3',
+        serviceVersion: '1.0.0',
+        configName: summary.config.name || 'baseline'
+      });
+      
+      // Save new metrics
+      const metricsPath = path.join(testDir, 'metrics.json');
+      await fs.writeFile(metricsPath, JSON.stringify(metrics, null, 2));
+      console.log(`\n\nMetrics saved to: ${metricsPath}`);
+      
+      // Print summary
+      console.log('\nGeneral Statistics');
+      console.log('==================');
+      console.log(`Success Rate: ${(metrics.generalStatistics.successRate * 100).toFixed(1)}%`);
+      console.log(`Find Good Ideas (Median Top Score): ${metrics.generalStatistics.findGoodIdeas.toFixed(3)}`);
+      console.log(`Search Efficiently: ${metrics.generalStatistics.searchEfficiently.toFixed(4)}`);
+      console.log(`Have Variability: ${metrics.generalStatistics.haveVariability.toFixed(3)}`);
+      console.log(`Think About Good Ideas: ${metrics.generalStatistics.thinkAboutGoodIdeas.toFixed(3)}`);
+      console.log(`Good Improving Process: ${metrics.generalStatistics.goodImprovingProcess.toFixed(6)}`);
+      
+      return metrics;
+    } else {
+      // Calculate legacy aggregate KPIs
+      const aggregateKPIs = this.calculateAggregateKPIs(jobKPIs);
+      
+      // Save legacy KPIs
+      const kpisPath = path.join(testDir, 'kpis.json');
+      await fs.writeFile(kpisPath, JSON.stringify({
+        summary: {
+          testName: summary.config.name,
+          config: summary.config.evolutionConfig,
+          timestamp: summary.timestamp,
+          duration: summary.duration,
+          totalJobs: summary.jobIds.length
+        },
+        aggregate: aggregateKPIs,
+        perJob: jobKPIs
+      }, null, 2));
+      
+      console.log(`\n\nAggregate KPIs saved to: ${kpisPath}`);
+      this.printAggregateKPIs(aggregateKPIs);
+      
+      return aggregateKPIs;
+    }
   }
 
   calculateAggregateKPIs(jobKPIs) {
@@ -276,21 +346,147 @@ class ResultsAggregator {
     console.log(`Average Tokens per Job: ${kpis.avgTokensPerJob.toFixed(0)}`);
     console.log(`Total Tokens Used: ${kpis.totalTokensUsed}`);
   }
+
+  // Alternative method to aggregate from job IDs file
+  async aggregateFromJobIds(jobIdsFile, outputDir, options = {}) {
+    console.log('Results Aggregator');
+    console.log('==================');
+    console.log(`Job IDs file: ${jobIdsFile}`);
+    console.log(`Output directory: ${outputDir}`);
+    
+    // Create output directories
+    await fs.mkdir(outputDir, { recursive: true });
+    const rawDir = path.join(outputDir, 'raw');
+    await fs.mkdir(rawDir, { recursive: true });
+    
+    // Load job IDs
+    const jobIds = await this.loadJobIds(jobIdsFile);
+    console.log(`\nFound ${jobIds.length} job IDs to process`);
+    
+    // Fetch all results
+    const jobResults = [];
+    const failedJobs = [];
+    
+    for (let i = 0; i < jobIds.length; i++) {
+      const jobId = jobIds[i];
+      console.log(`\nProcessing job ${i + 1}/${jobIds.length}: ${jobId}`);
+      
+      let jobResult = null;
+      
+      // First try to load from existing raw results if specified
+      if (options.rawResultsDir) {
+        try {
+          const existingPath = path.join(options.rawResultsDir, `${jobId}.json`);
+          const data = await fs.readFile(existingPath, 'utf-8');
+          jobResult = JSON.parse(data);
+          console.log(`  Loaded from existing raw results`);
+        } catch (e) {
+          // Fall back to API
+        }
+      }
+      
+      // If not found locally, fetch from API
+      if (!jobResult) {
+        jobResult = await this.fetchJobResult(jobId);
+      }
+      
+      if (jobResult) {
+        // Ensure jobId is in the result
+        if (!jobResult.jobId) {
+          jobResult.jobId = jobId;
+        }
+        
+        // Save raw result
+        const rawPath = path.join(rawDir, `${jobId}.json`);
+        await fs.writeFile(rawPath, JSON.stringify(jobResult, null, 2));
+        
+        jobResults.push(jobResult);
+      } else {
+        failedJobs.push(jobId);
+      }
+    }
+    
+    console.log(`\nSuccessfully fetched ${jobResults.length} results`);
+    if (failedJobs.length > 0) {
+      console.log(`Failed to fetch ${failedJobs.length} jobs`);
+    }
+    
+    // Calculate metrics using new system
+    console.log('\nCalculating metrics...');
+    const metrics = await processAllMetrics(jobResults, {
+      intendedGenerations: options.intendedGenerations || 20,
+      totalProblems: jobIds.length,
+      model: options.model || 'o3',
+      serviceVersion: options.serviceVersion || '1.0.0',
+      configName: options.configName || 'baseline'
+    });
+    
+    // Save metrics
+    const metricsPath = path.join(outputDir, 'metrics.json');
+    await fs.writeFile(metricsPath, JSON.stringify(metrics, null, 2));
+    console.log(`Metrics saved to: ${metricsPath}`);
+    
+    // Save summary
+    const summary = {
+      timestamp: new Date().toISOString(),
+      totalJobs: jobIds.length,
+      successfulJobs: jobResults.length,
+      failedJobs: failedJobs.length,
+      generalStatistics: metrics.generalStatistics,
+      version: metrics.version
+    };
+    
+    const summaryPath = path.join(outputDir, 'summary.json');
+    await fs.writeFile(summaryPath, JSON.stringify(summary, null, 2));
+    console.log(`Summary saved to: ${summaryPath}`);
+    
+    return metrics;
+  }
 }
 
 // Main execution
 async function main() {
-  const summaryPath = process.argv[2];
+  const args = process.argv.slice(2);
+  const useNewMetrics = args.includes('--new-metrics');
+  const fromJobIds = args.includes('--from-job-ids');
   
-  if (!summaryPath) {
-    console.error('Usage: node aggregate-results.js <summary-path>');
-    console.error('Example: node aggregate-results.js test/business/results/baseline/summary.json');
+  // Parse --raw-results-dir option
+  const rawResultsDirIndex = args.indexOf('--raw-results-dir');
+  const rawResultsDir = rawResultsDirIndex >= 0 && args[rawResultsDirIndex + 1] ? args[rawResultsDirIndex + 1] : null;
+  
+  // Remove flags and their values from args
+  const positionalArgs = args.filter((arg, index) => {
+    if (arg.startsWith('--')) return false;
+    if (rawResultsDirIndex >= 0 && index === rawResultsDirIndex + 1) return false;
+    return true;
+  });
+  
+  if (positionalArgs.length === 0) {
+    console.error('Usage:');
+    console.error('  node aggregate-results.js <summary-path> [--new-metrics]');
+    console.error('  node aggregate-results.js --from-job-ids <job-ids-file> <output-dir> [--raw-results-dir <dir>]');
+    console.error('\nExamples:');
+    console.error('  node aggregate-results.js test/business/results/baseline/summary.json');
+    console.error('  node aggregate-results.js test/business/results/baseline/summary.json --new-metrics');
+    console.error('  node aggregate-results.js --from-job-ids test/business/results/baseline/job-ids.txt output/');
+    console.error('  node aggregate-results.js --from-job-ids job-ids.txt output/ --raw-results-dir test/business/results/baseline/raw');
     process.exit(1);
   }
   
   try {
     const aggregator = new ResultsAggregator();
-    await aggregator.aggregateResults(summaryPath);
+    
+    if (fromJobIds) {
+      const [jobIdsFile, outputDir] = positionalArgs;
+      if (!outputDir) {
+        console.error('Error: Output directory required when using --from-job-ids');
+        process.exit(1);
+      }
+      await aggregator.aggregateFromJobIds(jobIdsFile, outputDir, { rawResultsDir });
+    } else {
+      const summaryPath = positionalArgs[0];
+      await aggregator.aggregateResults(summaryPath, { useNewMetrics });
+    }
   } catch (error) {
     console.error('Aggregation failed:', error);
     process.exit(1);

@@ -8,9 +8,9 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 class ResultsComparator {
-  async loadKPIs(kpisPath) {
-    const kpisData = await fs.readFile(kpisPath, 'utf-8');
-    return JSON.parse(kpisData);
+  async loadMetrics(metricsPath) {
+    const metricsData = await fs.readFile(metricsPath, 'utf-8');
+    return JSON.parse(metricsData);
   }
 
   calculateChange(baseline, experiment) {
@@ -31,64 +31,59 @@ class ResultsComparator {
   }
 
   generateMarkdownTable(baseline, experiment) {
-    const baseKPIs = baseline.aggregate;
-    const expKPIs = experiment.aggregate;
+    const baseStats = baseline.generalStatistics;
+    const expStats = experiment.generalStatistics;
     
     let markdown = '# Test Results Comparison\n\n';
     
-    // Summary info
+    // Test Information
     markdown += `## Test Information\n\n`;
     markdown += `| Attribute | Baseline | Experiment |\n`;
     markdown += `|-----------|----------|------------|\n`;
-    markdown += `| Test Name | ${baseline.summary.testName} | ${experiment.summary.testName} |\n`;
-    markdown += `| Generations | ${baseline.summary.config.generations} | ${experiment.summary.config.generations} |\n`;
-    markdown += `| Population Size | ${baseline.summary.config.populationSize} | ${experiment.summary.config.populationSize} |\n`;
-    markdown += `| Total Jobs | ${baseline.summary.totalJobs} | ${experiment.summary.totalJobs} |\n`;
-    markdown += `| Duration (s) | ${(baseline.summary.duration / 1000).toFixed(1)} | ${(experiment.summary.duration / 1000).toFixed(1)} |\n`;
+    markdown += `| Configuration | ${baseline.version.config} | ${experiment.version.config} |\n`;
+    markdown += `| Model | ${baseline.version.model} | ${experiment.version.model} |\n`;
+    markdown += `| Intended Generations | ${baseline.metadata.intendedGenerations} | ${experiment.metadata.intendedGenerations} |\n`;
+    markdown += `| Total Problems | ${baseline.metadata.totalProblems} | ${experiment.metadata.totalProblems} |\n`;
+    markdown += `| Test Date | ${baseline.version.timestamp} | ${experiment.version.timestamp} |\n`;
     
-    markdown += `\n## Key Performance Indicators\n\n`;
-    markdown += `| KPI | Baseline | Experiment | Change | Improved? |\n`;
-    markdown += `|-----|----------|------------|--------|----------|\n`;
+    // Key Performance Metrics
+    markdown += `\n## Key Performance Metrics\n\n`;
+    markdown += `| Metric | Baseline | Experiment | Change | Improved? |\n`;
+    markdown += `|--------|----------|------------|---------|----------|\n`;
     
-    // Define KPIs with their improvement direction
-    const kpis = [
-      { key: 'avgTopScore', label: 'Average Top Score', higher: true },
-      { key: 'avgSearchEfficiency', label: 'Search Efficiency', higher: true },
-      { key: 'avgScoreStdDev', label: 'Score Variability', higher: true },
-      { key: 'avgGeneration1Score', label: 'Generation 1 Score', higher: true },
-      { key: 'avgScoreImprovement', label: 'Avg Improvement/Gen', higher: true },
-      { key: 'avgTokensPerJob', label: 'Avg Tokens/Job', higher: false },
-    ];
+    // Success Rate
+    const successChange = this.calculateChange(baseStats.successRate, expStats.successRate);
+    markdown += `| Success Rate | ${(baseStats.successRate * 100).toFixed(1)}% | ${(expStats.successRate * 100).toFixed(1)}% | ${this.formatChange(successChange)} | ${successChange >= 0 ? '✅' : '❌'} |\n`;
     
-    kpis.forEach(kpi => {
-      const baseValue = baseKPIs[kpi.key];
-      const expValue = expKPIs[kpi.key];
-      const change = this.calculateChange(baseValue, expValue);
-      const improved = kpi.higher ? change > 0 : change < 0;
-      const improvedIcon = improved ? '✅' : change === 0 ? '➖' : '❌';
-      
-      markdown += `| ${kpi.label} | ${this.formatValue(baseValue)} | ${this.formatValue(expValue)} | ${this.formatChange(change)} | ${improvedIcon} |\n`;
-    });
+    // Find Good Ideas (Top Score)
+    const topScoreChange = this.calculateChange(baseStats.findGoodIdeas, expStats.findGoodIdeas);
+    markdown += `| Find Good Ideas (Median) | ${this.formatValue(baseStats.findGoodIdeas)} | ${this.formatValue(expStats.findGoodIdeas)} | ${this.formatChange(topScoreChange)} | ${topScoreChange >= 0 ? '✅' : '❌'} |\n`;
     
-    // Additional metrics
-    markdown += `\n## Resource Usage\n\n`;
-    markdown += `| Metric | Baseline | Experiment | Change |\n`;
-    markdown += `|--------|----------|------------|--------|\n`;
-    markdown += `| Total Tokens | ${baseKPIs.totalTokensUsed} | ${expKPIs.totalTokensUsed} | ${this.formatChange(this.calculateChange(baseKPIs.totalTokensUsed, expKPIs.totalTokensUsed))} |\n`;
-    markdown += `| Total API Calls | ${baseKPIs.totalApiCalls} | ${expKPIs.totalApiCalls} | ${this.formatChange(this.calculateChange(baseKPIs.totalApiCalls, expKPIs.totalApiCalls))} |\n`;
+    // Search Efficiency
+    const efficiencyChange = this.calculateChange(baseStats.searchEfficiently, expStats.searchEfficiently);
+    markdown += `| Search Efficiently | ${this.formatValue(baseStats.searchEfficiently, 4)} | ${this.formatValue(expStats.searchEfficiently, 4)} | ${this.formatChange(efficiencyChange)} | ${efficiencyChange >= 0 ? '✅' : '❌'} |\n`;
+    
+    // Variability
+    const variabilityChange = this.calculateChange(baseStats.haveVariability, expStats.haveVariability);
+    markdown += `| Have Variability | ${this.formatValue(baseStats.haveVariability)} | ${this.formatValue(expStats.haveVariability)} | ${this.formatChange(variabilityChange)} | ${variabilityChange >= 0 ? '✅' : '❌'} |\n`;
+    
+    // First Generation Quality
+    const firstGenChange = this.calculateChange(baseStats.thinkAboutGoodIdeas, expStats.thinkAboutGoodIdeas);
+    markdown += `| Think About Good Ideas | ${this.formatValue(baseStats.thinkAboutGoodIdeas)} | ${this.formatValue(expStats.thinkAboutGoodIdeas)} | ${this.formatChange(firstGenChange)} | ${firstGenChange >= 0 ? '✅' : '❌'} |\n`;
+    
+    // Improvement Process
+    const improvementChange = this.calculateChange(baseStats.goodImprovingProcess, expStats.goodImprovingProcess);
+    markdown += `| Good Improving Process | ${this.formatValue(baseStats.goodImprovingProcess, 6)} | ${this.formatValue(expStats.goodImprovingProcess, 6)} | ${this.formatChange(improvementChange)} | ${improvementChange >= 0 ? '✅' : '❌'} |\n`;
     
     // Summary
     markdown += `\n## Summary\n\n`;
     
-    const topScoreChange = this.calculateChange(baseKPIs.avgTopScore, expKPIs.avgTopScore);
-    const efficiencyChange = this.calculateChange(baseKPIs.avgSearchEfficiency, expKPIs.avgSearchEfficiency);
-    
     if (topScoreChange > 0) {
-      markdown += `- ✅ **Primary Goal Achieved**: Average top score improved by ${topScoreChange.toFixed(1)}%\n`;
+      markdown += `- ✅ **Primary Goal Achieved**: Median top score improved by ${topScoreChange.toFixed(1)}%\n`;
     } else if (topScoreChange < 0) {
-      markdown += `- ❌ **Primary Goal Not Met**: Average top score decreased by ${Math.abs(topScoreChange).toFixed(1)}%\n`;
+      markdown += `- ❌ **Primary Goal Not Met**: Median top score decreased by ${Math.abs(topScoreChange).toFixed(1)}%\n`;
     } else {
-      markdown += `- ➖ **No Change**: Average top score remained the same\n`;
+      markdown += `- ➖ **No Change**: Median top score remained the same\n`;
     }
     
     if (efficiencyChange > 0) {
@@ -97,21 +92,22 @@ class ResultsComparator {
       markdown += `- ❌ Search efficiency decreased by ${Math.abs(efficiencyChange).toFixed(1)}%\n`;
     }
     
-    // Cost per point analysis
-    const baseCostPerPoint = baseKPIs.totalTokensUsed / (baseKPIs.avgTopScore * baseline.summary.totalJobs);
-    const expCostPerPoint = expKPIs.totalTokensUsed / (expKPIs.avgTopScore * experiment.summary.totalJobs);
-    const costPerPointChange = this.calculateChange(baseCostPerPoint, expCostPerPoint);
+    // Success rate analysis
+    markdown += `- ${baseStats.successfulProblems} problems completed all generations in baseline vs ${expStats.successfulProblems} in experiment\n`;
     
-    markdown += `- 💰 Cost per score point: ${costPerPointChange > 0 ? 'increased' : 'decreased'} by ${Math.abs(costPerPointChange).toFixed(1)}%\n`;
+    // Configuration differences
+    if (baseline.metadata.intendedGenerations !== experiment.metadata.intendedGenerations) {
+      markdown += `- ⚠️  Different generation counts: ${baseline.metadata.intendedGenerations} vs ${experiment.metadata.intendedGenerations}\n`;
+    }
     
     return markdown;
   }
 
   async compare(baselinePath, experimentPath, outputPath) {
-    console.log('Loading KPI files...');
+    console.log('Loading metrics files...');
     
-    const baseline = await this.loadKPIs(baselinePath);
-    const experiment = await this.loadKPIs(experimentPath);
+    const baseline = await this.loadMetrics(baselinePath);
+    const experiment = await this.loadMetrics(experimentPath);
     
     const markdown = this.generateMarkdownTable(baseline, experiment);
     
@@ -133,8 +129,8 @@ async function main() {
   const outputPath = process.argv[4];
   
   if (!baselinePath || !experimentPath) {
-    console.error('Usage: node compare-results.js <baseline-kpis> <experiment-kpis> [output-file]');
-    console.error('Example: node compare-results.js test/business/results/baseline/kpis.json test/business/results/experiment-A/kpis.json comparison.md');
+    console.error('Usage: compare-results.js <baseline-metrics.json> <experiment-metrics.json> [output.md]');
+    console.error('Example: compare-results.js baseline/metrics.json experiment/metrics.json comparison.md');
     process.exit(1);
   }
   
@@ -142,7 +138,7 @@ async function main() {
     const comparator = new ResultsComparator();
     await comparator.compare(baselinePath, experimentPath, outputPath);
   } catch (error) {
-    console.error('Comparison failed:', error);
+    console.error('Comparison failed:', error.message);
     process.exit(1);
   }
 }
@@ -151,5 +147,3 @@ async function main() {
 if (import.meta.url === `file://${process.argv[1]}`) {
   main();
 }
-
-export default ResultsComparator;
